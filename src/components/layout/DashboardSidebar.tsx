@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -16,10 +16,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Hotel,
+  UserCog,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   userRole?: string;
@@ -36,17 +39,26 @@ const menuItems = [
   { icon: Dumbbell, label: "Gym", path: "/dashboard/gym", roles: ["sub-admin", "manager", "gym-head"] },
   { icon: Waves, label: "Pool", path: "/dashboard/pool", roles: ["sub-admin", "manager"] },
   { icon: BarChart3, label: "Reports", path: "/dashboard/reports", roles: ["sub-admin", "manager"] },
-  { icon: Hotel, label: "Hotels", path: "/dashboard/hotels", roles: ["super-admin"] },
+  { icon: UserCog, label: "Employees", path: "/dashboard/employees", roles: ["sub-admin", "manager"] },
+  { icon: Shield, label: "Super Admin", path: "/dashboard/super-admin", roles: ["super-admin"] },
   { icon: Settings, label: "Settings", path: "/dashboard/settings", roles: ["sub-admin", "super-admin"] },
 ];
 
 export function DashboardSidebar({ userRole = "sub-admin" }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
+  const actualRole = user?.role || userRole;
   const filteredMenuItems = menuItems.filter(
-    (item) => item.roles.includes("all") || item.roles.includes(userRole)
+    (item) => item.roles.includes("all") || item.roles.includes(actualRole)
   );
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <motion.aside
