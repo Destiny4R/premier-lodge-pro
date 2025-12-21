@@ -1,13 +1,61 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History } from "lucide-react";
-import { guests } from "@/data/mockData";
+import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History, Edit, Trash } from "lucide-react";
+import { guests, Guest } from "@/data/mockData";
+import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export default function GuestsPage() {
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
+  const [viewGuest, setViewGuest] = useState<Guest | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+
+  const [guestForm, setGuestForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    idType: "",
+    idNumber: "",
+    address: "",
+  });
+
+  const openGuestModal = (guest?: Guest) => {
+    if (guest) {
+      setEditingGuest(guest);
+      setGuestForm({
+        name: guest.name,
+        email: guest.email,
+        phone: guest.phone,
+        idType: guest.idType,
+        idNumber: guest.idNumber,
+        address: guest.address,
+      });
+    } else {
+      setEditingGuest(null);
+      setGuestForm({ name: "", email: "", phone: "", idType: "", idNumber: "", address: "" });
+    }
+    setGuestModalOpen(true);
+  };
+
+  const handleGuestSubmit = () => {
+    toast.success(editingGuest ? "Guest updated successfully" : "Guest added successfully");
+    setGuestModalOpen(false);
+  };
+
+  const handleDelete = () => {
+    toast.success("Guest deleted successfully");
+    setDeleteDialog({ open: false, id: "" });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader title="Guest Management" subtitle="View and manage all guest profiles" />
@@ -28,7 +76,7 @@ export default function GuestsPage() {
               <Filter className="w-4 h-4" />
             </Button>
           </div>
-          <Button variant="hero">
+          <Button variant="hero" onClick={() => openGuestModal()}>
             <Plus className="w-4 h-4 mr-2" />
             Add Guest
           </Button>
@@ -87,9 +135,30 @@ export default function GuestsPage() {
                           <p className="text-sm text-muted-foreground">{guest.idType}: {guest.idNumber}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewGuest(guest)}>
+                            <Eye className="w-4 h-4 mr-2" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openGuestModal(guest)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <History className="w-4 h-4 mr-2" /> Stay History
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => setDeleteDialog({ open: true, id: guest.id })}
+                          >
+                            <Trash className="w-4 h-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
 
                     <div className="space-y-2 mb-4">
@@ -113,17 +182,6 @@ export default function GuestsPage() {
                         <p className="font-semibold text-primary">${guest.totalSpent.toLocaleString()}</p>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2 mt-4">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
-                      </Button>
-                      <Button variant="secondary" size="sm" className="flex-1">
-                        <History className="w-4 h-4 mr-1" />
-                        History
-                      </Button>
-                    </div>
                   </Card>
                 ))}
               </div>
@@ -131,6 +189,107 @@ export default function GuestsPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Guest Modal */}
+      <FormModal
+        open={guestModalOpen}
+        onOpenChange={setGuestModalOpen}
+        title={editingGuest ? "Edit Guest" : "Add New Guest"}
+        description="Enter guest information"
+        onSubmit={handleGuestSubmit}
+        submitLabel={editingGuest ? "Update Guest" : "Add Guest"}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <FormField label="Full Name" required>
+            <Input
+              value={guestForm.name}
+              onChange={(e) => setGuestForm({ ...guestForm, name: e.target.value })}
+              placeholder="John Doe"
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Email" required>
+              <Input
+                type="email"
+                value={guestForm.email}
+                onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
+                placeholder="john@example.com"
+              />
+            </FormField>
+            <FormField label="Phone" required>
+              <Input
+                value={guestForm.phone}
+                onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })}
+                placeholder="+1 555-0100"
+              />
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="ID Type" required>
+              <Select value={guestForm.idType} onValueChange={(v) => setGuestForm({ ...guestForm, idType: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select ID type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Passport">Passport</SelectItem>
+                  <SelectItem value="Driver License">Driver License</SelectItem>
+                  <SelectItem value="National ID">National ID</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="ID Number" required>
+              <Input
+                value={guestForm.idNumber}
+                onChange={(e) => setGuestForm({ ...guestForm, idNumber: e.target.value })}
+                placeholder="AB123456"
+              />
+            </FormField>
+          </div>
+          <FormField label="Address">
+            <Textarea
+              value={guestForm.address}
+              onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })}
+              placeholder="Full address"
+              rows={2}
+            />
+          </FormField>
+        </div>
+      </FormModal>
+
+      {/* View Guest Modal */}
+      <ViewModal
+        open={!!viewGuest}
+        onOpenChange={() => setViewGuest(null)}
+        title="Guest Details"
+      >
+        {viewGuest && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 pb-4 border-b border-border">
+              <img src={viewGuest.avatar} alt={viewGuest.name} className="w-16 h-16 rounded-full object-cover" />
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">{viewGuest.name}</h3>
+                <p className="text-muted-foreground">{viewGuest.idType}: {viewGuest.idNumber}</p>
+              </div>
+            </div>
+            <DetailRow label="Email" value={viewGuest.email} />
+            <DetailRow label="Phone" value={viewGuest.phone} />
+            <DetailRow label="Address" value={viewGuest.address} />
+            <DetailRow label="Total Stays" value={viewGuest.totalStays} />
+            <DetailRow label="Total Spent" value={`$${viewGuest.totalSpent.toLocaleString()}`} />
+          </div>
+        )}
+      </ViewModal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        title="Delete Guest"
+        description="Are you sure you want to delete this guest? This will remove all their records and history."
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

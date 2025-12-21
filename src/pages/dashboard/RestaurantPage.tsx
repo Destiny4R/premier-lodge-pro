@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +14,76 @@ import {
   Coffee,
   DollarSign,
   Package,
+  Edit,
+  Trash,
+  MoreVertical,
 } from "lucide-react";
-import { menuItems } from "@/data/mockData";
+import { menuItems, MenuItem } from "@/data/mockData";
+import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export default function RestaurantPage() {
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+  const [activeFilter, setActiveFilter] = useState<"all" | "food" | "drink">("all");
+
+  const [itemForm, setItemForm] = useState({
+    name: "",
+    category: "food" as "food" | "drink",
+    price: "",
+    description: "",
+    inStock: true,
+  });
+
+  const [stockForm, setStockForm] = useState({
+    itemId: "",
+    quantity: "",
+    type: "add",
+    notes: "",
+  });
+
   const foodItems = menuItems.filter((item) => item.category === "food");
   const drinkItems = menuItems.filter((item) => item.category === "drink");
+  const filteredItems = activeFilter === "all" ? menuItems : menuItems.filter(i => i.category === activeFilter);
+
+  const openItemModal = (item?: MenuItem) => {
+    if (item) {
+      setEditingItem(item);
+      setItemForm({
+        name: item.name,
+        category: item.category,
+        price: item.price.toString(),
+        description: item.description,
+        inStock: item.inStock,
+      });
+    } else {
+      setEditingItem(null);
+      setItemForm({ name: "", category: "food", price: "", description: "", inStock: true });
+    }
+    setItemModalOpen(true);
+  };
+
+  const handleItemSubmit = () => {
+    toast.success(editingItem ? "Menu item updated successfully" : "Menu item added successfully");
+    setItemModalOpen(false);
+  };
+
+  const handleStockSubmit = () => {
+    toast.success("Stock updated successfully");
+    setStockModalOpen(false);
+    setStockForm({ itemId: "", quantity: "", type: "add", notes: "" });
+  };
+
+  const handleDelete = () => {
+    toast.success("Menu item deleted successfully");
+    setDeleteDialog({ open: false, id: "" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,11 +101,11 @@ export default function RestaurantPage() {
             <Input placeholder="Search menu items..." className="pl-10 bg-secondary border-border" />
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setStockModalOpen(true)}>
               <Package className="w-4 h-4 mr-2" />
-              Manage Stock
+              Stock Intake
             </Button>
-            <Button variant="hero">
+            <Button variant="hero" onClick={() => openItemModal()}>
               <Plus className="w-4 h-4 mr-2" />
               Add Item
             </Button>
@@ -86,12 +151,26 @@ export default function RestaurantPage() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Menu Items</CardTitle>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">All</Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant={activeFilter === "all" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setActiveFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button 
+                    variant={activeFilter === "food" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setActiveFilter("food")}
+                  >
                     <UtensilsCrossed className="w-4 h-4 mr-1" />
                     Food
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button 
+                    variant={activeFilter === "drink" ? "default" : "ghost"} 
+                    size="sm"
+                    onClick={() => setActiveFilter("drink")}
+                  >
                     <Wine className="w-4 h-4 mr-1" />
                     Drinks
                   </Button>
@@ -99,7 +178,7 @@ export default function RestaurantPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {menuItems.map((item) => (
+                  {filteredItems.map((item) => (
                     <Card key={item.id} variant="elevated" className="p-4 flex gap-4 hover-lift">
                       <img
                         src={item.image}
@@ -112,9 +191,24 @@ export default function RestaurantPage() {
                             <h3 className="font-semibold text-foreground">{item.name}</h3>
                             <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                           </div>
-                          <Badge variant={item.category === "food" ? "warning" : "info"}>
-                            {item.category}
-                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openItemModal(item)}>
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => setDeleteDialog({ open: true, id: item.id })}
+                              >
+                                <Trash className="w-4 h-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <div className="flex items-center justify-between mt-3">
                           <span className="text-lg font-bold text-primary">${item.price}</span>
@@ -145,7 +239,6 @@ export default function RestaurantPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Sample Cart Items */}
                   {[
                     { name: "Grilled Salmon", qty: 2, price: 64 },
                     { name: "Caesar Salad", qty: 1, price: 18 },
@@ -191,6 +284,131 @@ export default function RestaurantPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Food Item Modal */}
+      <FormModal
+        open={itemModalOpen}
+        onOpenChange={setItemModalOpen}
+        title={editingItem ? "Edit Menu Item" : "Add Menu Item"}
+        description="Create or update a food or drink item"
+        onSubmit={handleItemSubmit}
+        submitLabel={editingItem ? "Update Item" : "Add Item"}
+      >
+        <div className="space-y-4">
+          <FormField label="Item Name" required>
+            <Input
+              value={itemForm.name}
+              onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
+              placeholder="e.g., Grilled Salmon"
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Category" required>
+              <Select value={itemForm.category} onValueChange={(v: "food" | "drink") => setItemForm({ ...itemForm, category: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="food">Food</SelectItem>
+                  <SelectItem value="drink">Drink</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Price" required>
+              <Input
+                type="number"
+                value={itemForm.price}
+                onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
+                placeholder="0.00"
+              />
+            </FormField>
+          </div>
+          <FormField label="Description">
+            <Textarea
+              value={itemForm.description}
+              onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+              placeholder="Item description..."
+              rows={2}
+            />
+          </FormField>
+          <FormField label="In Stock">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={itemForm.inStock}
+                onCheckedChange={(checked) => setItemForm({ ...itemForm, inStock: checked })}
+              />
+              <span className="text-sm text-muted-foreground">
+                {itemForm.inStock ? "Available for order" : "Currently unavailable"}
+              </span>
+            </div>
+          </FormField>
+        </div>
+      </FormModal>
+
+      {/* Stock Intake Modal */}
+      <FormModal
+        open={stockModalOpen}
+        onOpenChange={setStockModalOpen}
+        title="Stock Intake"
+        description="Record new stock received"
+        onSubmit={handleStockSubmit}
+        submitLabel="Record Stock"
+      >
+        <div className="space-y-4">
+          <FormField label="Menu Item" required>
+            <Select value={stockForm.itemId} onValueChange={(v) => setStockForm({ ...stockForm, itemId: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select item" />
+              </SelectTrigger>
+              <SelectContent>
+                {menuItems.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Type" required>
+              <Select value={stockForm.type} onValueChange={(v) => setStockForm({ ...stockForm, type: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="add">Stock In</SelectItem>
+                  <SelectItem value="remove">Stock Out</SelectItem>
+                  <SelectItem value="adjust">Adjustment</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label="Quantity" required>
+              <Input
+                type="number"
+                value={stockForm.quantity}
+                onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
+                placeholder="0"
+              />
+            </FormField>
+          </div>
+          <FormField label="Notes">
+            <Textarea
+              value={stockForm.notes}
+              onChange={(e) => setStockForm({ ...stockForm, notes: e.target.value })}
+              placeholder="Reason for stock adjustment..."
+              rows={2}
+            />
+          </FormField>
+        </div>
+      </FormModal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        title="Delete Menu Item"
+        description="Are you sure you want to delete this menu item? This action cannot be undone."
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

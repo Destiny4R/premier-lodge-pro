@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, PartyPopper, Calendar, Clock, Users, DollarSign, MapPin } from "lucide-react";
-import { events, eventHalls } from "@/data/mockData";
+import { Plus, Search, PartyPopper, Calendar, Clock, Users, DollarSign, MapPin, Edit, Trash, MoreVertical, Eye } from "lucide-react";
+import { events, eventHalls, Event } from "@/data/mockData";
+import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 const statusColors: Record<string, "info" | "success" | "secondary" | "destructive"> = {
   upcoming: "info",
@@ -14,7 +20,89 @@ const statusColors: Record<string, "info" | "success" | "secondary" | "destructi
   cancelled: "destructive",
 };
 
+interface EventCategory {
+  id: string;
+  name: string;
+  hourlyRate: number;
+  dailyRate: number;
+  capacity: number;
+}
+
 export default function EventsPage() {
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<EventCategory | null>(null);
+  const [viewEvent, setViewEvent] = useState<Event | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: "category" | "booking"; id: string }>({ open: false, type: "category", id: "" });
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: "",
+    capacity: "",
+    hourlyRate: "",
+    dailyRate: "",
+  });
+
+  const [bookingForm, setBookingForm] = useState({
+    hallId: "",
+    clientName: "",
+    eventType: "",
+    startDate: "",
+    endDate: "",
+    chargeType: "daily" as "hourly" | "daily",
+    notes: "",
+  });
+
+  const openCategoryModal = (category?: EventCategory) => {
+    if (category) {
+      setEditingCategory(category);
+      setCategoryForm({
+        name: category.name,
+        capacity: category.capacity.toString(),
+        hourlyRate: category.hourlyRate.toString(),
+        dailyRate: category.dailyRate.toString(),
+      });
+    } else {
+      setEditingCategory(null);
+      setCategoryForm({ name: "", capacity: "", hourlyRate: "", dailyRate: "" });
+    }
+    setCategoryModalOpen(true);
+  };
+
+  const handleCategorySubmit = () => {
+    toast.success(editingCategory ? "Event hall updated successfully" : "Event hall created successfully");
+    setCategoryModalOpen(false);
+  };
+
+  const handleBookingSubmit = () => {
+    toast.success("Event booked successfully");
+    setBookingModalOpen(false);
+    setBookingForm({
+      hallId: "",
+      clientName: "",
+      eventType: "",
+      startDate: "",
+      endDate: "",
+      chargeType: "daily",
+      notes: "",
+    });
+  };
+
+  const handleDelete = () => {
+    toast.success(deleteDialog.type === "category" ? "Event hall deleted" : "Booking cancelled");
+    setDeleteDialog({ open: false, type: "category", id: "" });
+  };
+
+  const calculateEstimate = () => {
+    const hall = eventHalls.find(h => h.id === bookingForm.hallId);
+    if (!hall || !bookingForm.startDate || !bookingForm.endDate) return 0;
+    
+    const start = new Date(bookingForm.startDate);
+    const end = new Date(bookingForm.endDate);
+    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    
+    return bookingForm.chargeType === "daily" ? hall.dailyRate * days : hall.hourlyRate * 8 * days;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader title="Event Center" subtitle="Manage event halls and bookings" />
@@ -30,10 +118,16 @@ export default function EventsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Search events..." className="pl-10 bg-secondary border-border" />
           </div>
-          <Button variant="hero">
-            <Plus className="w-4 h-4 mr-2" />
-            Book Event
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => openCategoryModal()}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Event Hall
+            </Button>
+            <Button variant="hero" onClick={() => setBookingModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Book Event
+            </Button>
+          </div>
         </motion.div>
 
         {/* Event Halls */}
@@ -49,7 +143,29 @@ export default function EventsPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {eventHalls.map((hall) => (
-                  <Card key={hall.id} variant="gold" className="p-6 hover-lift">
+                  <Card key={hall.id} variant="gold" className="p-6 hover-lift relative group">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute top-4 right-4 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openCategoryModal(hall)}>
+                          <Edit className="w-4 h-4 mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => setDeleteDialog({ open: true, type: "category", id: hall.id })}
+                        >
+                          <Trash className="w-4 h-4 mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                         <PartyPopper className="w-6 h-6 text-primary" />
@@ -72,7 +188,9 @@ export default function EventsPage() {
                         <p className="text-lg font-bold text-primary">${hall.dailyRate}</p>
                       </div>
                     </div>
-                    <Button variant="outline" className="w-full mt-4">Check Availability</Button>
+                    <Button variant="outline" className="w-full mt-4" onClick={() => setBookingModalOpen(true)}>
+                      Check Availability
+                    </Button>
                   </Card>
                 ))}
               </div>
@@ -138,7 +256,25 @@ export default function EventsPage() {
                             <p className="text-sm text-muted-foreground">Total Amount</p>
                             <p className="text-xl font-bold text-primary">${event.totalAmount.toLocaleString()}</p>
                           </div>
-                          <Button variant="outline">View Details</Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline">Actions</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => setViewEvent(event)}>
+                                <Eye className="w-4 h-4 mr-2" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => setDeleteDialog({ open: true, type: "booking", id: event.id })}
+                              >
+                                <Trash className="w-4 h-4 mr-2" /> Cancel
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </Card>
@@ -149,6 +285,172 @@ export default function EventsPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Event Hall Modal */}
+      <FormModal
+        open={categoryModalOpen}
+        onOpenChange={setCategoryModalOpen}
+        title={editingCategory ? "Edit Event Hall" : "Add Event Hall"}
+        description="Configure event space details and pricing"
+        onSubmit={handleCategorySubmit}
+        submitLabel={editingCategory ? "Update Hall" : "Add Hall"}
+      >
+        <div className="space-y-4">
+          <FormField label="Hall Name" required>
+            <Input
+              value={categoryForm.name}
+              onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+              placeholder="e.g., Grand Ballroom"
+            />
+          </FormField>
+          <FormField label="Capacity" required>
+            <Input
+              type="number"
+              value={categoryForm.capacity}
+              onChange={(e) => setCategoryForm({ ...categoryForm, capacity: e.target.value })}
+              placeholder="Maximum guests"
+            />
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Hourly Rate" required>
+              <Input
+                type="number"
+                value={categoryForm.hourlyRate}
+                onChange={(e) => setCategoryForm({ ...categoryForm, hourlyRate: e.target.value })}
+                placeholder="0.00"
+              />
+            </FormField>
+            <FormField label="Daily Rate" required>
+              <Input
+                type="number"
+                value={categoryForm.dailyRate}
+                onChange={(e) => setCategoryForm({ ...categoryForm, dailyRate: e.target.value })}
+                placeholder="0.00"
+              />
+            </FormField>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* Event Booking Modal */}
+      <FormModal
+        open={bookingModalOpen}
+        onOpenChange={setBookingModalOpen}
+        title="Book Event"
+        description="Schedule a new event"
+        onSubmit={handleBookingSubmit}
+        submitLabel="Book Event"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <FormField label="Event Hall" required>
+            <Select value={bookingForm.hallId} onValueChange={(v) => setBookingForm({ ...bookingForm, hallId: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select hall" />
+              </SelectTrigger>
+              <SelectContent>
+                {eventHalls.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>
+                    {h.name} - Capacity: {h.capacity}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Client Name" required>
+              <Input
+                value={bookingForm.clientName}
+                onChange={(e) => setBookingForm({ ...bookingForm, clientName: e.target.value })}
+                placeholder="Client or company name"
+              />
+            </FormField>
+            <FormField label="Event Type" required>
+              <Input
+                value={bookingForm.eventType}
+                onChange={(e) => setBookingForm({ ...bookingForm, eventType: e.target.value })}
+                placeholder="e.g., Wedding, Conference"
+              />
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Start Date" required>
+              <Input
+                type="date"
+                value={bookingForm.startDate}
+                onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })}
+              />
+            </FormField>
+            <FormField label="End Date" required>
+              <Input
+                type="date"
+                value={bookingForm.endDate}
+                onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })}
+              />
+            </FormField>
+          </div>
+          <FormField label="Charge Type" required>
+            <Select 
+              value={bookingForm.chargeType} 
+              onValueChange={(v: "hourly" | "daily") => setBookingForm({ ...bookingForm, chargeType: v })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hourly">Per Hour</SelectItem>
+                <SelectItem value="daily">Per Day</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Notes">
+            <Textarea
+              value={bookingForm.notes}
+              onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+              placeholder="Special requirements..."
+              rows={2}
+            />
+          </FormField>
+          <Card variant="glass" className="p-4">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold">Estimated Total</span>
+              <span className="text-xl font-bold text-primary">${calculateEstimate().toLocaleString()}</span>
+            </div>
+          </Card>
+        </div>
+      </FormModal>
+
+      {/* View Event Modal */}
+      <ViewModal
+        open={!!viewEvent}
+        onOpenChange={() => setViewEvent(null)}
+        title="Event Details"
+      >
+        {viewEvent && (() => {
+          const hall = eventHalls.find(h => h.id === viewEvent.hallId);
+          return (
+            <div className="space-y-4">
+              <DetailRow label="Event Type" value={viewEvent.eventType} />
+              <DetailRow label="Client" value={viewEvent.clientName} />
+              <DetailRow label="Venue" value={hall?.name} />
+              <DetailRow label="Date" value={`${viewEvent.startDate} - ${viewEvent.endDate}`} />
+              <DetailRow label="Charge Type" value={viewEvent.chargeType} />
+              <DetailRow label="Status" value={<Badge variant={statusColors[viewEvent.status]}>{viewEvent.status}</Badge>} />
+              <DetailRow label="Total Amount" value={`$${viewEvent.totalAmount.toLocaleString()}`} />
+            </div>
+          );
+        })()}
+      </ViewModal>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        title={deleteDialog.type === "category" ? "Delete Event Hall" : "Cancel Event"}
+        description="Are you sure? This action cannot be undone."
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
