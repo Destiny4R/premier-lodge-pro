@@ -71,10 +71,77 @@
     /* Typography */
     --font-heading: 'Playfair Display', serif;
     --font-body: 'DM Sans', sans-serif;
+
+    /* Chart colors */
+    --chart-1: 38 92% 50%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 142 72% 45%;
+    --chart-4: 0 72% 51%;
+    --chart-5: 280 65% 60%;
   }
 
-  .dark {
-    /* Same as root for this luxury dark theme */
+  .light {
+    /* Light Theme */
+    --background: 40 33% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Gold Primary stays similar */
+    --primary: 38 92% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Light Secondary */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Warm Accent */
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 6%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 38 92% 50%;
+
+    /* Sidebar - Light */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 38 92% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 38 92% 50%;
+
+    /* Custom Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(38, 92%, 45%) 0%, hsl(28, 92%, 40%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(0, 0%, 100%) 0%, hsl(220, 14%, 96%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.01) 100%);
+
+    /* Shadows - lighter for light theme */
+    --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 16px 48px -16px rgba(0, 0, 0, 0.15);
+    --shadow-gold: 0 8px 32px -8px hsla(38, 92%, 50%, 0.2);
   }
 }
 

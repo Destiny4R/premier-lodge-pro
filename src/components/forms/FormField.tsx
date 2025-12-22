@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
 
 interface Option {
   value: string;
@@ -16,12 +17,13 @@ interface Option {
 }
 
 interface BaseFieldProps {
-  name: string;
+  name?: string;
   label: string;
   error?: string;
   required?: boolean;
   className?: string;
   disabled?: boolean;
+  hint?: string;
 }
 
 interface InputFieldProps extends BaseFieldProps {
@@ -56,16 +58,43 @@ interface CheckboxFieldProps extends BaseFieldProps {
   onChange?: (checked: boolean) => void;
 }
 
+interface WrapperFieldProps extends BaseFieldProps {
+  children: ReactNode;
+}
+
 export type FormFieldProps =
   | InputFieldProps
   | TextareaFieldProps
   | SelectFieldProps
-  | CheckboxFieldProps;
+  | CheckboxFieldProps
+  | WrapperFieldProps;
+
+function isWrapperField(props: FormFieldProps): props is WrapperFieldProps {
+  return 'children' in props && props.children !== undefined;
+}
 
 export function FormField(props: FormFieldProps) {
-  const { name, label, error, required, className, disabled } = props;
+  const { label, error, required, className, disabled, hint } = props;
+  const name = 'name' in props ? props.name : undefined;
+
+  // Wrapper mode - just label + children
+  if (isWrapperField(props)) {
+    return (
+      <div className={cn("space-y-1.5", className)}>
+        <Label className="text-sm font-medium text-foreground">
+          {label}
+          {required && <span className="text-destructive ml-1">*</span>}
+        </Label>
+        {props.children}
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+    );
+  }
 
   const renderField = () => {
+    if (!('type' in props)) return null;
+    
     switch (props.type) {
       case "textarea":
         return (
@@ -149,10 +178,11 @@ export function FormField(props: FormFieldProps) {
     }
   };
 
-  if (props.type === "checkbox") {
+  if ('type' in props && props.type === "checkbox") {
     return (
       <div className={cn("space-y-1", className)}>
         {renderField()}
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
     );
@@ -165,6 +195,7 @@ export function FormField(props: FormFieldProps) {
         {required && <span className="text-destructive ml-1">*</span>}
       </Label>
       {renderField()}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );

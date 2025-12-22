@@ -17,18 +17,20 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: "danger" | "warning" | "info";
+  variant?: "danger" | "warning" | "info" | "destructive";
   onConfirm: () => void;
 }
 
 const iconMap = {
   danger: Trash2,
+  destructive: Trash2,
   warning: AlertTriangle,
   info: AlertTriangle,
 };
 
 const colorMap = {
   danger: "text-destructive",
+  destructive: "text-destructive",
   warning: "text-warning",
   info: "text-info",
 };
@@ -50,7 +52,7 @@ export function ConfirmDialog({
       <AlertDialogContent className="bg-card border-border">
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full bg-${variant === 'danger' ? 'destructive' : variant}/10 flex items-center justify-center`}>
+            <div className={`w-10 h-10 rounded-full bg-${variant === 'danger' || variant === 'destructive' ? 'destructive' : variant}/10 flex items-center justify-center`}>
               <Icon className={`w-5 h-5 ${colorMap[variant]}`} />
             </div>
             <AlertDialogTitle className="text-foreground">{title}</AlertDialogTitle>
@@ -63,7 +65,7 @@ export function ConfirmDialog({
           <AlertDialogCancel className="border-border">{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={variant === "danger" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            className={variant === "danger" || variant === "destructive" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
           >
             {confirmLabel}
           </AlertDialogAction>
