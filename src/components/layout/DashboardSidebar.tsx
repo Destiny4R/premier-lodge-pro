@@ -24,6 +24,7 @@ import {
   ShoppingBag,
   Calendar,
   PieChart,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ const menuItems: MenuItem[] = [
     ]
   },
   { icon: UserCog, label: "Employees", path: "/dashboard/employees", roles: ["sub-admin", "manager"] },
+  { icon: Building2, label: "Departments", path: "/dashboard/departments", roles: ["sub-admin", "manager"] },
   { icon: Shield, label: "Super Admin", path: "/dashboard/super-admin", roles: ["super-admin"] },
   { icon: Settings, label: "Settings", path: "/dashboard/settings", roles: ["sub-admin", "super-admin"] },
 ];

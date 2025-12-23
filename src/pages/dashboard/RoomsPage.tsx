@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Filter, BedDouble, MoreVertical, Edit, Trash, Eye } from "lucide-react";
-import { rooms, roomCategories, hotels, RoomCategory, Room } from "@/data/mockData";
-import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
+import { rooms, roomCategories as initialCategories, hotels, RoomCategory, Room } from "@/data/mockData";
+import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow, ImageUpload, ExistingImage } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -20,10 +20,27 @@ const statusVariants: Record<string, "available" | "occupied" | "reserved" | "ma
   maintenance: "maintenance",
 };
 
+// Extended RoomCategory with images
+interface RoomCategoryWithImages extends RoomCategory {
+  images: ExistingImage[];
+}
+
+// Initialize categories with mock images
+const roomCategories: RoomCategoryWithImages[] = initialCategories.map((cat) => ({
+  ...cat,
+  images: [
+    { id: `${cat.id}-img1`, url: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400", name: "room-view-1.jpg" },
+    { id: `${cat.id}-img2`, url: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=400", name: "room-view-2.jpg" },
+  ],
+}));
+
 export default function RoomsPage() {
+  // Categories state for managing updates
+  const [categories, setCategories] = useState<RoomCategoryWithImages[]>(roomCategories);
+  
   // Category Modal State
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<RoomCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<RoomCategoryWithImages | null>(null);
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     description: "",
@@ -31,6 +48,11 @@ export default function RoomsPage() {
     maxOccupancy: "",
     amenities: "",
   });
+  
+  // Image upload state for categories
+  const [categoryImages, setCategoryImages] = useState<File[]>([]);
+  const [existingCategoryImages, setExistingCategoryImages] = useState<ExistingImage[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
 
   // Room Modal State
   const [roomModalOpen, setRoomModalOpen] = useState(false);
@@ -57,7 +79,7 @@ export default function RoomsPage() {
   });
 
   // Category handlers
-  const openCategoryModal = (category?: RoomCategory) => {
+  const openCategoryModal = (category?: RoomCategoryWithImages) => {
     if (category) {
       setEditingCategory(category);
       setCategoryForm({
@@ -67,14 +89,62 @@ export default function RoomsPage() {
         maxOccupancy: category.maxOccupancy.toString(),
         amenities: category.amenities.join(", "),
       });
+      setExistingCategoryImages(category.images || []);
+      setCategoryImages([]);
+      setRemovedImageIds([]);
     } else {
       setEditingCategory(null);
       setCategoryForm({ name: "", description: "", basePrice: "", maxOccupancy: "", amenities: "" });
+      setExistingCategoryImages([]);
+      setCategoryImages([]);
+      setRemovedImageIds([]);
     }
     setCategoryModalOpen(true);
   };
 
+  const handleRemoveExistingImage = (imageId: string) => {
+    setExistingCategoryImages(prev => prev.filter(img => img.id !== imageId));
+    setRemovedImageIds(prev => [...prev, imageId]);
+  };
+
   const handleCategorySubmit = () => {
+    // =============================================
+    // API INTEGRATION PLACEHOLDER
+    // For creating/updating category with images:
+    // 
+    // const formData = new FormData();
+    // formData.append('name', categoryForm.name);
+    // formData.append('description', categoryForm.description);
+    // formData.append('basePrice', categoryForm.basePrice);
+    // formData.append('maxOccupancy', categoryForm.maxOccupancy);
+    // formData.append('amenities', categoryForm.amenities);
+    // categoryImages.forEach(file => formData.append('images', file));
+    // formData.append('removedImageIds', JSON.stringify(removedImageIds));
+    // 
+    // if (editingCategory) {
+    //   await api.put(`/api/room-categories/${editingCategory.id}`, formData);
+    // } else {
+    //   await api.post('/api/room-categories', formData);
+    // }
+    // =============================================
+    
+    if (editingCategory) {
+      // Update category locally for demo
+      setCategories(prev => prev.map(cat => 
+        cat.id === editingCategory.id 
+          ? {
+              ...cat,
+              name: categoryForm.name,
+              description: categoryForm.description,
+              basePrice: parseFloat(categoryForm.basePrice),
+              maxOccupancy: parseInt(categoryForm.maxOccupancy),
+              amenities: categoryForm.amenities.split(",").map(a => a.trim()),
+              images: existingCategoryImages,
+            }
+          : cat
+      ));
+    }
+    
     toast.success(editingCategory ? "Room category updated successfully" : "Room category created successfully");
     setCategoryModalOpen(false);
   };
@@ -153,7 +223,7 @@ export default function RoomsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {roomCategories.map((category) => (
+                {categories.map((category) => (
                   <Card key={category.id} variant="glass" className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -342,6 +412,16 @@ export default function RoomsPage() {
               placeholder="WiFi, TV, Mini Bar, Air Conditioning"
             />
           </FormField>
+          <ImageUpload
+            label="Category Images"
+            accept=".jpg,.jpeg,.png"
+            multiple
+            value={categoryImages}
+            existingImages={existingCategoryImages}
+            onFilesChange={setCategoryImages}
+            onRemoveExisting={handleRemoveExistingImage}
+            hint="Upload images showcasing this room category"
+          />
         </div>
       </FormModal>
 
