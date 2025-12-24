@@ -8,6 +8,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/auth/LoginPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import RoomsPage from "./pages/dashboard/RoomsPage";
@@ -25,6 +26,9 @@ import SettingsPage from "./pages/dashboard/SettingsPage";
 import EmployeesPage from "./pages/dashboard/EmployeesPage";
 import DepartmentsPage from "./pages/dashboard/DepartmentsPage";
 import SuperAdminPage from "./pages/dashboard/SuperAdminPage";
+import ProfilePage from "./pages/dashboard/ProfilePage";
+import ChangePasswordPage from "./pages/dashboard/ChangePasswordPage";
+import HotelAdminsPage from "./pages/dashboard/HotelAdminsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +44,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<DashboardHome />} />
                 <Route path="rooms" element={<RoomsPage />} />
@@ -57,7 +62,10 @@ const App = () => (
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="employees" element={<EmployeesPage />} />
                 <Route path="departments" element={<DepartmentsPage />} />
-                <Route path="super-admin" element={<SuperAdminPage />} />
+                <Route path="super-admin" element={<ProtectedRoute allowedRoles={["super-admin"]}><SuperAdminPage /></ProtectedRoute>} />
+                <Route path="hotel-admins" element={<ProtectedRoute allowedRoles={["super-admin"]}><HotelAdminsPage /></ProtectedRoute>} />
+                <Route path="profile" element={<ProtectedRoute allowedRoles={["sub-admin", "manager", "receptionist", "gym-head", "laundry-staff", "event-manager", "restaurant-staff"]}><ProfilePage /></ProtectedRoute>} />
+                <Route path="change-password" element={<ChangePasswordPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

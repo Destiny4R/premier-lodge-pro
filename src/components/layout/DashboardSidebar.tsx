@@ -82,6 +82,7 @@ const menuItems: MenuItem[] = [
   { icon: UserCog, label: "Employees", path: "/dashboard/employees", roles: ["sub-admin", "manager"] },
   { icon: Building2, label: "Departments", path: "/dashboard/departments", roles: ["sub-admin", "manager"] },
   { icon: Shield, label: "Super Admin", path: "/dashboard/super-admin", roles: ["super-admin"] },
+  { icon: UserCog, label: "Hotel Admins", path: "/dashboard/hotel-admins", roles: ["super-admin"] },
   { icon: Settings, label: "Settings", path: "/dashboard/settings", roles: ["sub-admin", "super-admin"] },
 ];
 
