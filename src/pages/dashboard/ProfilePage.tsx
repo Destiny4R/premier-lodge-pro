@@ -20,7 +20,7 @@ export default function ProfilePage() {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || "",
+    name: user?.userName || "",
     email: user?.email || "",
     phone: "+1 555-0100",
     address: "123 Main Street, City, Country",
@@ -67,9 +67,9 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center text-center">
                   <div className="relative">
                     <Avatar className="w-24 h-24 border-4 border-background">
-                      <AvatarImage src={user?.avatar} alt={user?.name} />
+                      <AvatarImage src={user?.avatar} alt={user?.userName} />
                       <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                        {user?.name?.charAt(0) || "U"}
+                        {user?.userName?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>
                     <Button 
@@ -81,15 +81,15 @@ export default function ProfilePage() {
                     </Button>
                   </div>
                   <h3 className="mt-4 text-xl font-semibold text-foreground">
-                    {user?.name}
+                    {user?.userName}
                   </h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                   <Badge 
-                    variant={getRoleBadgeVariant(user?.role || "")} 
+                    variant={getRoleBadgeVariant(user?.roles?.[0] || "")} 
                     className="mt-2"
                   >
                     <Shield className="w-3 h-3 mr-1" />
-                    {formatRole(user?.role || "User")}
+                    {formatRole(user?.roles?.[0] || "User")}
                   </Badge>
                 </div>
 

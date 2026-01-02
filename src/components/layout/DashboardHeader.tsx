@@ -29,6 +29,10 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
     navigate("/login");
   };
 
+  // Get display name and role from new user format
+  const displayName = user?.userName || "Admin User";
+  const displayRole = user?.roles?.[0] || "User";
+
   return (
     <header className="sticky top-0 z-30 h-14 sm:h-16 bg-background/80 backdrop-blur-xl border-b border-border">
       <div className="flex items-center justify-between h-full px-3 sm:px-6">
@@ -82,15 +86,15 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
               <Button variant="ghost" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 h-8 sm:h-9">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-xs sm:text-sm font-semibold text-primary">
-                    {user?.name?.charAt(0) || "A"}
+                    {displayName.charAt(0)}
                   </span>
                 </div>
                 <div className="hidden md:flex flex-col items-start">
                   <span className="text-sm font-medium text-foreground">
-                    {user?.name || "Admin User"}
+                    {displayName}
                   </span>
                   <span className="text-xs text-muted-foreground capitalize">
-                    {user?.role || "Sub-Admin"}
+                    {displayRole}
                   </span>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
@@ -100,11 +104,11 @@ export function DashboardHeader({ title, subtitle }: DashboardHeaderProps) {
               <div className="flex items-center gap-3 p-3 border-b border-border">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-lg font-semibold text-primary">
-                    {user?.name?.charAt(0) || "A"}
+                    {displayName.charAt(0)}
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{user?.name || "Admin User"}</p>
+                  <p className="font-medium text-foreground truncate">{displayName}</p>
                   <p className="text-xs text-muted-foreground truncate">{user?.email || "admin@luxestay.com"}</p>
                 </div>
               </div>

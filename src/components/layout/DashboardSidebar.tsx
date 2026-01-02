@@ -93,7 +93,7 @@ export function DashboardSidebar({ userRole = "sub-admin" }: SidebarProps) {
   const { collapsed, toggleCollapsed, isMobileOpen, setMobileOpen } = useSidebarContext();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
-  const actualRole = user?.role || userRole;
+  const actualRole = user?.roles?.[0]?.toLowerCase() || userRole;
   const filteredMenuItems = menuItems.filter(
     (item) => item.roles.includes("all") || item.roles.includes(actualRole)
   );
@@ -251,16 +251,16 @@ export function DashboardSidebar({ userRole = "sub-admin" }: SidebarProps) {
             <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
               <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-semibold text-sidebar-foreground">
-                  {user?.name?.charAt(0) || "A"}
+                  {user?.userName?.charAt(0) || "A"}
                 </span>
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
-                    {user?.name || "Admin User"}
+                    {user?.userName || "Admin User"}
                   </p>
                   <p className="text-xs text-muted-foreground truncate capitalize">
-                    {user?.role || "Sub-Admin"}
+                    {user?.roles?.[0] || "User"}
                   </p>
                 </div>
               )}
@@ -400,15 +400,15 @@ export function DashboardSidebar({ userRole = "sub-admin" }: SidebarProps) {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-sidebar-accent flex items-center justify-center">
                     <span className="text-sm font-semibold text-sidebar-foreground">
-                      {user?.name?.charAt(0) || "A"}
+                      {user?.userName?.charAt(0) || "A"}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-sidebar-foreground truncate">
-                      {user?.name || "Admin User"}
+                      {user?.userName || "Admin User"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate capitalize">
-                      {user?.role || "Sub-Admin"}
+                      {user?.roles?.[0] || "User"}
                     </p>
                   </div>
                 </div>

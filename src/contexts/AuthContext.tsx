@@ -1,110 +1,135 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { User, UserRole } from "@/data/mockData";
+import { authService } from "@/services";
+import { LoginResponse } from "@/types/api";
+import { getStoredUser, getStoredToken, setAuthData, clearAuthData } from "@/lib/api";
+
+// =====================================================
+// Auth Context - API Integration
+// =====================================================
+
+export type UserRole = "SuperAdmin" | "SubAdmin" | "Manager" | "Receptionist";
+
+export interface User {
+  userId: string;
+  userName: string;
+  email: string;
+  roles: string[];
+  permissions: string[];
+  hotelId?: string;
+  avatar?: string;
+}
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
+  hasRole: (role: string) => boolean;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demo purposes
-const mockUsers: (User & { password: string })[] = [
-  {
-    id: "u1",
-    name: "Super Admin",
-    email: "superadmin@luxestay.com",
-    password: "admin123",
-    role: "super-admin",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
-  },
-  {
-    id: "u2",
-    name: "Hotel Admin",
-    email: "admin@luxestay.com",
-    password: "admin123",
-    role: "sub-admin",
-    hotelId: "h1",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
-  },
-  {
-    id: "u3",
-    name: "John Manager",
-    email: "manager@luxestay.com",
-    password: "manager123",
-    role: "manager",
-    hotelId: "h1",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100",
-  },
-  {
-    id: "u4",
-    name: "Jane Receptionist",
-    email: "receptionist@luxestay.com",
-    password: "staff123",
-    role: "receptionist",
-    hotelId: "h1",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
-  },
-];
-
-const SESSION_KEY = "luxestay_session";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const savedSession = localStorage.getItem(SESSION_KEY);
-    if (savedSession) {
-      try {
-        const userData = JSON.parse(savedSession);
-        setUser(userData);
-      } catch (e) {
-        localStorage.removeItem(SESSION_KEY);
-      }
+    // Check for existing session on mount
+    const storedUser = getStoredUser();
+    const storedToken = getStoredToken();
+    
+    if (storedUser && storedToken) {
+      setUser(storedUser);
+      setToken(storedToken);
     }
     setIsLoading(false);
   }, []);
 
+  /**
+   * Login user with email and password
+   * 
+   * API Endpoint: POST /api/auth/login
+   * Request: { email: string, password: string }
+   * Response: {
+   *   success: boolean,
+   *   data: {
+   *     userId: string,
+   *     userName: string,
+   *     email: string,
+   *     token: string,
+   *     roles: string[],
+   *     permissions: string[],
+   *     expiresIn: number,
+   *     hotelId?: string,
+   *     avatar?: string
+   *   },
+   *   message: string,
+   *   status: number
+   * }
+   */
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const foundUser = mockUsers.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-    );
-
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem(SESSION_KEY, JSON.stringify(userWithoutPassword));
+    try {
+      const response = await authService.login({ email, password });
+      
+      if (response.success && response.data) {
+        const userData: User = {
+          userId: response.data.userId,
+          userName: response.data.userName,
+          email: response.data.email,
+          roles: response.data.roles,
+          permissions: response.data.permissions,
+          hotelId: response.data.hotelId,
+          avatar: response.data.avatar,
+        };
+        
+        // Store auth data
+        setAuthData(response.data.token, userData);
+        setUser(userData);
+        setToken(response.data.token);
+        
+        setIsLoading(false);
+        return { success: true };
+      }
+      
       setIsLoading(false);
-      return { success: true };
+      return { success: false, error: response.message || "Login failed" };
+    } catch (error: any) {
+      setIsLoading(false);
+      return { success: false, error: error.message || "An error occurred during login" };
     }
-
-    setIsLoading(false);
-    return { success: false, error: "Invalid email or password" };
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem(SESSION_KEY);
+    setToken(null);
+    clearAuthData();
+  };
+
+  const hasRole = (role: string): boolean => {
+    return user?.roles.includes(role) ?? false;
+  };
+
+  const hasPermission = (permission: string): boolean => {
+    return user?.permissions.includes(permission) ?? false;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        token,
+        isAuthenticated: !!user && !!token,
         login,
         logout,
         isLoading,
+        hasRole,
+        hasPermission,
       }}
     >
       {children}

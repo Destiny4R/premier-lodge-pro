@@ -108,6 +108,28 @@ export const getUserData = () => {
 };
 
 // =====================================================
+// Auth Data Management (for AuthContext)
+// =====================================================
+export const setAuthData = (token: string, user: unknown) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+};
+
+export const clearAuthData = () => {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+};
+
+export const getStoredToken = (): string | null => {
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+export const getStoredUser = () => {
+  const data = localStorage.getItem(USER_KEY);
+  return data ? JSON.parse(data) : null;
+};
+
+// =====================================================
 // API Helper Functions
 // =====================================================
 

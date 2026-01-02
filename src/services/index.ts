@@ -3,7 +3,7 @@
 // =====================================================
 
 // Auth Service
-export * from './authService';
+export { authService } from './authService';
 
 // Room Service  
 export * from './roomService';

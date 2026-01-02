@@ -227,9 +227,22 @@ export async function updateRoomCategory(id: string, data: Partial<CreateRoomCat
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
+    const { images, ...rest } = data;
     return {
       success: true,
-      data: { id, hotelId: 'h1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...data } as RoomCategory,
+      data: { 
+        id, 
+        hotelId: 'h1', 
+        name: '',
+        description: '',
+        basePrice: 0,
+        maxOccupancy: 2,
+        amenities: [],
+        images: [],
+        createdAt: new Date().toISOString(), 
+        updatedAt: new Date().toISOString(), 
+        ...rest 
+      },
       message: 'Room category updated successfully',
       status: 200,
     };
