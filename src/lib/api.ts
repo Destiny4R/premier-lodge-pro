@@ -4,9 +4,9 @@ import { ApiResponse } from '@/types/api';
 // =====================================================
 // API Configuration
 // =====================================================
-
-// Base URL - replace with actual API URL
-const API_BASE_URL = '/api';
+// IMPORTANT: Replace this URL with your actual API base URL
+// Example: 'https://api.yourhotel.com/api' or 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Session storage keys
 const TOKEN_KEY = 'luxestay_token';
@@ -52,7 +52,7 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error: AxiosError<ApiResponse>) => {
+  (error: AxiosError<ApiResponse<unknown>>) => {
     if (error.response) {
       const { status, data } = error.response;
       
@@ -63,24 +63,44 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
       
-      // Return the API error response
-      return Promise.reject({
+      // Return standardized error response (not throwing, returning for handling)
+      const errorResponse: ApiResponse<null> = {
         success: false,
-        message: data?.message || 'An error occurred',
+        message: data?.message || getErrorMessage(status),
         status: status,
         data: null,
-      });
+      };
+      
+      return Promise.reject(errorResponse);
     }
     
-    // Network error
-    return Promise.reject({
+    // Network error or timeout
+    const networkError: ApiResponse<null> = {
       success: false,
-      message: 'Network error. Please check your connection.',
+      message: error.code === 'ECONNABORTED' 
+        ? 'Request timed out. Please try again.' 
+        : 'Network error. Please check your connection.',
       status: 0,
       data: null,
-    });
+    };
+    
+    return Promise.reject(networkError);
   }
 );
+
+// =====================================================
+// Error Message Helper
+// =====================================================
+function getErrorMessage(status: number): string {
+  switch (status) {
+    case 400: return 'Bad request. Please check your input.';
+    case 401: return 'Unauthorized. Please login again.';
+    case 403: return 'Access denied. You do not have permission.';
+    case 404: return 'Resource not found.';
+    case 500: return 'Server error. Please try again later.';
+    default: return 'An unexpected error occurred.';
+  }
+}
 
 // =====================================================
 // Token Management
@@ -130,59 +150,120 @@ export const getStoredUser = () => {
 };
 
 // =====================================================
-// API Helper Functions
+// API Helper Functions with Graceful Error Handling
 // =====================================================
 
 /**
+ * Creates a failed API response object
+ */
+function createErrorResponse<T>(error: unknown): ApiResponse<T> {
+  if (error && typeof error === 'object' && 'success' in error) {
+    return error as ApiResponse<T>;
+  }
+  return {
+    success: false,
+    message: error instanceof Error ? error.message : 'An unexpected error occurred',
+    status: 500,
+    data: null as unknown as T,
+  };
+}
+
+/**
  * Generic GET request
+ * 
+ * @param endpoint - API endpoint (e.g., '/rooms', '/bookings/123')
+ * @param params - Optional query parameters
+ * @returns ApiResponse<T> - Always returns a response object, never throws
+ * 
+ * Usage:
+ * const response = await apiGet<Room[]>('/rooms');
+ * if (response.success) {
+ *   // Use response.data
+ * } else {
+ *   // Handle error with response.message
+ * }
  */
 export async function apiGet<T>(endpoint: string, params?: unknown): Promise<ApiResponse<T>> {
   try {
     const response = await api.get<ApiResponse<T>>(endpoint, { params });
     return response.data;
   } catch (error) {
-    throw error;
+    return createErrorResponse<T>(error);
   }
 }
 
 /**
  * Generic POST request
+ * 
+ * @param endpoint - API endpoint
+ * @param data - Request body
+ * @returns ApiResponse<T>
+ * 
+ * Usage:
+ * const response = await apiPost<Room>('/rooms', { roomNumber: '101', floor: 1 });
  */
 export async function apiPost<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
   try {
     const response = await api.post<ApiResponse<T>>(endpoint, data);
     return response.data;
   } catch (error) {
-    throw error;
+    return createErrorResponse<T>(error);
   }
 }
 
 /**
  * Generic PUT request
+ * 
+ * @param endpoint - API endpoint
+ * @param data - Request body
+ * @returns ApiResponse<T>
  */
 export async function apiPut<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
   try {
     const response = await api.put<ApiResponse<T>>(endpoint, data);
     return response.data;
   } catch (error) {
-    throw error;
+    return createErrorResponse<T>(error);
+  }
+}
+
+/**
+ * Generic PATCH request
+ * 
+ * @param endpoint - API endpoint
+ * @param data - Request body
+ * @returns ApiResponse<T>
+ */
+export async function apiPatch<T>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+  try {
+    const response = await api.patch<ApiResponse<T>>(endpoint, data);
+    return response.data;
+  } catch (error) {
+    return createErrorResponse<T>(error);
   }
 }
 
 /**
  * Generic DELETE request
+ * 
+ * @param endpoint - API endpoint
+ * @returns ApiResponse<T>
  */
 export async function apiDelete<T>(endpoint: string): Promise<ApiResponse<T>> {
   try {
     const response = await api.delete<ApiResponse<T>>(endpoint);
     return response.data;
   } catch (error) {
-    throw error;
+    return createErrorResponse<T>(error);
   }
 }
 
 /**
  * Upload file with FormData
+ * 
+ * @param endpoint - API endpoint
+ * @param formData - FormData object containing files
+ * @returns ApiResponse<T>
  */
 export async function apiUpload<T>(endpoint: string, formData: FormData): Promise<ApiResponse<T>> {
   try {
@@ -193,7 +274,7 @@ export async function apiUpload<T>(endpoint: string, formData: FormData): Promis
     });
     return response.data;
   } catch (error) {
-    throw error;
+    return createErrorResponse<T>(error);
   }
 }
 

@@ -3,7 +3,7 @@
 // =====================================================
 
 // Auth Service
-export { authService } from './authService';
+export * from './authService';
 
 // Room Service  
 export * from './roomService';
@@ -19,3 +19,9 @@ export * from './dashboardService';
 
 // Hotel Service
 export * from './hotelService';
+
+// Department Service
+export * from './departmentService';
+
+// Employee Service
+export * from './employeeService';
