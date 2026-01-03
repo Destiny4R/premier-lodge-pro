@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { LoadingState, EmptyState, StatsSkeleton } from "@/components/ui/loading-state";
 import { Plus, Search, Filter, Building2, MoreVertical, Edit, Trash, Eye, Users } from "lucide-react";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,43 +13,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { hotels } from "@/data/mockData";
-
-// =============================================
-// API INTEGRATION PLACEHOLDER
-// Replace mock data operations with actual API calls
-// =============================================
-// GET all departments:     GET /api/departments
-// GET single department:   GET /api/departments/:id
-// CREATE department:       POST /api/departments
-// UPDATE department:       PUT /api/departments/:id
-// DELETE department:       DELETE /api/departments/:id
-// =============================================
-
-export interface Department {
-  id: string;
-  name: string;
-  description: string;
-  hotelId: string;
-  headOfDepartment?: string;
-  employeeCount: number;
-  status: "active" | "inactive";
-  createdAt: string;
-}
-
-// Mock Departments Data
-const mockDepartments: Department[] = [
-  { id: "dept1", name: "Front Office", description: "Guest check-in/out and reservations management", hotelId: "h1", headOfDepartment: "John Smith", employeeCount: 8, status: "active", createdAt: "2023-01-01" },
-  { id: "dept2", name: "Housekeeping", description: "Room cleaning and laundry services", hotelId: "h1", headOfDepartment: "Mary Johnson", employeeCount: 15, status: "active", createdAt: "2023-01-01" },
-  { id: "dept3", name: "Food & Beverage", description: "Restaurant and bar operations", hotelId: "h1", headOfDepartment: "Chef Michael", employeeCount: 12, status: "active", createdAt: "2023-01-01" },
-  { id: "dept4", name: "Maintenance", description: "Building and equipment maintenance", hotelId: "h1", headOfDepartment: "Tom Wilson", employeeCount: 6, status: "active", createdAt: "2023-01-01" },
-  { id: "dept5", name: "Security", description: "Guest and property security", hotelId: "h1", headOfDepartment: "James Brown", employeeCount: 10, status: "active", createdAt: "2023-01-01" },
-  { id: "dept6", name: "Spa & Wellness", description: "Spa treatments and wellness programs", hotelId: "h2", headOfDepartment: "Sarah Lee", employeeCount: 5, status: "active", createdAt: "2023-02-15" },
-  { id: "dept7", name: "Events & Banquets", description: "Event planning and management", hotelId: "h1", employeeCount: 4, status: "inactive", createdAt: "2023-03-01" },
-];
+import { 
+  getDepartments, 
+  createDepartment, 
+  updateDepartment, 
+  deleteDepartment,
+  getDepartmentStats,
+  Department,
+  CreateDepartmentRequest,
+} from "@/services/departmentService";
+import { getHotels } from "@/services/hotelService";
+import { Hotel } from "@/types/api";
 
 export default function DepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
+  // Data state
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [stats, setStats] = useState<{ total: number; active: number; inactive: number; totalEmployees: number } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   
   // Modal State
@@ -61,6 +44,7 @@ export default function DepartmentsPage() {
     headOfDepartment: "",
     status: "active",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // View Modal State
   const [viewDepartment, setViewDepartment] = useState<Department | null>(null);
@@ -70,6 +54,42 @@ export default function DepartmentsPage() {
     open: false,
     id: "",
   });
+
+  // Fetch data
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const [deptRes, hotelsRes, statsRes] = await Promise.all([
+        getDepartments({ page: 1, limit: 100, search: searchQuery }),
+        getHotels({ page: 1, limit: 100 }),
+        getDepartmentStats(),
+      ]);
+
+      if (deptRes.success) {
+        setDepartments(deptRes.data.items);
+      } else {
+        setError(deptRes.message);
+      }
+
+      if (hotelsRes.success) {
+        setHotels(hotelsRes.data.items);
+      }
+
+      if (statsRes.success) {
+        setStats(statsRes.data);
+      }
+    } catch (err) {
+      setError("Failed to load departments");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   // Filter departments by search query
   const filteredDepartments = departments.filter(
@@ -97,53 +117,77 @@ export default function DepartmentsPage() {
   };
 
   // Handle form submit
-  const handleSubmit = () => {
-    // =============================================
-    // API INTEGRATION PLACEHOLDER
-    // Replace with: 
-    // if (editingDepartment) {
-    //   await api.put(`/api/departments/${editingDepartment.id}`, departmentForm);
-    // } else {
-    //   await api.post('/api/departments', departmentForm);
-    // }
-    // =============================================
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     
-    if (editingDepartment) {
-      setDepartments(prev => 
-        prev.map(d => d.id === editingDepartment.id 
-          ? { ...d, ...departmentForm, status: departmentForm.status as "active" | "inactive" }
-          : d
-        )
-      );
-      toast.success("Department updated successfully");
-    } else {
-      const newDepartment: Department = {
-        id: `dept${Date.now()}`,
+    try {
+      const deptData: CreateDepartmentRequest = {
         name: departmentForm.name,
         description: departmentForm.description,
         hotelId: departmentForm.hotelId,
         headOfDepartment: departmentForm.headOfDepartment || undefined,
-        employeeCount: 0,
         status: departmentForm.status as "active" | "inactive",
-        createdAt: new Date().toISOString().split("T")[0],
       };
-      setDepartments(prev => [...prev, newDepartment]);
-      toast.success("Department created successfully");
+
+      const response = editingDepartment
+        ? await updateDepartment(editingDepartment.id, deptData)
+        : await createDepartment(deptData);
+
+      if (response.success) {
+        toast.success(editingDepartment ? "Department updated successfully" : "Department created successfully");
+        setModalOpen(false);
+        fetchData();
+      } else {
+        toast.error(response.message);
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
-    setModalOpen(false);
   };
 
   // Handle delete
-  const handleDelete = () => {
-    // =============================================
-    // API INTEGRATION PLACEHOLDER
-    // Replace with: await api.delete(`/api/departments/${deleteDialog.id}`);
-    // =============================================
+  const handleDelete = async () => {
+    setIsSubmitting(true);
     
-    setDepartments(prev => prev.filter(d => d.id !== deleteDialog.id));
-    toast.success("Department deleted successfully");
-    setDeleteDialog({ open: false, id: "" });
+    try {
+      const response = await deleteDepartment(deleteDialog.id);
+      
+      if (response.success) {
+        toast.success("Department deleted successfully");
+        setDeleteDialog({ open: false, id: "" });
+        fetchData();
+      } else {
+        toast.error(response.message);
+      }
+    } catch (err) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // Get hotel name by ID
+  const getHotelName = (hotelId: string) => {
+    return hotels.find((h) => h.id === hotelId)?.name || "N/A";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader title="Department Management" subtitle="Manage hotel departments and structure" />
+        <div className="p-6 space-y-6">
+          <StatsSkeleton count={4} />
+          <Card>
+            <CardContent className="py-12">
+              <LoadingState message="Loading departments..." />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -190,7 +234,7 @@ export default function DepartmentsPage() {
                   <Building2 className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{departments.length}</p>
+                  <p className="text-2xl font-bold text-foreground">{stats?.total ?? departments.length}</p>
                   <p className="text-sm text-muted-foreground">Total Departments</p>
                 </div>
               </div>
@@ -199,12 +243,12 @@ export default function DepartmentsPage() {
           <Card variant="glass">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-emerald-500" />
+                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-success" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {departments.filter(d => d.status === "active").length}
+                    {stats?.active ?? departments.filter(d => d.status === "active").length}
                   </p>
                   <p className="text-sm text-muted-foreground">Active</p>
                 </div>
@@ -214,12 +258,12 @@ export default function DepartmentsPage() {
           <Card variant="glass">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-amber-500" />
+                <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-warning" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {departments.filter(d => d.status === "inactive").length}
+                    {stats?.inactive ?? departments.filter(d => d.status === "inactive").length}
                   </p>
                   <p className="text-sm text-muted-foreground">Inactive</p>
                 </div>
@@ -229,12 +273,12 @@ export default function DepartmentsPage() {
           <Card variant="glass">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-500" />
+                <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-info" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-foreground">
-                    {departments.reduce((sum, d) => sum + d.employeeCount, 0)}
+                    {stats?.totalEmployees ?? departments.reduce((sum, d) => sum + d.employeeCount, 0)}
                   </p>
                   <p className="text-sm text-muted-foreground">Total Staff</p>
                 </div>
@@ -254,22 +298,34 @@ export default function DepartmentsPage() {
               <CardTitle className="text-lg">All Departments</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Hotel</TableHead>
-                    <TableHead>Head of Department</TableHead>
-                    <TableHead>Employees</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-[80px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDepartments.map((department) => {
-                    const hotel = hotels.find((h) => h.id === department.hotelId);
-                    return (
+              {error ? (
+                <EmptyState
+                  title="Error loading departments"
+                  description={error}
+                  action={{ label: "Retry", onClick: fetchData }}
+                />
+              ) : filteredDepartments.length === 0 ? (
+                <EmptyState
+                  icon={<Building2 className="w-8 h-8 text-muted-foreground" />}
+                  title="No departments found"
+                  description={searchQuery ? "Try adjusting your search" : "Add your first department to get started"}
+                  action={!searchQuery ? { label: "Add Department", onClick: () => openModal() } : undefined}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Hotel</TableHead>
+                      <TableHead>Head of Department</TableHead>
+                      <TableHead>Employees</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDepartments.map((department) => (
                       <TableRow key={department.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -285,7 +341,7 @@ export default function DepartmentsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {hotel?.name || "N/A"}
+                          {getHotelName(department.hotelId)}
                         </TableCell>
                         <TableCell className="text-foreground">
                           {department.headOfDepartment || "—"}
@@ -297,7 +353,7 @@ export default function DepartmentsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={department.status === "active" ? "available" : "maintenance"}>
+                          <Badge variant={department.status === "active" ? "success" : "secondary"}>
                             {department.status}
                           </Badge>
                         </TableCell>
@@ -328,17 +384,10 @@ export default function DepartmentsPage() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                  {filteredDepartments.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No departments found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -352,6 +401,7 @@ export default function DepartmentsPage() {
         description="Define department details and assignment"
         onSubmit={handleSubmit}
         submitLabel={editingDepartment ? "Update Department" : "Create Department"}
+        isLoading={isSubmitting}
       >
         <div className="space-y-4">
           <FormField label="Department Name" required>
@@ -414,26 +464,26 @@ export default function DepartmentsPage() {
       <ViewModal
         open={!!viewDepartment}
         onOpenChange={() => setViewDepartment(null)}
-        title={viewDepartment?.name || ""}
+        title="Department Details"
       >
         {viewDepartment && (
           <div className="space-y-4">
-            <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <Building2 className="w-8 h-8 text-primary" />
-            </div>
-            <DetailRow label="Description" value={viewDepartment.description} />
-            <DetailRow label="Hotel" value={hotels.find(h => h.id === viewDepartment.hotelId)?.name || "N/A"} />
-            <DetailRow label="Head of Department" value={viewDepartment.headOfDepartment || "Not assigned"} />
-            <DetailRow label="Employee Count" value={viewDepartment.employeeCount.toString()} />
-            <DetailRow 
-              label="Status" 
-              value={
-                <Badge variant={viewDepartment.status === "active" ? "available" : "maintenance"}>
+            <div className="flex items-center gap-4 pb-4 border-b border-border">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">{viewDepartment.name}</h3>
+                <Badge variant={viewDepartment.status === "active" ? "success" : "secondary"}>
                   {viewDepartment.status}
                 </Badge>
-              } 
-            />
-            <DetailRow label="Created" value={viewDepartment.createdAt} />
+              </div>
+            </div>
+            <DetailRow label="Description" value={viewDepartment.description} />
+            <DetailRow label="Hotel" value={getHotelName(viewDepartment.hotelId)} />
+            <DetailRow label="Head of Department" value={viewDepartment.headOfDepartment || "Not assigned"} />
+            <DetailRow label="Employee Count" value={viewDepartment.employeeCount} />
+            <DetailRow label="Created At" value={viewDepartment.createdAt} />
           </div>
         )}
       </ViewModal>

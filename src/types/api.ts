@@ -25,8 +25,9 @@ export interface LoginResponse {
 
 // Pagination
 export interface PaginationParams {
-  page: number;
-  pageSize: number;
+  page?: number;
+  limit?: number;
+  pageSize?: number;
   search?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
