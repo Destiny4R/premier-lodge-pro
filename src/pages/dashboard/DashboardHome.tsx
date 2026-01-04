@@ -181,7 +181,7 @@ export default function DashboardHome() {
               <EmptyState
                 title="Unable to load dashboard"
                 description={error}
-                action={{ label: "Retry", onClick: fetchDashboardData }}
+                action={<Button variant="outline" onClick={fetchDashboardData}>Retry</Button>}
               />
             </CardContent>
           </Card>

@@ -242,14 +242,14 @@ export default function GuestsPage() {
                 <EmptyState
                   title="Error loading guests"
                   description={error}
-                  action={{ label: "Retry", onClick: fetchData }}
+                  action={<Button variant="outline" onClick={fetchData}>Retry</Button>}
                 />
               ) : filteredGuests.length === 0 ? (
                 <EmptyState
-                  icon={<Users className="w-8 h-8 text-muted-foreground" />}
+                  icon={Users}
                   title="No guests found"
                   description={searchQuery ? "Try adjusting your search" : "Add your first guest to get started"}
-                  action={!searchQuery ? { label: "Add Guest", onClick: () => openGuestModal() } : undefined}
+                  action={!searchQuery ? <Button variant="outline" onClick={() => openGuestModal()}>Add Guest</Button> : undefined}
                 />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

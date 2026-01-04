@@ -348,7 +348,7 @@ export interface CreateRoomRequest {
   roomNumber: string;
   floor: number;
   price: number;
-  status: 'available' | 'maintenance';
+  status: 'available' | 'occupied' | 'reserved' | 'maintenance';
   isPromoted: boolean;
   image?: string;
 }

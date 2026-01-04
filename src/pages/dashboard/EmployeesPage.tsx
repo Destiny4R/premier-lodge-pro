@@ -377,14 +377,14 @@ export default function EmployeesPage() {
                 <EmptyState
                   title="Error loading employees"
                   description={error}
-                  action={{ label: "Retry", onClick: fetchData }}
+                  action={<Button variant="outline" onClick={fetchData}>Retry</Button>}
                 />
               ) : filteredEmployees.length === 0 ? (
                 <EmptyState
-                  icon={<Users className="w-8 h-8 text-muted-foreground" />}
+                  icon={Users}
                   title="No employees found"
                   description={searchQuery ? "Try adjusting your search" : "Add your first employee to get started"}
-                  action={!searchQuery ? { label: "Add Employee", onClick: () => setShowAddModal(true) } : undefined}
+                  action={!searchQuery ? <Button variant="outline" onClick={() => setShowAddModal(true)}>Add Employee</Button> : undefined}
                 />
               ) : (
                 <div className="overflow-x-auto">
