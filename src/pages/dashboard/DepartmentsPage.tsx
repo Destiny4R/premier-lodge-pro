@@ -302,14 +302,14 @@ export default function DepartmentsPage() {
                 <EmptyState
                   title="Error loading departments"
                   description={error}
-                  action={{ label: "Retry", onClick: fetchData }}
+                  action={<Button variant="outline" onClick={fetchData}>Retry</Button>}
                 />
               ) : filteredDepartments.length === 0 ? (
                 <EmptyState
-                  icon={<Building2 className="w-8 h-8 text-muted-foreground" />}
+                  icon={Building2}
                   title="No departments found"
                   description={searchQuery ? "Try adjusting your search" : "Add your first department to get started"}
-                  action={!searchQuery ? { label: "Add Department", onClick: () => openModal() } : undefined}
+                  action={!searchQuery ? <Button variant="outline" onClick={() => openModal()}>Add Department</Button> : undefined}
                 />
               ) : (
                 <Table>

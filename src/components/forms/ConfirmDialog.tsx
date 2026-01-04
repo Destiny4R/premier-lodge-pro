@@ -19,6 +19,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: "danger" | "warning" | "info" | "destructive";
   onConfirm: () => void;
+  isLoading?: boolean;
 }
 
 const iconMap = {
@@ -44,6 +45,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "danger",
   onConfirm,
+  isLoading = false,
 }: ConfirmDialogProps) {
   const Icon = iconMap[variant];
 
@@ -62,12 +64,13 @@ export function ConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="border-border">{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel className="border-border" disabled={isLoading}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
+            disabled={isLoading}
             className={variant === "danger" || variant === "destructive" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
           >
-            {confirmLabel}
+            {isLoading ? "Processing..." : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

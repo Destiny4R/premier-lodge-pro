@@ -21,16 +21,13 @@ export function LoadingState({ message = "Loading..." }: LoadingStateProps) {
 }
 
 interface EmptyStateProps {
-  icon?: React.ReactNode;
+  icon?: React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  action?: React.ReactNode;
 }
 
-export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -38,17 +35,13 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
       className="flex flex-col items-center justify-center py-12 text-center"
     >
       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-        {icon || <Database className="w-8 h-8 text-muted-foreground" />}
+        {Icon ? <Icon className="w-8 h-8 text-muted-foreground" /> : <Database className="w-8 h-8 text-muted-foreground" />}
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
       {description && (
         <p className="text-muted-foreground max-w-sm mb-4">{description}</p>
       )}
-      {action && (
-        <Button onClick={action.onClick} variant="outline">
-          {action.label}
-        </Button>
-      )}
+      {action && action}
     </motion.div>
   );
 }
@@ -87,7 +80,7 @@ interface DataStateWrapperProps<T> {
   loadingMessage?: string;
   emptyTitle?: string;
   emptyDescription?: string;
-  emptyIcon?: React.ReactNode;
+  emptyIcon?: React.ComponentType<{ className?: string }>;
   onRetry?: () => void;
   onEmptyAction?: () => void;
   emptyActionLabel?: string;
@@ -122,9 +115,11 @@ export function DataStateWrapper<T>({
         title={emptyTitle}
         description={emptyDescription}
         action={
-          onEmptyAction && emptyActionLabel
-            ? { label: emptyActionLabel, onClick: onEmptyAction }
-            : undefined
+          onEmptyAction && emptyActionLabel ? (
+            <Button onClick={onEmptyAction} variant="outline">
+              {emptyActionLabel}
+            </Button>
+          ) : undefined
         }
       />
     );

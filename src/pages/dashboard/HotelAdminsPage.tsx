@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,11 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FormModal, FormField, ViewModal, DetailRow, ConfirmDialog } from "@/components/forms";
 import { DataTable, Column } from "@/components/ui/data-table";
-import { 
-  Plus, Edit, Trash, Eye, UserCog, Building2, Mail, Phone, Shield,
+import {
+  Plus, Edit, Trash, Eye, UserCog, Building2, Shield,
   MoreVertical
 } from "lucide-react";
-import { hotels } from "@/data/mockData";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -19,66 +18,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface SubAdmin {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  hotelId: string;
-  hotelName: string;
-  status: "active" | "inactive" | "suspended";
-  avatar: string;
-  createdAt: string;
-  lastLogin: string;
-}
-
-const initialSubAdmins: SubAdmin[] = [
-  {
-    id: "sa1",
-    name: "Hotel Admin",
-    email: "admin@luxestay.com",
-    phone: "+1 555-0102",
-    hotelId: "h1",
-    hotelName: "LuxeStay Grand Palace",
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
-    createdAt: "2024-01-01",
-    lastLogin: "2024-01-20",
-  },
-  {
-    id: "sa2",
-    name: "Marina Bay Admin",
-    email: "marina@luxestay.com",
-    phone: "+1 555-0103",
-    hotelId: "h2",
-    hotelName: "LuxeStay Marina Bay",
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
-    createdAt: "2024-01-05",
-    lastLogin: "2024-01-19",
-  },
-  {
-    id: "sa3",
-    name: "Mountain Admin",
-    email: "mountain@luxestay.com",
-    phone: "+1 555-0104",
-    hotelId: "h3",
-    hotelName: "LuxeStay Mountain Retreat",
-    status: "inactive",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
-    createdAt: "2024-01-10",
-    lastLogin: "2024-01-15",
-  },
-];
+import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
+import { useApi } from "@/hooks/useApi";
+import {
+  getHotelAdmins,
+  createHotelAdmin,
+  updateHotelAdmin,
+  deleteHotelAdmin,
+  updateHotelAdminStatus,
+  getHotels,
+} from "@/services/hotelService";
+import { HotelAdmin, Hotel } from "@/types/api";
 
 export default function HotelAdminsPage() {
-  const [subAdmins, setSubAdmins] = useState<SubAdmin[]>(initialSubAdmins);
+  // API States
+  const adminsApi = useApi<{ items: HotelAdmin[]; totalItems: number }>();
+  const hotelsApi = useApi<{ items: Hotel[]; totalItems: number }>();
+  const mutationApi = useApi<HotelAdmin | null>({ showSuccessToast: true });
+
+  // Local state
+  const [admins, setAdmins] = useState<HotelAdmin[]>([]);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+
+  // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedAdmin, setSelectedAdmin] = useState<SubAdmin | null>(null);
+  const [selectedAdmin, setSelectedAdmin] = useState<HotelAdmin | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -87,14 +54,42 @@ export default function HotelAdminsPage() {
     password: "",
   });
 
-  const columns: Column<SubAdmin>[] = [
+  // Fetch data on mount
+  useEffect(() => {
+    fetchAdmins();
+    fetchHotels();
+  }, []);
+
+  const fetchAdmins = async () => {
+    /**
+     * GET /api/hotel-admins
+     * Returns: { success: boolean, data: { items: HotelAdmin[], totalItems: number, ... }, message: string }
+     */
+    const response = await adminsApi.execute(() => getHotelAdmins());
+    if (response.success && response.data) {
+      setAdmins(response.data.items);
+    }
+  };
+
+  const fetchHotels = async () => {
+    /**
+     * GET /api/hotels
+     * Returns: { success: boolean, data: { items: Hotel[], totalItems: number, ... }, message: string }
+     */
+    const response = await hotelsApi.execute(() => getHotels());
+    if (response.success && response.data) {
+      setHotels(response.data.items);
+    }
+  };
+
+  const columns: Column<HotelAdmin>[] = [
     {
       key: "name",
       header: "Admin",
       render: (_, row) => (
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
-            <AvatarImage src={row.avatar} alt={row.name} />
+            <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(row.name)}&background=random`} alt={row.name} />
             <AvatarFallback>{row.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
@@ -114,7 +109,7 @@ export default function HotelAdminsPage() {
       render: (value) => (
         <div className="flex items-center gap-2">
           <Building2 className="w-4 h-4 text-muted-foreground" />
-          <span>{value}</span>
+          <span>{value || '-'}</span>
         </div>
       ),
     },
@@ -123,7 +118,7 @@ export default function HotelAdminsPage() {
       header: "Status",
       render: (value) => (
         <Badge variant={
-          value === "active" ? "success" : 
+          value === "active" ? "success" :
           value === "suspended" ? "destructive" : "secondary"
         }>
           {value}
@@ -131,60 +126,68 @@ export default function HotelAdminsPage() {
       ),
     },
     {
-      key: "lastLogin",
-      header: "Last Login",
+      key: "createdAt",
+      header: "Created At",
     },
   ];
 
-  const handleAdd = () => {
-    // API Placeholder: POST /api/sub-admins
-    const newAdmin: SubAdmin = {
-      id: `sa${Date.now()}`,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      hotelId: formData.hotelId,
-      hotelName: hotels.find(h => h.id === formData.hotelId)?.name || "",
-      status: "active",
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=random`,
-      createdAt: new Date().toISOString().split("T")[0],
-      lastLogin: "-",
-    };
-    setSubAdmins([...subAdmins, newAdmin]);
-    setShowAddModal(false);
-    resetForm();
-    toast.success("Sub-Admin created successfully");
+  const handleAdd = async () => {
+    /**
+     * POST /api/hotel-admins
+     * Request: { hotelId, name, email, phone, password }
+     */
+    const response = await mutationApi.execute(() =>
+      createHotelAdmin({
+        hotelId: formData.hotelId,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+      })
+    );
+    if (response.success) {
+      fetchAdmins();
+      setShowAddModal(false);
+      resetForm();
+    }
   };
 
-  const handleEdit = () => {
+  const handleEdit = async () => {
     if (!selectedAdmin) return;
-    // API Placeholder: PUT /api/sub-admins/:id
-    setSubAdmins(subAdmins.map(admin => 
-      admin.id === selectedAdmin.id 
-        ? { 
-            ...admin, 
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            hotelId: formData.hotelId,
-            hotelName: hotels.find(h => h.id === formData.hotelId)?.name || admin.hotelName,
-          }
-        : admin
-    ));
-    setShowEditModal(false);
-    resetForm();
-    toast.success("Sub-Admin updated successfully");
+
+    /**
+     * PUT /api/hotel-admins/:id
+     * Request: { hotelId?, name?, email?, phone? }
+     */
+    const response = await mutationApi.execute(() =>
+      updateHotelAdmin(selectedAdmin.id, {
+        hotelId: formData.hotelId,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+      })
+    );
+    if (response.success) {
+      fetchAdmins();
+      setShowEditModal(false);
+      resetForm();
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!selectedAdmin) return;
-    // API Placeholder: DELETE /api/sub-admins/:id
-    setSubAdmins(subAdmins.filter(admin => admin.id !== selectedAdmin.id));
-    setShowDeleteDialog(false);
-    toast.success("Sub-Admin deleted successfully");
+
+    /**
+     * DELETE /api/hotel-admins/:id
+     */
+    const response = await mutationApi.execute(() => deleteHotelAdmin(selectedAdmin.id));
+    if (response.success) {
+      fetchAdmins();
+      setShowDeleteDialog(false);
+    }
   };
 
-  const openEdit = (admin: SubAdmin) => {
+  const openEdit = (admin: HotelAdmin) => {
     setSelectedAdmin(admin);
     setFormData({
       name: admin.name,
@@ -196,12 +199,12 @@ export default function HotelAdminsPage() {
     setShowEditModal(true);
   };
 
-  const openView = (admin: SubAdmin) => {
+  const openView = (admin: HotelAdmin) => {
     setSelectedAdmin(admin);
     setShowViewModal(true);
   };
 
-  const openDelete = (admin: SubAdmin) => {
+  const openDelete = (admin: HotelAdmin) => {
     setSelectedAdmin(admin);
     setShowDeleteDialog(true);
   };
@@ -217,19 +220,27 @@ export default function HotelAdminsPage() {
     setSelectedAdmin(null);
   };
 
-  const toggleStatus = (admin: SubAdmin) => {
-    // API Placeholder: PATCH /api/sub-admins/:id/status
+  const toggleStatus = async (admin: HotelAdmin) => {
     const newStatus = admin.status === "active" ? "suspended" : "active";
-    setSubAdmins(subAdmins.map(a => 
-      a.id === admin.id ? { ...a, status: newStatus } : a
-    ));
-    toast.success(`Admin ${newStatus === "active" ? "activated" : "suspended"}`);
+
+    /**
+     * PUT /api/hotel-admins/:id/status
+     * Request: { status: 'active' | 'inactive' | 'suspended' }
+     */
+    const response = await mutationApi.execute(() =>
+      updateHotelAdminStatus(admin.id, newStatus)
+    );
+    if (response.success) {
+      fetchAdmins();
+    }
   };
+
+  const isLoading = adminsApi.isLoading || hotelsApi.isLoading;
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader 
-        title="Hotel Administrators" 
+      <DashboardHeader
+        title="Hotel Administrators"
         subtitle="Manage sub-admin accounts for all hotels"
       />
 
@@ -241,9 +252,9 @@ export default function HotelAdminsPage() {
           className="grid grid-cols-1 sm:grid-cols-3 gap-4"
         >
           {[
-            { label: "Total Admins", value: subAdmins.length, icon: UserCog },
-            { label: "Active", value: subAdmins.filter(a => a.status === "active").length, icon: Shield },
-            { label: "Hotels Managed", value: new Set(subAdmins.map(a => a.hotelId)).size, icon: Building2 },
+            { label: "Total Admins", value: admins.length, icon: UserCog },
+            { label: "Active", value: admins.filter(a => a.status === "active").length, icon: Shield },
+            { label: "Hotels Managed", value: new Set(admins.map(a => a.hotelId)).size, icon: Building2 },
           ].map((stat) => (
             <Card key={stat.label}>
               <CardContent className="p-6">
@@ -261,59 +272,83 @@ export default function HotelAdminsPage() {
           ))}
         </motion.div>
 
+        {/* Loading State */}
+        {isLoading && <LoadingState message="Loading administrators..." />}
+
+        {/* Error State */}
+        {adminsApi.error && !isLoading && (
+          <ErrorState message={adminsApi.error} onRetry={fetchAdmins} />
+        )}
+
         {/* Data Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <CardTitle>Sub-Admin Accounts</CardTitle>
-              <Button onClick={() => setShowAddModal(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Sub-Admin
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <DataTable
-                data={subAdmins}
-                columns={columns}
-                searchPlaceholder="Search administrators..."
-                actions={(row) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-4 h-4" />
+        {!isLoading && !adminsApi.error && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card>
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <CardTitle>Sub-Admin Accounts</CardTitle>
+                <Button onClick={() => setShowAddModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Sub-Admin
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {admins.length === 0 ? (
+                  <EmptyState
+                    icon={UserCog}
+                    title="No administrators found"
+                    description="Create your first hotel administrator to get started"
+                    action={
+                      <Button onClick={() => setShowAddModal(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Sub-Admin
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openView(row)}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEdit(row)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toggleStatus(row)}>
-                        <Shield className="w-4 h-4 mr-2" />
-                        {row.status === "active" ? "Suspend" : "Activate"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => openDelete(row)}
-                        className="text-destructive"
-                      >
-                        <Trash className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    }
+                  />
+                ) : (
+                  <DataTable
+                    data={admins}
+                    columns={columns}
+                    searchPlaceholder="Search administrators..."
+                    actions={(row) => (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openView(row)}>
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openEdit(row)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleStatus(row)}>
+                            <Shield className="w-4 h-4 mr-2" />
+                            {row.status === "active" ? "Suspend" : "Activate"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openDelete(row)}
+                            className="text-destructive"
+                          >
+                            <Trash className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  />
                 )}
-              />
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
 
       {/* Add Modal */}
@@ -325,6 +360,7 @@ export default function HotelAdminsPage() {
         onSubmit={handleAdd}
         submitLabel="Create Admin"
         size="lg"
+        isLoading={mutationApi.isLoading}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -383,6 +419,7 @@ export default function HotelAdminsPage() {
         onSubmit={handleEdit}
         submitLabel="Save Changes"
         size="lg"
+        isLoading={mutationApi.isLoading}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
@@ -432,7 +469,7 @@ export default function HotelAdminsPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar className="w-16 h-16">
-                <AvatarImage src={selectedAdmin.avatar} alt={selectedAdmin.name} />
+                <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(selectedAdmin.name)}&background=random`} alt={selectedAdmin.name} />
                 <AvatarFallback className="text-lg">{selectedAdmin.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
@@ -445,9 +482,8 @@ export default function HotelAdminsPage() {
             <div className="space-y-1">
               <DetailRow label="Email" value={selectedAdmin.email} />
               <DetailRow label="Phone" value={selectedAdmin.phone} />
-              <DetailRow label="Assigned Hotel" value={selectedAdmin.hotelName} />
+              <DetailRow label="Assigned Hotel" value={selectedAdmin.hotelName || '-'} />
               <DetailRow label="Created At" value={selectedAdmin.createdAt} />
-              <DetailRow label="Last Login" value={selectedAdmin.lastLogin} />
             </div>
           </div>
         )}
@@ -462,6 +498,7 @@ export default function HotelAdminsPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         variant="destructive"
+        isLoading={mutationApi.isLoading}
       />
     </div>
   );

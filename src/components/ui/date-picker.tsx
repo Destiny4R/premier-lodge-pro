@@ -11,7 +11,7 @@ import { Calendar } from "lucide-react";
 
 interface DatePickerProps {
   value?: string | Date | null;
-  onChange?: (date: string) => void;
+  onChange?: (date: Date | null) => void;
   placeholder?: string;
   minDate?: string | Date;
   maxDate?: string | Date;
@@ -49,8 +49,8 @@ export function DatePicker({
       minDate,
       maxDate,
       defaultDate: value || undefined,
-      onChange: (selectedDates, dateStr) => {
-        onChange?.(dateStr);
+      onChange: (selectedDates) => {
+        onChange?.(selectedDates[0] || null);
       },
       // Dark theme support
       onReady: () => {
@@ -114,8 +114,8 @@ export function DatePicker({
 interface DateRangePickerProps {
   startValue?: string | Date | null;
   endValue?: string | Date | null;
-  onStartChange?: (date: string) => void;
-  onEndChange?: (date: string) => void;
+  onStartChange?: (date: Date | null) => void;
+  onEndChange?: (date: Date | null) => void;
   startPlaceholder?: string;
   endPlaceholder?: string;
   minDate?: string | Date;
