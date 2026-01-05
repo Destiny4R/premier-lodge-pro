@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,47 +6,41 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Waves, Users, DollarSign, Clock, Edit, Trash, MoreVertical, Eye, Calendar } from "lucide-react";
-import { guests } from "@/data/mockData";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-
-interface PoolPlan {
-  id: string;
-  name: string;
-  duration: string;
-  price: number;
-  features: string[];
-}
-
-interface PoolMember {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  planId: string;
-  startDate: string;
-  endDate: string;
-  status: "active" | "expired";
-  isGuest: boolean;
-}
-
-const defaultPlans: PoolPlan[] = [
-  { id: "pp1", name: "Day Pass", duration: "1 day", price: 25, features: ["Pool access", "Towel service", "Locker"] },
-  { id: "pp2", name: "Weekly", duration: "1 week", price: 80, features: ["Pool access", "Towel service", "Locker", "Pool bar discount"] },
-  { id: "pp3", name: "Monthly", duration: "1 month", price: 200, features: ["Unlimited pool access", "Towel service", "Private cabana (weekdays)", "Pool bar discount", "Guest pass (2)"] },
-];
-
-const defaultMembers: PoolMember[] = [
-  { id: "pm1", name: "Alex Thompson", email: "alex@email.com", phone: "+1 555-0301", planId: "pp3", startDate: "2024-01-01", endDate: "2024-01-31", status: "active", isGuest: false },
-  { id: "pm2", name: "James Wilson", email: "james@email.com", phone: "+1 555-0101", planId: "pp1", startDate: "2024-01-15", endDate: "2024-01-15", status: "active", isGuest: true },
-];
+import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
+import { useApi } from "@/hooks/useApi";
+import { 
+  getPoolMembers, 
+  getPoolPlans,
+  createPoolAccess, 
+  updatePoolAccess, 
+  deletePoolAccess,
+  createPoolPlan,
+  updatePoolPlan,
+  deletePoolPlan,
+  renewPoolAccess,
+  PoolPlan,
+  PoolMember
+} from "@/services/poolService";
+import { getGuests } from "@/services/guestService";
+import { Guest, PaginatedResponse } from "@/types/api";
 
 export default function PoolPage() {
-  const [plans] = useState<PoolPlan[]>(defaultPlans);
-  const [members] = useState<PoolMember[]>(defaultMembers);
+  // API States
+  const membersApi = useApi<PaginatedResponse<PoolMember>>();
+  const plansApi = useApi<PaginatedResponse<PoolPlan>>();
+  const guestsApi = useApi<PaginatedResponse<Guest>>();
+  const mutationApi = useApi<PoolMember | PoolPlan | null>({ showSuccessToast: true });
+
+  // Local state
+  const [members, setMembers] = useState<PoolMember[]>([]);
+  const [plans, setPlans] = useState<PoolPlan[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<PoolPlan | null>(null);
@@ -71,6 +65,34 @@ export default function PoolPage() {
     endDate: "",
   });
 
+  // Fetch data on mount
+  useEffect(() => {
+    fetchMembers();
+    fetchPlans();
+    fetchGuests();
+  }, []);
+
+  const fetchMembers = async () => {
+    const response = await membersApi.execute(() => getPoolMembers());
+    if (response.success && response.data) {
+      setMembers(response.data.items);
+    }
+  };
+
+  const fetchPlans = async () => {
+    const response = await plansApi.execute(() => getPoolPlans());
+    if (response.success && response.data) {
+      setPlans(response.data.items);
+    }
+  };
+
+  const fetchGuests = async () => {
+    const response = await guestsApi.execute(() => getGuests());
+    if (response.success && response.data) {
+      setGuests(response.data.items);
+    }
+  };
+
   const openPlanModal = (plan?: PoolPlan) => {
     if (plan) {
       setEditingPlan(plan);
@@ -87,30 +109,84 @@ export default function PoolPage() {
     setPlanModalOpen(true);
   };
 
-  const handlePlanSubmit = () => {
-    toast.success(editingPlan ? "Pool plan updated successfully" : "Pool plan created successfully");
-    setPlanModalOpen(false);
+  const handlePlanSubmit = async () => {
+    const planData = {
+      name: planForm.name,
+      duration: planForm.duration,
+      price: parseFloat(planForm.price),
+      features: planForm.features.split(",").map(f => f.trim()),
+    };
+
+    if (editingPlan) {
+      const response = await mutationApi.execute(() => updatePoolPlan(editingPlan.id, planData));
+      if (response.success) {
+        fetchPlans();
+        setPlanModalOpen(false);
+      }
+    } else {
+      const response = await mutationApi.execute(() => createPoolPlan(planData));
+      if (response.success) {
+        fetchPlans();
+        setPlanModalOpen(false);
+      }
+    }
   };
 
-  const handleMemberSubmit = () => {
-    toast.success("Pool access registered successfully");
-    setMemberModalOpen(false);
-    setMemberForm({
-      isGuest: false,
-      guestId: "",
-      name: "",
-      email: "",
-      phone: "",
-      planId: "",
-      startDate: "",
-      endDate: "",
-    });
+  const handleMemberSubmit = async () => {
+    const memberData = {
+      guestId: memberForm.isGuest ? memberForm.guestId : undefined,
+      name: memberForm.name,
+      email: memberForm.email,
+      phone: memberForm.phone,
+      planId: memberForm.planId,
+      startDate: memberForm.startDate,
+      endDate: memberForm.endDate,
+      isGuest: memberForm.isGuest,
+    };
+
+    const response = await mutationApi.execute(() => createPoolAccess(memberData));
+    if (response.success) {
+      fetchMembers();
+      setMemberModalOpen(false);
+      setMemberForm({
+        isGuest: false,
+        guestId: "",
+        name: "",
+        email: "",
+        phone: "",
+        planId: "",
+        startDate: "",
+        endDate: "",
+      });
+    }
   };
 
-  const handleDelete = () => {
-    toast.success(deleteDialog.type === "plan" ? "Plan deleted" : "Access revoked");
+  const handleRenew = async (memberId: string) => {
+    const newEndDate = new Date();
+    newEndDate.setMonth(newEndDate.getMonth() + 1);
+    const response = await mutationApi.execute(() => renewPoolAccess(memberId, newEndDate.toISOString().split('T')[0]));
+    if (response.success) {
+      fetchMembers();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteDialog.type === "plan") {
+      const response = await mutationApi.execute(() => deletePoolPlan(deleteDialog.id));
+      if (response.success) {
+        fetchPlans();
+      }
+    } else {
+      const response = await mutationApi.execute(() => deletePoolAccess(deleteDialog.id));
+      if (response.success) {
+        fetchMembers();
+      }
+    }
     setDeleteDialog({ open: false, type: "plan", id: "" });
   };
+
+  const isLoading = membersApi.isLoading || plansApi.isLoading;
+  const hasError = membersApi.error || plansApi.error;
 
   return (
     <div className="min-h-screen bg-background">
@@ -119,10 +195,10 @@ export default function PoolPage() {
         {/* Stats */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { label: "Current Visitors", value: 24, icon: Users },
-            { label: "Guest Access", value: 8, icon: Waves },
-            { label: "Today's Revenue", value: "$320", icon: DollarSign },
-            { label: "Avg. Duration", value: "1.5h", icon: Clock },
+            { label: "Current Visitors", value: members.filter(m => m.status === 'active').length, icon: Users },
+            { label: "Guest Access", value: members.filter(m => m.isGuest).length, icon: Waves },
+            { label: "Today's Revenue", value: "$--", icon: DollarSign },
+            { label: "Avg. Duration", value: "--", icon: Clock },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">
               <CardContent className="p-4 flex items-center gap-4">
@@ -138,137 +214,181 @@ export default function PoolPage() {
           ))}
         </motion.div>
 
-        {/* Pool Plans */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Pool Access Plans</CardTitle>
-              <Button variant="outline" onClick={() => openPlanModal()}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Plan
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {plans.map((plan) => (
-                  <Card key={plan.id} variant="gold" className="p-6 relative group">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="absolute top-4 right-4 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openPlanModal(plan)}>
-                          <Edit className="w-4 h-4 mr-2" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => setDeleteDialog({ open: true, type: "plan", id: plan.id })}
-                        >
-                          <Trash className="w-4 h-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
-                        <Waves className="w-6 h-6 text-info" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                        <p className="text-sm text-muted-foreground">{plan.duration}</p>
-                      </div>
-                    </div>
-                    <p className="text-3xl font-bold text-primary mb-4">${plan.price}</p>
-                    <ul className="space-y-2 mb-4">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-info" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                    <Button variant="outline" className="w-full" onClick={() => setMemberModalOpen(true)}>
-                      Purchase Access
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Loading State */}
+        {isLoading && <LoadingState message="Loading pool data..." />}
 
-        {/* Pool Members */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Active Access</CardTitle>
-              <Button variant="hero" onClick={() => setMemberModalOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Grant Access
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {members.map((member) => {
-                  const plan = plans.find(p => p.id === member.planId);
-                  return (
-                    <Card key={member.id} variant="elevated" className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
-                          <Waves className="w-6 h-6 text-info" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">{member.name}</h3>
-                          <p className="text-sm text-muted-foreground">{member.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right hidden sm:block">
-                          <p className="text-sm text-muted-foreground">Plan</p>
-                          <p className="font-medium">{plan?.name}</p>
-                        </div>
-                        <div className="text-right hidden sm:block">
-                          <p className="text-sm text-muted-foreground">Expires</p>
-                          <p className="font-medium">{member.endDate}</p>
-                        </div>
-                        <Badge variant={member.isGuest ? "default" : "secondary"}>
-                          {member.isGuest ? "Guest" : "External"}
-                        </Badge>
-                        <Badge variant={member.status === "active" ? "success" : "destructive"}>
-                          {member.status}
-                        </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">Manage</Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewMember(member)}>
-                              <Eye className="w-4 h-4 mr-2" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.success("Access renewed")}>
-                              <Calendar className="w-4 h-4 mr-2" /> Renew
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={() => setDeleteDialog({ open: true, type: "member", id: member.id })}
-                            >
-                              <Trash className="w-4 h-4 mr-2" /> Revoke Access
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Error State */}
+        {hasError && !isLoading && (
+          <ErrorState 
+            message={membersApi.error || plansApi.error || 'Failed to load data'} 
+            onRetry={() => { fetchMembers(); fetchPlans(); }} 
+          />
+        )}
+
+        {/* Content */}
+        {!isLoading && !hasError && (
+          <>
+            {/* Pool Plans */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Pool Access Plans</CardTitle>
+                  <Button variant="outline" onClick={() => openPlanModal()}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Plan
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {plans.length === 0 ? (
+                    <EmptyState
+                      icon={Waves}
+                      title="No pool plans found"
+                      description="Create your first pool access plan"
+                      action={
+                        <Button onClick={() => openPlanModal()}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Plan
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {plans.map((plan) => (
+                        <Card key={plan.id} variant="gold" className="p-6 relative group">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="absolute top-4 right-4 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openPlanModal(plan)}>
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => setDeleteDialog({ open: true, type: "plan", id: plan.id })}
+                              >
+                                <Trash className="w-4 h-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center">
+                              <Waves className="w-6 h-6 text-info" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-foreground">{plan.name}</h3>
+                              <p className="text-sm text-muted-foreground">{plan.duration}</p>
+                            </div>
+                          </div>
+                          <p className="text-3xl font-bold text-primary mb-4">${plan.price}</p>
+                          <ul className="space-y-2 mb-4">
+                            {plan.features.map((feature, i) => (
+                              <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-info" />
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                          <Button variant="outline" className="w-full" onClick={() => setMemberModalOpen(true)}>
+                            Purchase Access
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Pool Members */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Active Access</CardTitle>
+                  <Button variant="hero" onClick={() => setMemberModalOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Grant Access
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {members.length === 0 ? (
+                    <EmptyState
+                      icon={Users}
+                      title="No pool access records"
+                      description="Grant pool access to guests or members"
+                      action={
+                        <Button onClick={() => setMemberModalOpen(true)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Grant Access
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      {members.map((member) => {
+                        const plan = plans.find(p => p.id === member.planId);
+                        return (
+                          <Card key={member.id} variant="elevated" className="p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-full bg-info/10 flex items-center justify-center">
+                                <Waves className="w-6 h-6 text-info" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-foreground">{member.name}</h3>
+                                <p className="text-sm text-muted-foreground">{member.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <div className="text-right hidden sm:block">
+                                <p className="text-sm text-muted-foreground">Plan</p>
+                                <p className="font-medium">{plan?.name || 'N/A'}</p>
+                              </div>
+                              <div className="text-right hidden sm:block">
+                                <p className="text-sm text-muted-foreground">Expires</p>
+                                <p className="font-medium">{member.endDate}</p>
+                              </div>
+                              <Badge variant={member.isGuest ? "default" : "secondary"}>
+                                {member.isGuest ? "Guest" : "External"}
+                              </Badge>
+                              <Badge variant={member.status === "active" ? "success" : "destructive"}>
+                                {member.status}
+                              </Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">Manage</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => setViewMember(member)}>
+                                    <Eye className="w-4 h-4 mr-2" /> View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleRenew(member.id)}>
+                                    <Calendar className="w-4 h-4 mr-2" /> Renew
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="text-destructive"
+                                    onClick={() => setDeleteDialog({ open: true, type: "member", id: member.id })}
+                                  >
+                                    <Trash className="w-4 h-4 mr-2" /> Revoke Access
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </>
+        )}
       </div>
 
       {/* Pool Plan Modal */}
@@ -279,6 +399,7 @@ export default function PoolPage() {
         description="Configure pool access plan details"
         onSubmit={handlePlanSubmit}
         submitLabel={editingPlan ? "Update Plan" : "Create Plan"}
+        isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
           <FormField label="Plan Name" required>
@@ -332,6 +453,7 @@ export default function PoolPage() {
         onSubmit={handleMemberSubmit}
         submitLabel="Register Access"
         size="lg"
+        isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
           <FormField label="Is Hotel Guest?">
@@ -417,14 +539,6 @@ export default function PoolPage() {
               />
             </FormField>
           </div>
-
-          {memberForm.isGuest && (
-            <Card variant="glass" className="p-4">
-              <p className="text-sm text-muted-foreground">
-                <strong>Note:</strong> Pool access may be included in the guest's room booking. Please verify before creating a paid access.
-              </p>
-            </Card>
-          )}
         </div>
       </FormModal>
 
@@ -432,33 +546,34 @@ export default function PoolPage() {
       <ViewModal
         open={!!viewMember}
         onOpenChange={() => setViewMember(null)}
-        title="Access Details"
+        title="Pool Access Details"
       >
-        {viewMember && (() => {
-          const plan = plans.find(p => p.id === viewMember.planId);
-          return (
-            <div className="space-y-4">
-              <DetailRow label="Name" value={viewMember.name} />
-              <DetailRow label="Email" value={viewMember.email} />
-              <DetailRow label="Phone" value={viewMember.phone} />
-              <DetailRow label="Plan" value={plan?.name} />
-              <DetailRow label="Start Date" value={viewMember.startDate} />
-              <DetailRow label="End Date" value={viewMember.endDate} />
-              <DetailRow label="Status" value={<Badge variant={viewMember.status === "active" ? "success" : "destructive"}>{viewMember.status}</Badge>} />
-              <DetailRow label="Type" value={viewMember.isGuest ? "Hotel Guest" : "External Visitor"} />
-            </div>
-          );
-        })()}
+        {viewMember && (
+          <div className="space-y-4">
+            <DetailRow label="Name" value={viewMember.name} />
+            <DetailRow label="Email" value={viewMember.email} />
+            <DetailRow label="Phone" value={viewMember.phone} />
+            <DetailRow label="Plan" value={plans.find(p => p.id === viewMember.planId)?.name || 'N/A'} />
+            <DetailRow label="Start Date" value={viewMember.startDate} />
+            <DetailRow label="End Date" value={viewMember.endDate} />
+            <DetailRow label="Type" value={<Badge variant={viewMember.isGuest ? "default" : "secondary"}>{viewMember.isGuest ? "Guest" : "External"}</Badge>} />
+            <DetailRow label="Status" value={<Badge variant={viewMember.status === "active" ? "success" : "destructive"}>{viewMember.status}</Badge>} />
+          </div>
+        )}
       </ViewModal>
 
       {/* Delete Confirmation */}
       <ConfirmDialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
-        title={deleteDialog.type === "plan" ? "Delete Plan" : "Revoke Access"}
-        description="Are you sure? This action cannot be undone."
+        title={deleteDialog.type === "plan" ? "Delete Pool Plan" : "Revoke Access"}
+        description={deleteDialog.type === "plan" 
+          ? "Are you sure you want to delete this pool plan? This action cannot be undone."
+          : "Are you sure you want to revoke this pool access? This action cannot be undone."
+        }
         onConfirm={handleDelete}
         variant="destructive"
+        isLoading={mutationApi.isLoading}
       />
     </div>
   );

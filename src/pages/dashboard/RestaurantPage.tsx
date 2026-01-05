@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,15 +18,30 @@ import {
   Trash,
   MoreVertical,
 } from "lucide-react";
-import { menuItems, MenuItem } from "@/data/mockData";
 import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
+import { useApi } from "@/hooks/useApi";
+import { 
+  getMenuItems, 
+  createMenuItem, 
+  updateMenuItem, 
+  deleteMenuItem,
+  CreateMenuItemRequest
+} from "@/services/restaurantService";
+import { MenuItem, PaginatedResponse } from "@/types/api";
 
 export default function RestaurantPage() {
+  // API States
+  const menuApi = useApi<PaginatedResponse<MenuItem>>();
+  const mutationApi = useApi<MenuItem | null>({ showSuccessToast: true });
+
+  // Local state
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -47,6 +62,18 @@ export default function RestaurantPage() {
     type: "add",
     notes: "",
   });
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchMenuItems();
+  }, []);
+
+  const fetchMenuItems = async () => {
+    const response = await menuApi.execute(() => getMenuItems());
+    if (response.success && response.data) {
+      setMenuItems(response.data.items);
+    }
+  };
 
   const foodItems = menuItems.filter((item) => item.category === "food");
   const drinkItems = menuItems.filter((item) => item.category === "drink");
@@ -69,9 +96,28 @@ export default function RestaurantPage() {
     setItemModalOpen(true);
   };
 
-  const handleItemSubmit = () => {
-    toast.success(editingItem ? "Menu item updated successfully" : "Menu item added successfully");
-    setItemModalOpen(false);
+  const handleItemSubmit = async () => {
+    const itemData: CreateMenuItemRequest = {
+      name: itemForm.name,
+      category: itemForm.category,
+      price: parseFloat(itemForm.price),
+      description: itemForm.description,
+      inStock: itemForm.inStock,
+    };
+
+    if (editingItem) {
+      const response = await mutationApi.execute(() => updateMenuItem(editingItem.id, itemData));
+      if (response.success) {
+        fetchMenuItems();
+        setItemModalOpen(false);
+      }
+    } else {
+      const response = await mutationApi.execute(() => createMenuItem(itemData));
+      if (response.success) {
+        fetchMenuItems();
+        setItemModalOpen(false);
+      }
+    }
   };
 
   const handleStockSubmit = () => {
@@ -80,10 +126,16 @@ export default function RestaurantPage() {
     setStockForm({ itemId: "", quantity: "", type: "add", notes: "" });
   };
 
-  const handleDelete = () => {
-    toast.success("Menu item deleted successfully");
+  const handleDelete = async () => {
+    const response = await mutationApi.execute(() => deleteMenuItem(deleteDialog.id));
+    if (response.success) {
+      fetchMenuItems();
+    }
     setDeleteDialog({ open: false, id: "" });
   };
+
+  const isLoading = menuApi.isLoading;
+  const hasError = menuApi.error;
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,8 +172,8 @@ export default function RestaurantPage() {
           className="grid grid-cols-1 md:grid-cols-4 gap-4"
         >
           {[
-            { label: "Today's Sales", value: "$4,580", icon: DollarSign, color: "text-success" },
-            { label: "Active Orders", value: 12, icon: ShoppingCart, color: "text-primary" },
+            { label: "Today's Sales", value: "$--", icon: DollarSign, color: "text-success" },
+            { label: "Active Orders", value: "--", icon: ShoppingCart, color: "text-primary" },
             { label: "Food Items", value: foodItems.length, icon: UtensilsCrossed, color: "text-warning" },
             { label: "Drink Items", value: drinkItems.length, icon: Wine, color: "text-info" },
           ].map((stat) => (
@@ -139,150 +191,142 @@ export default function RestaurantPage() {
           ))}
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Menu Items */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-2"
-          >
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">Menu Items</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant={activeFilter === "all" ? "default" : "ghost"} 
-                    size="sm"
-                    onClick={() => setActiveFilter("all")}
-                  >
-                    All
-                  </Button>
-                  <Button 
-                    variant={activeFilter === "food" ? "default" : "ghost"} 
-                    size="sm"
-                    onClick={() => setActiveFilter("food")}
-                  >
-                    <UtensilsCrossed className="w-4 h-4 mr-1" />
-                    Food
-                  </Button>
-                  <Button 
-                    variant={activeFilter === "drink" ? "default" : "ghost"} 
-                    size="sm"
-                    onClick={() => setActiveFilter("drink")}
-                  >
-                    <Wine className="w-4 h-4 mr-1" />
-                    Drinks
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredItems.map((item) => (
-                    <Card key={item.id} variant="elevated" className="p-4 flex gap-4 hover-lift">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-20 h-20 rounded-lg object-cover"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold text-foreground">{item.name}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
+        {/* Loading State */}
+        {isLoading && <LoadingState message="Loading menu items..." />}
+
+        {/* Error State */}
+        {hasError && !isLoading && (
+          <ErrorState 
+            message={menuApi.error || 'Failed to load data'} 
+            onRetry={fetchMenuItems} 
+          />
+        )}
+
+        {/* Content */}
+        {!isLoading && !hasError && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Menu Items */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="lg:col-span-2"
+            >
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Menu Items</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant={activeFilter === "all" ? "default" : "ghost"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button 
+                      variant={activeFilter === "food" ? "default" : "ghost"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("food")}
+                    >
+                      <UtensilsCrossed className="w-4 h-4 mr-1" />
+                      Food
+                    </Button>
+                    <Button 
+                      variant={activeFilter === "drink" ? "default" : "ghost"} 
+                      size="sm"
+                      onClick={() => setActiveFilter("drink")}
+                    >
+                      <Wine className="w-4 h-4 mr-1" />
+                      Drinks
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {filteredItems.length === 0 ? (
+                    <EmptyState
+                      icon={UtensilsCrossed}
+                      title="No menu items found"
+                      description="Add your first menu item to get started"
+                      action={
+                        <Button onClick={() => openItemModal()}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Item
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredItems.map((item) => (
+                        <Card key={item.id} variant="elevated" className="p-4 flex gap-4 hover-lift">
+                          <img
+                            src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100'}
+                            alt={item.name}
+                            className="w-20 h-20 rounded-lg object-cover"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <h3 className="font-semibold text-foreground">{item.name}</h3>
+                                <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openItemModal(item)}>
+                                    <Edit className="w-4 h-4 mr-2" /> Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    className="text-destructive"
+                                    onClick={() => setDeleteDialog({ open: true, id: item.id })}
+                                  >
+                                    <Trash className="w-4 h-4 mr-2" /> Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <div className="flex items-center justify-between mt-3">
+                              <span className="text-lg font-bold text-primary">${item.price}</span>
+                              <Badge variant={item.inStock ? "success" : "destructive"}>
+                                {item.inStock ? "In Stock" : "Out of Stock"}
+                              </Badge>
+                            </div>
                           </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openItemModal(item)}>
-                                <Edit className="w-4 h-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => setDeleteDialog({ open: true, id: item.id })}
-                              >
-                                <Trash className="w-4 h-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <span className="text-lg font-bold text-primary">${item.price}</span>
-                          <Badge variant={item.inStock ? "success" : "destructive"}>
-                            {item.inStock ? "In Stock" : "Out of Stock"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
-          {/* POS / Cart */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  Current Order
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { name: "Grilled Salmon", qty: 2, price: 64 },
-                    { name: "Caesar Salad", qty: 1, price: 18 },
-                    { name: "Signature Cocktail", qty: 2, price: 32 },
-                  ].map((item) => (
-                    <div key={item.name} className="flex items-center justify-between py-2 border-b border-border/50">
-                      <div>
-                        <p className="font-medium text-foreground">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">Qty: {item.qty}</p>
-                      </div>
-                      <span className="font-semibold text-foreground">${item.price}</span>
-                    </div>
-                  ))}
-
-                  <div className="pt-4 border-t border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-muted-foreground">Subtotal</span>
-                      <span className="font-semibold text-foreground">$114</span>
-                    </div>
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-muted-foreground">Tax (10%)</span>
-                      <span className="font-semibold text-foreground">$11.40</span>
-                    </div>
-                    <div className="flex items-center justify-between text-lg">
-                      <span className="font-semibold text-foreground">Total</span>
-                      <span className="font-bold text-primary">$125.40</span>
-                    </div>
+            {/* POS / Cart */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <ShoppingCart className="w-5 h-5" />
+                    Current Order
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No active order</p>
+                    <p className="text-sm">Go to Take Order to create orders</p>
                   </div>
-
-                  <div className="space-y-2 pt-4">
-                    <Button variant="hero" className="w-full">
-                      <DollarSign className="w-4 h-4 mr-2" />
-                      Process Payment
-                    </Button>
-                    <Button variant="outline" className="w-full">
-                      <Coffee className="w-4 h-4 mr-2" />
-                      Charge to Room
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        )}
       </div>
 
       {/* Food Item Modal */}
@@ -293,6 +337,7 @@ export default function RestaurantPage() {
         description="Create or update a food or drink item"
         onSubmit={handleItemSubmit}
         submitLabel={editingItem ? "Update Item" : "Add Item"}
+        isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
           <FormField label="Item Name" required>
@@ -408,6 +453,7 @@ export default function RestaurantPage() {
         description="Are you sure you want to delete this menu item? This action cannot be undone."
         onConfirm={handleDelete}
         variant="destructive"
+        isLoading={mutationApi.isLoading}
       />
     </div>
   );

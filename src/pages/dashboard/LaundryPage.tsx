@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical } from "lucide-react";
-import { laundryOrders, guests, rooms } from "@/data/mockData";
 import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
+import { useApi } from "@/hooks/useApi";
+import { 
+  getLaundryOrders, 
+  getLaundryItems,
+  createLaundryOrder, 
+  updateLaundryOrderStatus, 
+  deleteLaundryOrder,
+  createLaundryItem,
+  updateLaundryItem,
+  deleteLaundryItem
+} from "@/services/laundryService";
+import { getGuests } from "@/services/guestService";
+import { LaundryOrder, LaundryItem, Guest, PaginatedResponse } from "@/types/api";
 
 const statusColors: Record<string, "info" | "warning" | "success" | "secondary"> = {
   received: "info",
@@ -19,26 +32,21 @@ const statusColors: Record<string, "info" | "warning" | "success" | "secondary">
   delivered: "secondary",
 };
 
-interface ClothingCategory {
-  id: string;
-  name: string;
-  price: number;
-}
-
-const defaultClothingCategories: ClothingCategory[] = [
-  { id: "c1", name: "Shirts", price: 5 },
-  { id: "c2", name: "Pants", price: 10 },
-  { id: "c3", name: "Suits", price: 25 },
-  { id: "c4", name: "Dresses", price: 15 },
-  { id: "c5", name: "Jackets", price: 20 },
-  { id: "c6", name: "Bed Sheets", price: 12 },
-];
-
 export default function LaundryPage() {
-  const [clothingCategories] = useState<ClothingCategory[]>(defaultClothingCategories);
+  // API States
+  const ordersApi = useApi<PaginatedResponse<LaundryOrder>>();
+  const itemsApi = useApi<PaginatedResponse<LaundryItem>>();
+  const guestsApi = useApi<PaginatedResponse<Guest>>();
+  const mutationApi = useApi<LaundryOrder | LaundryItem | null>({ showSuccessToast: true });
+
+  // Local state
+  const [orders, setOrders] = useState<LaundryOrder[]>([]);
+  const [clothingCategories, setClothingCategories] = useState<LaundryItem[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<ClothingCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<LaundryItem | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: "category" | "order"; id: string }>({ open: false, type: "category", id: "" });
 
   const [categoryForm, setCategoryForm] = useState({ name: "", price: "" });
@@ -50,7 +58,35 @@ export default function LaundryPage() {
     paymentMethod: "cash" as "cash" | "card" | "room-charge",
   });
 
-  const openCategoryModal = (category?: ClothingCategory) => {
+  // Fetch data on mount
+  useEffect(() => {
+    fetchOrders();
+    fetchItems();
+    fetchGuests();
+  }, []);
+
+  const fetchOrders = async () => {
+    const response = await ordersApi.execute(() => getLaundryOrders());
+    if (response.success && response.data) {
+      setOrders(response.data.items);
+    }
+  };
+
+  const fetchItems = async () => {
+    const response = await itemsApi.execute(() => getLaundryItems());
+    if (response.success && response.data) {
+      setClothingCategories(response.data.items);
+    }
+  };
+
+  const fetchGuests = async () => {
+    const response = await guestsApi.execute(() => getGuests());
+    if (response.success && response.data) {
+      setGuests(response.data.items);
+    }
+  };
+
+  const openCategoryModal = (category?: LaundryItem) => {
     if (category) {
       setEditingCategory(category);
       setCategoryForm({ name: category.name, price: category.price.toString() });
@@ -61,25 +97,73 @@ export default function LaundryPage() {
     setCategoryModalOpen(true);
   };
 
-  const handleCategorySubmit = () => {
-    toast.success(editingCategory ? "Category updated successfully" : "Category created successfully");
-    setCategoryModalOpen(false);
+  const handleCategorySubmit = async () => {
+    const categoryData = {
+      name: categoryForm.name,
+      price: parseFloat(categoryForm.price),
+    };
+
+    if (editingCategory) {
+      const response = await mutationApi.execute(() => updateLaundryItem(editingCategory.id, categoryData));
+      if (response.success) {
+        fetchItems();
+        setCategoryModalOpen(false);
+      }
+    } else {
+      const response = await mutationApi.execute(() => createLaundryItem(categoryData));
+      if (response.success) {
+        fetchItems();
+        setCategoryModalOpen(false);
+      }
+    }
   };
 
-  const handleOrderSubmit = () => {
-    toast.success("Laundry order created successfully");
-    setOrderModalOpen(false);
-    setOrderForm({
-      customerType: "guest",
-      guestId: "",
-      customerName: "",
-      items: [{ categoryId: "", quantity: "" }],
-      paymentMethod: "cash",
-    });
+  const handleOrderSubmit = async () => {
+    const orderData = {
+      guestId: orderForm.customerType === 'guest' ? orderForm.guestId : undefined,
+      customerName: orderForm.customerType === 'guest' 
+        ? guests.find(g => g.id === orderForm.guestId)?.name || ''
+        : orderForm.customerName,
+      items: orderForm.items.map(item => ({
+        laundryItemId: item.categoryId,
+        quantity: parseInt(item.quantity) || 0,
+      })),
+      paymentMethod: orderForm.paymentMethod,
+    };
+
+    const response = await mutationApi.execute(() => createLaundryOrder(orderData));
+    if (response.success) {
+      fetchOrders();
+      setOrderModalOpen(false);
+      setOrderForm({
+        customerType: "guest",
+        guestId: "",
+        customerName: "",
+        items: [{ categoryId: "", quantity: "" }],
+        paymentMethod: "cash",
+      });
+    }
   };
 
-  const handleDelete = () => {
-    toast.success(deleteDialog.type === "category" ? "Category deleted" : "Order deleted");
+  const handleStatusUpdate = async (orderId: string, status: LaundryOrder['status']) => {
+    const response = await mutationApi.execute(() => updateLaundryOrderStatus(orderId, status));
+    if (response.success) {
+      fetchOrders();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleteDialog.type === "category") {
+      const response = await mutationApi.execute(() => deleteLaundryItem(deleteDialog.id));
+      if (response.success) {
+        fetchItems();
+      }
+    } else {
+      const response = await mutationApi.execute(() => deleteLaundryOrder(deleteDialog.id));
+      if (response.success) {
+        fetchOrders();
+      }
+    }
     setDeleteDialog({ open: false, type: "category", id: "" });
   };
 
@@ -109,6 +193,14 @@ export default function LaundryPage() {
       return total + (category?.price || 0) * (parseInt(item.quantity) || 0);
     }, 0);
   };
+
+  const isLoading = ordersApi.isLoading || itemsApi.isLoading;
+  const hasError = ordersApi.error || itemsApi.error;
+
+  // Stats
+  const pendingOrders = orders.filter(o => o.status === 'received').length;
+  const processingOrders = orders.filter(o => o.status === 'processing').length;
+  const readyOrders = orders.filter(o => o.status === 'ready').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,10 +237,10 @@ export default function LaundryPage() {
           className="grid grid-cols-1 md:grid-cols-4 gap-4"
         >
           {[
-            { label: "Pending Orders", value: 8, icon: Clock, color: "text-warning" },
-            { label: "In Processing", value: 12, icon: Shirt, color: "text-info" },
-            { label: "Ready for Pickup", value: 5, icon: CheckCircle, color: "text-success" },
-            { label: "Today's Revenue", value: "$420", icon: DollarSign, color: "text-primary" },
+            { label: "Pending Orders", value: pendingOrders, icon: Clock, color: "text-warning" },
+            { label: "In Processing", value: processingOrders, icon: Shirt, color: "text-info" },
+            { label: "Ready for Pickup", value: readyOrders, icon: CheckCircle, color: "text-success" },
+            { label: "Today's Revenue", value: "$--", icon: DollarSign, color: "text-primary" },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">
               <CardContent className="p-4 flex items-center gap-4">
@@ -164,119 +256,163 @@ export default function LaundryPage() {
           ))}
         </motion.div>
 
-        {/* Orders */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Laundry Orders</CardTitle>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">All</Button>
-                <Button variant="ghost" size="sm">In-House</Button>
-                <Button variant="ghost" size="sm">External</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {laundryOrders.map((order) => (
-                  <Card key={order.id} variant="elevated" className="p-4 hover-lift">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                          <Shirt className="w-6 h-6 text-primary" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-foreground">{order.customerName}</h3>
-                            <Badge variant={order.guestId ? "default" : "secondary"}>
-                              {order.guestId ? "Guest" : "External"}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                          </p>
-                        </div>
-                      </div>
+        {/* Loading State */}
+        {isLoading && <LoadingState message="Loading laundry data..." />}
 
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-semibold text-foreground">${order.totalAmount}</p>
-                          <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod}</p>
-                        </div>
-                        <Badge variant={statusColors[order.status]}>{order.status}</Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">Update</Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => toast.success("Status updated to Processing")}>
-                              Mark as Processing
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.success("Status updated to Ready")}>
-                              Mark as Ready
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.success("Status updated to Delivered")}>
-                              Mark as Delivered
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Error State */}
+        {hasError && !isLoading && (
+          <ErrorState 
+            message={ordersApi.error || itemsApi.error || 'Failed to load data'} 
+            onRetry={() => { fetchOrders(); fetchItems(); }} 
+          />
+        )}
 
-        {/* Pricing */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Clothing Categories & Pricing</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {clothingCategories.map((item) => (
-                  <Card key={item.id} variant="glass" className="p-4 text-center relative group">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreVertical className="w-3 h-3" />
+        {/* Content */}
+        {!isLoading && !hasError && (
+          <>
+            {/* Orders */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Laundry Orders</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm">All</Button>
+                    <Button variant="ghost" size="sm">In-House</Button>
+                    <Button variant="ghost" size="sm">External</Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {orders.length === 0 ? (
+                    <EmptyState
+                      icon={Shirt}
+                      title="No laundry orders"
+                      description="Create your first laundry order"
+                      action={
+                        <Button onClick={() => setOrderModalOpen(true)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          New Order
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openCategoryModal(item)}>
-                          <Edit className="w-4 h-4 mr-2" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => setDeleteDialog({ open: true, type: "category", id: item.id })}
-                        >
-                          <Trash className="w-4 h-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Package className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <p className="font-medium text-foreground">{item.name}</p>
-                    <p className="text-lg font-bold text-primary">${item.price}</p>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                      }
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <Card key={order.id} variant="elevated" className="p-4 hover-lift">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <Shirt className="w-6 h-6 text-primary" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-foreground">{order.customerName}</h3>
+                                  <Badge variant={order.guestId ? "default" : "secondary"}>
+                                    {order.guestId ? "Guest" : "External"}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="font-semibold text-foreground">${order.totalAmount}</p>
+                                <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod}</p>
+                              </div>
+                              <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm">Update</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'processing')}>
+                                    Mark as Processing
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'ready')}>
+                                    Mark as Ready
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'delivered')}>
+                                    Mark as Delivered
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Pricing */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg">Clothing Categories & Pricing</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {clothingCategories.length === 0 ? (
+                    <EmptyState
+                      icon={Package}
+                      title="No clothing categories"
+                      description="Add clothing categories to create orders"
+                      action={
+                        <Button onClick={() => openCategoryModal()}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Category
+                        </Button>
+                      }
+                    />
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {clothingCategories.map((item) => (
+                        <Card key={item.id} variant="glass" className="p-4 text-center relative group">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <MoreVertical className="w-3 h-3" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openCategoryModal(item)}>
+                                <Edit className="w-4 h-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => setDeleteDialog({ open: true, type: "category", id: item.id })}
+                              >
+                                <Trash className="w-4 h-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Package className="w-8 h-8 mx-auto mb-2 text-primary" />
+                          <p className="font-medium text-foreground">{item.name}</p>
+                          <p className="text-lg font-bold text-primary">${item.price}</p>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </>
+        )}
       </div>
 
       {/* Clothing Category Modal */}
@@ -287,6 +423,7 @@ export default function LaundryPage() {
         description="Define clothing type and pricing"
         onSubmit={handleCategorySubmit}
         submitLabel={editingCategory ? "Update Category" : "Add Category"}
+        isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
           <FormField label="Category Name" required>
@@ -316,6 +453,7 @@ export default function LaundryPage() {
         onSubmit={handleOrderSubmit}
         submitLabel="Create Order"
         size="lg"
+        isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
           <FormField label="Customer Type" required>
@@ -425,10 +563,14 @@ export default function LaundryPage() {
       <ConfirmDialog
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
-        title={`Delete ${deleteDialog.type === "category" ? "Category" : "Order"}`}
-        description="Are you sure? This action cannot be undone."
+        title={deleteDialog.type === "category" ? "Delete Category" : "Delete Order"}
+        description={deleteDialog.type === "category" 
+          ? "Are you sure you want to delete this clothing category? This action cannot be undone."
+          : "Are you sure you want to delete this order? This action cannot be undone."
+        }
         onConfirm={handleDelete}
         variant="destructive"
+        isLoading={mutationApi.isLoading}
       />
     </div>
   );

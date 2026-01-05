@@ -269,6 +269,36 @@ export async function deleteRoomCategory(id: string): Promise<ApiResponse<null>>
 }
 
 // =====================================================
+// Room Items (Categories Dropdown)
+// =====================================================
+
+export interface RoomCategorySelectItem {
+  disabled: boolean;
+  group: string | null;
+  selected: boolean;
+  text: string;
+  value: string;
+}
+
+/**
+ * GET /api/v3/rooms/getroomsitems
+ * Get room categories for dropdown selection
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: [
+ *     { disabled: false, group: null, selected: false, text: "VIP", value: "1" },
+ *     { disabled: false, group: null, selected: false, text: "VVIP", value: "2" }
+ *   ],
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getRoomItems(): Promise<ApiResponse<RoomCategorySelectItem[]>> {
+  return await apiGet<RoomCategorySelectItem[]>('/v3/rooms/getroomsitems');
+}
+
+// =====================================================
 // Public Rooms (for landing page)
 // =====================================================
 
@@ -277,40 +307,20 @@ export async function deleteRoomCategory(id: string): Promise<ApiResponse<null>>
  * Get all available rooms across all hotels (public endpoint)
  */
 export async function getPublicRooms(params?: PaginationParams & { city?: string; minPrice?: number; maxPrice?: number }): Promise<ApiResponse<PaginatedResponse<Room>>> {
-  try {
-    return await apiGet<PaginatedResponse<Room>>('/public/rooms', params);
-  } catch (error) {
-    // Mock response for demo
-    console.warn('API not available, using mock response');
-    const mockRooms: Room[] = [
-      { id: 'r1', hotelId: 'h1', categoryId: 'rc1', roomNumber: '101', floor: 1, status: 'available', price: 150, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Standard Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r3', hotelId: 'h1', categoryId: 'rc2', roomNumber: '201', floor: 2, status: 'available', price: 280, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Deluxe Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r5', hotelId: 'h1', categoryId: 'rc3', roomNumber: '301', floor: 3, status: 'available', price: 450, image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Executive Suite', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r6', hotelId: 'h1', categoryId: 'rc4', roomNumber: '401', floor: 4, status: 'available', price: 850, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Presidential Suite', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r7', hotelId: 'h2', categoryId: 'rc1', roomNumber: '101', floor: 1, status: 'available', price: 180, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Standard Room', hotelName: 'LuxeStay Marina Bay' },
-      { id: 'r8', hotelId: 'h2', categoryId: 'rc2', roomNumber: '201', floor: 2, status: 'available', price: 320, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Deluxe Room', hotelName: 'LuxeStay Marina Bay' },
-      { id: 'r9', hotelId: 'h3', categoryId: 'rc3', roomNumber: '201', floor: 2, status: 'available', price: 520, image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Executive Suite', hotelName: 'LuxeStay Mountain Retreat' },
-    ];
-    
-    // Sort by isPromoted
-    mockRooms.sort((a, b) => (b.isPromoted ? 1 : 0) - (a.isPromoted ? 1 : 0));
-    
-    const page = params?.page || 1;
-    const pageSize = params?.pageSize || 10;
-    const startIndex = (page - 1) * pageSize;
-    const paginatedRooms = mockRooms.slice(startIndex, startIndex + pageSize);
-    
-    return {
-      success: true,
-      data: {
-        items: paginatedRooms,
-        totalItems: mockRooms.length,
-        totalPages: Math.ceil(mockRooms.length / pageSize),
-        currentPage: page,
-        pageSize: pageSize,
-      },
-      message: 'Rooms retrieved successfully',
-      status: 200,
-    };
-  }
+  return await apiGet<PaginatedResponse<Room>>('/public/rooms', params);
 }
+
+// Export as named object
+export const roomService = {
+  getRooms,
+  getRoomById,
+  createRoom,
+  updateRoom,
+  deleteRoom,
+  getRoomCategories,
+  createRoomCategory,
+  updateRoomCategory,
+  deleteRoomCategory,
+  getRoomItems,
+  getPublicRooms,
+};

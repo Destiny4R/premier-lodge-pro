@@ -25,3 +25,18 @@ export * from './departmentService';
 
 // Employee Service
 export * from './employeeService';
+
+// Event Service
+export * from './eventService';
+
+// Gym Service
+export * from './gymService';
+
+// Pool Service
+export * from './poolService';
+
+// Laundry Service
+export * from './laundryService';
+
+// Restaurant Service
+export * from './restaurantService';
