@@ -21,7 +21,9 @@ import {
   deleteRoom,
   createRoomCategory,
   updateRoomCategory,
-  deleteRoomCategory
+  deleteRoomCategory,
+  getRoomItems,
+  RoomCategorySelectItem
 } from "@/services/roomService";
 import { Room, RoomCategory } from "@/types/api";
 
@@ -41,10 +43,13 @@ export default function RoomsPage() {
   // API States
   const roomsApi = useApi<{ items: Room[]; totalItems: number }>();
   const categoriesApi = useApi<{ items: RoomCategory[]; totalItems: number }>();
+  const roomItemsApi = useApi<RoomCategorySelectItem[]>();
   const mutationApi = useApi<Room | RoomCategory | null>({ showSuccessToast: true });
 
   // Local state for categories with images
   const [categories, setCategories] = useState<RoomCategoryWithImages[]>([]);
+  // Room category items for dropdown selection
+  const [roomCategoryItems, setRoomCategoryItems] = useState<RoomCategorySelectItem[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
 
   // Category Modal State
@@ -90,7 +95,25 @@ export default function RoomsPage() {
   useEffect(() => {
     fetchRooms();
     fetchCategories();
+    fetchRoomItems();
   }, []);
+
+  /**
+   * GET /api/v3/rooms/getroomsitems
+   * Fetch room category items for dropdown selection
+   * Response: {
+   *   success: boolean,
+   *   data: [{ disabled: boolean, group: string|null, selected: boolean, text: string, value: string }],
+   *   message: string,
+   *   status: number
+   * }
+   */
+  const fetchRoomItems = async () => {
+    const response = await roomItemsApi.execute(() => getRoomItems());
+    if (response.success && response.data) {
+      setRoomCategoryItems(response.data);
+    }
+  };
 
   const fetchRooms = async () => {
     /**
@@ -572,9 +595,23 @@ export default function RoomsPage() {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
+                {/* Use getRoomItems API response for dropdown */}
+                {roomCategoryItems.length > 0 ? (
+                  roomCategoryItems.map((item) => (
+                    <SelectItem 
+                      key={item.value} 
+                      value={item.value}
+                      disabled={item.disabled}
+                    >
+                      {item.text}
+                    </SelectItem>
+                  ))
+                ) : (
+                  /* Fallback to categories if roomItems not available */
+                  categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </FormField>

@@ -7,7 +7,7 @@ import { getStoredUser, getStoredToken, setAuthData, clearAuthData } from "@/lib
 // Auth Context - API Integration
 // =====================================================
 
-export type UserRole = "SuperAdmin" | "SubAdmin" | "Manager" | "Receptionist";
+export type UserRole = "Super Admin" | "SubAdmin" | "Manager" | "Receptionist" | "Gym Head" | "Dry Cleaner" | "Restaurant Bar";
 
 export interface User {
   userId: string;
