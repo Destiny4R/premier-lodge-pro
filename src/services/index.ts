@@ -4,6 +4,8 @@
 
 // Auth Service
 export * from './authService';
+export * from './settingsService';
+export * from './publicService';
 
 // Room Service  
 export * from './roomService';

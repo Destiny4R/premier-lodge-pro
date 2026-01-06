@@ -298,17 +298,7 @@ export async function getRoomItems(): Promise<ApiResponse<RoomCategorySelectItem
   return await apiGet<RoomCategorySelectItem[]>('/v3/rooms/getroomsitems');
 }
 
-// =====================================================
-// Public Rooms (for landing page)
-// =====================================================
-
-/**
- * GET /api/public/rooms
- * Get all available rooms across all hotels (public endpoint)
- */
-export async function getPublicRooms(params?: PaginationParams & { city?: string; minPrice?: number; maxPrice?: number }): Promise<ApiResponse<PaginatedResponse<Room>>> {
-  return await apiGet<PaginatedResponse<Room>>('/public/rooms', params);
-}
+// Note: Public room endpoints moved to publicService.ts
 
 // Export as named object
 export const roomService = {
@@ -322,5 +312,4 @@ export const roomService = {
   updateRoomCategory,
   deleteRoomCategory,
   getRoomItems,
-  getPublicRooms,
 };
