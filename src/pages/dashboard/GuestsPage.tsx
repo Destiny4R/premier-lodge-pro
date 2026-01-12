@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { LoadingState, EmptyState, StatsSkeleton } from "@/components/ui/loading-state";
 import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History, Edit, Trash } from "lucide-react";
 import { getGuests, createGuest, updateGuest, deleteGuest, getGuestStats } from "@/services/guestService";
-import { Guest, CreateGuestRequest } from "@/types/api";
+import { Guest, CreateGuestRequest, Room } from "@/types/api";
+import { getRooms } from "@/services/roomService";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
@@ -25,6 +27,7 @@ interface GuestStats {
 export default function GuestsPage() {
   // Data state
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [stats, setStats] = useState<GuestStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,25 +41,36 @@ export default function GuestsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [guestForm, setGuestForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    idType: "",
-    idNumber: "",
+    firstname: "",
+    lastname: "",
+    gender: "Male",
     address: "",
+    city: "",
+    country: "",
+    Email: "",
+    phone: "",
+    identificationnumber: "",
+    identificationtype: "National Identification Number (NIN)",
+    emergencycontactname: "",
+    emergencycontactphone: "",
+    accommodation: "",
+    checkindate: null as Date | null,
+    checkoutdate: null as Date | null,
+    roomids: [] as number[],
   });
 
   // Fetch data
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+    //
     try {
-      const [guestsRes, statsRes] = await Promise.all([
-        getGuests({ page: 1, limit: 50, search: searchQuery }),
+      const [guestsRes, statsRes, roomsRes] = await Promise.all([
+        getGuests({ page: 1, limit: 10, search: searchQuery }),
         getGuestStats(),
+        getRooms({ page: 1, limit: 200 }),
       ]);
-
+      console.log(guestsRes, statsRes, roomsRes);
       if (guestsRes.success) {
         setGuests(guestsRes.data.items);
       } else {
@@ -65,6 +79,10 @@ export default function GuestsPage() {
 
       if (statsRes.success) {
         setStats(statsRes.data);
+      }
+
+      if (roomsRes.success) {
+        setRooms(roomsRes.data.items);
       }
     } catch (err) {
       setError("Failed to load guests");
@@ -88,16 +106,26 @@ export default function GuestsPage() {
     if (guest) {
       setEditingGuest(guest);
       setGuestForm({
-        name: guest.name,
-        email: guest.email,
-        phone: guest.phone,
-        idType: guest.idType,
-        idNumber: guest.idNumber,
-        address: guest.address,
+        firstname: guest.firstname || guest.name?.split(' ')[0] || '',
+        lastname: guest.lastname || guest.name?.split(' ').slice(1).join(' ') || '',
+        gender: guest.gender || 'Male',
+        address: guest.address || '',
+        city: guest.city || '',
+        country: guest.country || '',
+        Email: guest.Email || guest.email || '',
+        phone: guest.phone || '',
+        identificationnumber: guest.identificationnumber || guest.idNumber || '',
+        identificationtype: guest.identificationtype || guest.idType || 'National Identification Number (NIN)',
+        emergencycontactname: guest.emergencycontactname || '',
+        emergencycontactphone: guest.emergencycontactphone || '',
+        accommodation: guest.accommodation || '',
+        checkindate: guest.checkindate ? new Date(guest.checkindate) : null,
+        checkoutdate: guest.checkoutdate ? new Date(guest.checkoutdate) : null,
+        roomids: guest.roomids || [],
       });
     } else {
       setEditingGuest(null);
-      setGuestForm({ name: "", email: "", phone: "", idType: "", idNumber: "", address: "" });
+      setGuestForm({ firstname: "", lastname: "", gender: "Male", address: "", city: "", country: "", Email: "", phone: "", identificationnumber: "", identificationtype: "National Identification Number (NIN)", emergencycontactname: "", emergencycontactphone: "", accommodation: "", checkindate: null, checkoutdate: null, roomids: [] });
     }
     setGuestModalOpen(true);
   };
@@ -106,18 +134,28 @@ export default function GuestsPage() {
     setIsSubmitting(true);
     
     try {
-      const guestData: CreateGuestRequest = {
-        name: guestForm.name,
-        email: guestForm.email,
-        phone: guestForm.phone,
-        idType: guestForm.idType,
-        idNumber: guestForm.idNumber,
+      const payload: CreateGuestRequest = {
+        firstname: guestForm.firstname,
+        lastname: guestForm.lastname,
+        gender: guestForm.gender,
         address: guestForm.address,
+        city: guestForm.city,
+        country: guestForm.country,
+        Email: guestForm.Email,
+        phone: guestForm.phone,
+        identificationnumber: guestForm.identificationnumber,
+        identificationtype: guestForm.identificationtype,
+        emergencycontactname: guestForm.emergencycontactname,
+        emergencycontactphone: guestForm.emergencycontactphone,
+        accommodation: guestForm.accommodation,
+        checkindate: guestForm.checkindate ? guestForm.checkindate.toISOString() : undefined,
+        checkoutdate: guestForm.checkoutdate ? guestForm.checkoutdate.toISOString() : undefined,
+        roomids: guestForm.roomids,
       };
 
       const response = editingGuest
-        ? await updateGuest(editingGuest.id, guestData)
-        : await createGuest(guestData);
+        ? await updateGuest(editingGuest.id, payload)
+        : await createGuest(payload);
 
       if (response.success) {
         toast.success(editingGuest ? "Guest updated successfully" : "Guest added successfully");
@@ -152,6 +190,34 @@ export default function GuestsPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Ensure check-in / check-out dates are valid relative to each other and today
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    setGuestForm((prev) => {
+      let changed = false;
+      let next = { ...prev };
+
+      if (next.checkindate && next.checkindate < today) {
+        next.checkindate = null;
+        changed = true;
+      }
+
+      if (next.checkoutdate && next.checkoutdate < today) {
+        next.checkoutdate = null;
+        changed = true;
+      }
+
+      if (next.checkindate && next.checkoutdate && next.checkoutdate < next.checkindate) {
+        next.checkoutdate = null;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [guestForm.checkindate, guestForm.checkoutdate]);
 
   if (isLoading) {
     return (
@@ -335,58 +401,126 @@ export default function GuestsPage() {
         size="lg"
       >
         <div className="space-y-4">
-          <FormField label="Full Name" required>
-            <Input
-              value={guestForm.name}
-              onChange={(e) => setGuestForm({ ...guestForm, name: e.target.value })}
-              placeholder="John Doe"
-            />
-          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Email" required>
-              <Input
-                type="email"
-                value={guestForm.email}
-                onChange={(e) => setGuestForm({ ...guestForm, email: e.target.value })}
-                placeholder="john@example.com"
-              />
+            <FormField label="First Name" required>
+              <Input value={guestForm.firstname} onChange={(e) => setGuestForm({ ...guestForm, firstname: e.target.value })} placeholder="First name" />
             </FormField>
-            <FormField label="Phone" required>
-              <Input
-                value={guestForm.phone}
-                onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })}
-                placeholder="+1 555-0100"
-              />
+            <FormField label="Last Name" required>
+              <Input value={guestForm.lastname} onChange={(e) => setGuestForm({ ...guestForm, lastname: e.target.value })} placeholder="Last name" />
             </FormField>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="ID Type" required>
-              <Select value={guestForm.idType} onValueChange={(v) => setGuestForm({ ...guestForm, idType: v })}>
+            <FormField label="Gender">
+              <Select value={guestForm.gender} onValueChange={(v) => setGuestForm({ ...guestForm, gender: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select ID type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Passport">Passport</SelectItem>
-                  <SelectItem value="Driver License">Driver License</SelectItem>
-                  <SelectItem value="National ID">National ID</SelectItem>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="ID Number" required>
-              <Input
-                value={guestForm.idNumber}
-                onChange={(e) => setGuestForm({ ...guestForm, idNumber: e.target.value })}
-                placeholder="AB123456"
-              />
+            <FormField label="Email" required>
+              <Input type="email" value={guestForm.Email} onChange={(e) => setGuestForm({ ...guestForm, Email: e.target.value })} placeholder="guest@example.com" />
             </FormField>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Phone" required>
+              <Input value={guestForm.phone} onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })} placeholder="+234..." />
+            </FormField>
+            <FormField label="Accommodation">
+              <Select value={guestForm.accommodation} onValueChange={(e) => setGuestForm({ ...guestForm, accommodation: e })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Checked In">Checked In</SelectItem>
+                  <SelectItem value="Reservations">Reservations</SelectItem>
+                  {/* <SelectItem value="Other">Other</SelectItem> */}
+                </SelectContent>
+              </Select>
+            </FormField>
+            {/* <FormField label="Accommodation">
+              <Input value={guestForm.accommodation} onChange={(e) => setGuestForm({ ...guestForm, accommodation: e.target.value })} placeholder="Deluxe Suite with River View" />
+            </FormField> */}
+          </div>
+
+          <FormField label="Identification" hint="Type and number">
+            <div className="grid grid-cols-2 gap-4">
+              <Select value={guestForm.identificationtype} onValueChange={(v) => setGuestForm({ ...guestForm, identificationtype: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select identification type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="National Identification Number (NIN)">National Identification Number (NIN)</SelectItem>
+                  <SelectItem value="International Passport">International Passport</SelectItem>
+                  <SelectItem value="Driver's License">Driver's License</SelectItem>
+                  <SelectItem value="Permanent Voter's Card (PVC)">Permanent Voter's Card (PVC)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input value={guestForm.identificationnumber} onChange={(e) => setGuestForm({ ...guestForm, identificationnumber: e.target.value })} placeholder="A1298767890NG" />
+            </div>
+          </FormField>
+
           <FormField label="Address">
-            <Textarea
-              value={guestForm.address}
-              onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })}
-              placeholder="Full address"
-              rows={2}
-            />
+            <Textarea value={guestForm.address} onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })} placeholder="Full address" rows={2} />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="City">
+              <Input value={guestForm.city} onChange={(e) => setGuestForm({ ...guestForm, city: e.target.value })} placeholder="Makurdi" />
+            </FormField>
+            <FormField label="Country">
+              <Input value={guestForm.country} onChange={(e) => setGuestForm({ ...guestForm, country: e.target.value })} placeholder="Nigeria" />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Emergency Contact Name">
+              <Input value={guestForm.emergencycontactname} onChange={(e) => setGuestForm({ ...guestForm, emergencycontactname: e.target.value })} placeholder="Grace Adoga" />
+            </FormField>
+            <FormField label="Emergency Contact Phone">
+              <Input value={guestForm.emergencycontactphone} onChange={(e) => setGuestForm({ ...guestForm, emergencycontactphone: e.target.value })} placeholder="+234..." />
+            </FormField>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Check-in Date">
+              <DatePicker value={guestForm.checkindate} onChange={(d) => setGuestForm(prev => ({ ...prev, checkindate: d }))} placeholder="Select check-in" minDate={new Date()} />
+            </FormField>
+            <FormField label="Check-out Date">
+              <DatePicker value={guestForm.checkoutdate} onChange={(d) => setGuestForm(prev => ({ ...prev, checkoutdate: d }))} placeholder="Select check-out" minDate={guestForm.checkindate ? guestForm.checkindate : new Date()} />
+            </FormField>
+          </div>
+
+          <FormField label="Select Rooms">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded">
+              {rooms.map((r) => {
+                const idNum = parseInt(r.id);
+                const checked = guestForm.roomids.includes(idNum);
+                return (
+                  <label key={r.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setGuestForm((prev) => {
+                          const roomSet = new Set(prev.roomids);
+                          if (e.target.checked) roomSet.add(idNum);
+                          else roomSet.delete(idNum);
+                          return { ...prev, roomids: Array.from(roomSet) } as any;
+                        });
+                      }}
+                    />
+                    <span className="text-sm">Room {r.doorNumber || (r as any).roomNumber || r.id} - {r.categoryName || 'Unknown'} - ${r.price}</span>
+                  </label>
+                );
+              })}
+            </div>
           </FormField>
         </div>
       </FormModal>

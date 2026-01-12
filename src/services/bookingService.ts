@@ -30,7 +30,7 @@ import {
  */
 export async function getBookings(params?: PaginationParams & { status?: string; dateFrom?: string; dateTo?: string }): Promise<ApiResponse<PaginatedResponse<Booking>>> {
   try {
-    return await apiGet<PaginatedResponse<Booking>>('/bookings', params);
+    return await apiGet<PaginatedResponse<Booking>>('v3/bookings/getbookings', params);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -249,7 +249,7 @@ export async function getCheckoutReport(id: string): Promise<ApiResponse<Checkou
  */
 export async function getBookingStats(): Promise<ApiResponse<{ todayCheckIns: number; todayCheckOuts: number; pendingPayments: number; activeBookings: number }>> {
   try {
-    return await apiGet('/bookings/stats');
+    return await apiGet('v3/bookings/stats');
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');

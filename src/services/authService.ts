@@ -15,7 +15,7 @@ import {
 // =====================================================
 
 const ENDPOINTS = {
-  LOGIN: '/auth/login',           // POST - Login endpoint
+  LOGIN: 'v2/auths/login',           // POST - Login endpoint
   LOGOUT: '/auth/logout',         // POST - Logout endpoint (optional)
   RESET_PASSWORD: '/auth/reset-password',    // POST - Request password reset
   CHANGE_PASSWORD: '/auth/change-password',  // POST - Change password

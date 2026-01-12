@@ -182,9 +182,9 @@ export const roleLabels: Record<UserRole, string> = {
   "manager": "Manager",
   "receptionist": "Receptionist",
   "gym-head": "Gym Head",
-  "laundry-staff": "Laundry Staff",
-  "event-manager": "Event Manager",
-  "restaurant-staff": "Restaurant Staff",
+  "laundry-staff": "Dry Cleaner",
+  "event-manager": "Receptionist",
+  "restaurant-staff": "Restaurant",
   "store-keeper": "Store Keeper",
 };
 

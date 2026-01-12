@@ -16,17 +16,16 @@ export interface RoomCategory {
   description: string;
   basePrice: number;
   maxOccupancy: number;
-  amenities: string[];
+  amenities: string;
 }
 
 export interface Room {
   id: string;
   hotelId: string;
   categoryId: string;
-  roomNumber: string;
+  doorNumber: string;
   floor: number;
   status: 'available' | 'occupied' | 'reserved' | 'maintenance';
-  price: number;
   image: string;
   isPromoted: boolean;
 }
@@ -151,7 +150,7 @@ export const roomCategories: RoomCategory[] = [
     description: 'Comfortable room with essential amenities',
     basePrice: 150,
     maxOccupancy: 2,
-    amenities: ['WiFi', 'TV', 'Air Conditioning', 'Mini Bar'],
+    amenities: 'WiFi, TV, Air Conditioning, Mini Bar',
   },
   {
     id: 'rc2',
@@ -159,7 +158,7 @@ export const roomCategories: RoomCategory[] = [
     description: 'Spacious room with premium amenities and city view',
     basePrice: 280,
     maxOccupancy: 3,
-    amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Mini Bar', 'City View', 'Work Desk'],
+    amenities: 'WiFi, Smart TV, Air Conditioning, Mini Bar, City View, Work Desk',
   },
   {
     id: 'rc3',
@@ -167,7 +166,7 @@ export const roomCategories: RoomCategory[] = [
     description: 'Luxury suite with separate living area',
     basePrice: 450,
     maxOccupancy: 4,
-    amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Full Bar', 'City View', 'Living Room', 'Jacuzzi'],
+    amenities: 'WiFi, Smart TV, Air Conditioning, Full Bar, City View, Living Room, Jacuzzi',
   },
   {
     id: 'rc4',
@@ -175,21 +174,21 @@ export const roomCategories: RoomCategory[] = [
     description: 'Ultimate luxury with panoramic views and butler service',
     basePrice: 850,
     maxOccupancy: 6,
-    amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Full Bar', 'Panoramic View', 'Living Room', 'Jacuzzi', 'Butler Service', 'Private Dining'],
+    amenities: 'WiFi, Smart TV, Air Conditioning, Full Bar, Panoramic View, Living Room, Jacuzzi, Butler Service, Private Dining',
   },
 ];
 
 // Mock Rooms
 export const rooms: Room[] = [
-  { id: 'r1', hotelId: 'h1', categoryId: 'rc1', roomNumber: '101', floor: 1, status: 'available', price: 150, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
-  { id: 'r2', hotelId: 'h1', categoryId: 'rc1', roomNumber: '102', floor: 1, status: 'occupied', price: 150, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
-  { id: 'r3', hotelId: 'h1', categoryId: 'rc2', roomNumber: '201', floor: 2, status: 'available', price: 280, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true },
-  { id: 'r4', hotelId: 'h1', categoryId: 'rc2', roomNumber: '202', floor: 2, status: 'reserved', price: 280, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: false },
-  { id: 'r5', hotelId: 'h1', categoryId: 'rc3', roomNumber: '301', floor: 3, status: 'available', price: 450, image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: true },
-  { id: 'r6', hotelId: 'h1', categoryId: 'rc4', roomNumber: '401', floor: 4, status: 'available', price: 850, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600', isPromoted: true },
-  { id: 'r7', hotelId: 'h2', categoryId: 'rc1', roomNumber: '101', floor: 1, status: 'available', price: 180, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
-  { id: 'r8', hotelId: 'h2', categoryId: 'rc2', roomNumber: '201', floor: 2, status: 'available', price: 320, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true },
-  { id: 'r9', hotelId: 'h3', categoryId: 'rc3', roomNumber: '201', floor: 2, status: 'available', price: 520, image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: false },
+  { id: 'r1', hotelId: 'h1', categoryId: 'rc1', doorNumber: '101', floor: 1, status: 'available', image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
+  { id: 'r2', hotelId: 'h1', categoryId: 'rc1', doorNumber: '102', floor: 1, status: 'occupied', image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
+  { id: 'r3', hotelId: 'h1', categoryId: 'rc2', doorNumber: '201', floor: 2, status: 'available', image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true },
+  { id: 'r4', hotelId: 'h1', categoryId: 'rc2', doorNumber: '202', floor: 2, status: 'reserved', image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: false },
+  { id: 'r5', hotelId: 'h1', categoryId: 'rc3', doorNumber: '301', floor: 3, status: 'available', image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: true },
+  { id: 'r6', hotelId: 'h1', categoryId: 'rc4', doorNumber: '401', floor: 4, status: 'available', image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600', isPromoted: true },
+  { id: 'r7', hotelId: 'h2', categoryId: 'rc1', doorNumber: '101', floor: 1, status: 'available', image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false },
+  { id: 'r8', hotelId: 'h2', categoryId: 'rc2', doorNumber: '201', floor: 2, status: 'available', image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true },
+  { id: 'r9', hotelId: 'h3', categoryId: 'rc3', doorNumber: '201', floor: 2, status: 'available', image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: false },
 ];
 
 // Mock Guests
@@ -249,15 +248,24 @@ export const dashboardStats = {
 
 // User Roles
 export type UserRole = 
-  | 'super-admin'
-  | 'sub-admin'
-  | 'manager'
-  | 'receptionist'
-  | 'gym-head'
-  | 'laundry-staff'
-  | 'event-manager'
-  | 'restaurant-staff'
-  | 'store-keeper';
+  |"super-admin"
+  |"sub-admin"
+  |"manager"
+  |"receptionist"
+  |"gym-head"
+  |"laundry-staff"
+  |"event-manager"
+  |"restaurant-staff"
+  |"store-keeper";
+
+// export type UserRole = 
+//   | 'Super Admin'
+//   | 'Sub Admin'
+//   | 'Manager'
+//   | 'Receptionist'
+//   | 'Gym Head'
+//   | 'Dry Cleaner'
+//   | 'Restaurant Bar';
 
 export interface User {
   id: string;

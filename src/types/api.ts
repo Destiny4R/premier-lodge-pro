@@ -64,24 +64,40 @@ export interface RoomCategory {
   description: string;
   basePrice: number;
   maxOccupancy: number;
-  amenities: string[];
+  amenities: string;
   images: string[];
   createdAt: string;
   updatedAt: string;
+  amenity: string | null;
+}
+export interface RoomImages{
+  id: string;
+  path: string;
+}
+
+export interface RoomCategoryUpdate {
+  id: number;
+  name: string;
+  description: string;
+  maxOccupancy: number;
+  basePrice: number;
+  amenity: string;
+  amenities: string;
+  images: { id: number; path: string }[];
 }
 
 export interface Room {
-  id: string;
-  hotelId: string;
-  categoryId: string;
-  roomNumber: string;
+  id?: string;
+  hotelId?: string| null;
+  categoryId: number| string;
+  doorNumber: string;
   floor: number;
-  status: 'available' | 'occupied' | 'reserved' | 'maintenance';
-  price: number;
-  image: string;
-  isPromoted: boolean;
-  createdAt: string;
-  updatedAt: string;
+  price: string | number;
+  status: 'Available' | 'Occupied' | 'Reserved' | 'maintenance';
+  image?: string | null;
+  isPromoted: boolean | true;
+  createdAt?: string| null;
+  updatedAt?: string| null;
   // Joined fields for display
   categoryName?: string;
   hotelName?: string;
@@ -89,18 +105,36 @@ export interface Room {
 
 export interface Guest {
   id: string;
-  hotelId: string;
-  name: string;
-  email: string;
-  phone: string;
-  idType: string;
-  idNumber: string;
-  address: string;
-  totalStays: number;
-  totalSpent: number;
-  avatar: string;
-  createdAt: string;
-  updatedAt: string;
+  hotelId?: string;
+
+  // New guest fields (nullable/optional for backward compatibility)
+  firstname?: string;
+  lastname?: string;
+  gender?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  Email?: string;
+  phone?: string;
+  identificationnumber?: string;
+  identificationtype?: string;
+  emergencycontactname?: string;
+  emergencycontactphone?: string;
+  accommodation?: string;
+  checkindate?: string;
+  checkoutdate?: string;
+  roomids?: number[];
+
+  // Legacy fields (kept for existing UI pieces)
+  name?: string;
+  email?: string;
+  idType?: string;
+  idNumber?: string;
+  totalStays?: number;
+  totalSpent?: number;
+  avatar?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Booking {
@@ -344,13 +378,11 @@ export interface ChangePasswordRequest {
  * Note: hotelId is derived from authenticated user's hotel
  */
 export interface CreateRoomRequest {
-  categoryId: string;
-  roomNumber: string;
+  doorNumber: string;
   floor: number;
-  price: number;
-  status: 'available' | 'occupied' | 'reserved' | 'maintenance';
+  status: string;
+  categoryId: number;
   isPromoted: boolean;
-  image?: string;
 }
 
 /**
@@ -370,22 +402,54 @@ export interface CreateRoomCategoryRequest {
   description: string;
   basePrice: number;
   maxOccupancy: number;
-  amenities: string[];
-  images?: File[];
+  amenities: string;
+  amenity?: string;
+  files?: File[];
 }
 
 /**
  * POST /api/guests
- * Request payload for creating guest
+ * Request payload for creating/updating guest (new schema)
+ * {
+ *   firstname: string,
+ *   lastname: string,
+ *   gender: string,
+ *   address: string,
+ *   city: string,
+ *   country: string,
+ *   Email: string,
+ *   phone: string,
+ *   identificationnumber: string,
+ *   identificationtype: string,
+ *   emergencycontactname: string,
+ *   emergencycontactphone: string,
+ *   accommodation?: string,
+ *   checkindate?: string,
+ *   checkoutdate?: string,
+ *   roomids?: number[]
+ * }
  */
 export interface CreateGuestRequest {
-  name: string;
-  email: string;
-  phone: string;
-  idType: string;
-  idNumber: string;
+  firstname: string;
+  lastname: string;
+  gender: string;
   address: string;
-  avatar?: string;
+  city: string;
+  country: string;
+  Email: string;
+  phone: string;
+  identificationnumber: string;
+  identificationtype: string;
+  emergencycontactname: string;
+  emergencycontactphone: string;
+  accommodation?: string;
+  checkindate?: string;
+  checkoutdate?: string;
+  roomids?: number[];
+}
+
+export interface UpdateGuestRequest extends Partial<CreateGuestRequest> {
+  id: string;
 }
 
 /**

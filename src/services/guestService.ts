@@ -26,7 +26,15 @@ import {
  */
 export async function getGuests(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Guest>>> {
   try {
-    return await apiGet<PaginatedResponse<Guest>>('/guests', params);
+    // Normalize pagination parameter names: callers may pass `limit`, but the API expects `pageSize`
+    const queryParams: Record<string, unknown> = { ...(params || {}) };
+    if (params?.limit !== undefined && params?.pageSize === undefined) {
+      queryParams.pageSize = params.limit;
+      // remove legacy `limit` to avoid ambiguity
+      delete (queryParams as any).limit;
+    }
+
+    return await apiGet<PaginatedResponse<Guest>>('v3/guests/guestlist', queryParams);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -57,7 +65,7 @@ export async function getGuests(params?: PaginationParams): Promise<ApiResponse<
  */
 export async function getGuestById(id: string): Promise<ApiResponse<Guest>> {
   try {
-    return await apiGet<Guest>(`/guests/${id}`);
+    return await apiGet<Guest>(`v3/guests/getGuestinfo/${id}`);
   } catch (error) {
     throw error;
   }
@@ -67,36 +75,27 @@ export async function getGuestById(id: string): Promise<ApiResponse<Guest>> {
  * POST /api/guests
  * Create new guest
  * 
- * Request payload:
- * {
- *   name: string,
- *   email: string,
- *   phone: string,
- *   idType: string,
- *   idNumber: string,
- *   address: string,
- *   avatar?: string
- * }
+ * Request payload follows the new guest schema defined in types
  * 
  * Note: hotelId is derived from authenticated user's hotel context
  */
 export async function createGuest(data: CreateGuestRequest): Promise<ApiResponse<Guest>> {
   try {
-    return await apiPost<Guest>('/guests', data);
+    return await apiPost<Guest>('v3/guests/addGuest', data);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
     return {
       success: true,
-      data: { 
-        ...data, 
-        id: `g${Date.now()}`, 
-        hotelId: 'h1', 
-        totalStays: 0, 
-        totalSpent: 0, 
-        avatar: data.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-        createdAt: new Date().toISOString(), 
-        updatedAt: new Date().toISOString() 
+      data: {
+        ...data,
+        id: `g${Date.now()}`,
+        hotelId: 'h1',
+        totalStays: 0,
+        totalSpent: 0,
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       } as Guest,
       message: 'Guest created successfully',
       status: 201,

@@ -1,12 +1,11 @@
-import { useRef, useEffect } from "react";
-import flatpickr from "flatpickr";
-import "flatpickr/dist/flatpickr.min.css";
-import "flatpickr/dist/themes/dark.css";
+import ReactDatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "lucide-react";
 
 // =====================================================
-// Flatpickr DatePicker Component
+// React DatePicker wrapper
 // =====================================================
 
 interface DatePickerProps {
@@ -30,71 +29,36 @@ export function DatePicker({
   minDate,
   maxDate,
   enableTime = false,
-  dateFormat = "Y-m-d",
+  dateFormat = "yyyy-MM-dd",
   className,
   disabled = false,
   id,
   name,
 }: DatePickerProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const flatpickrRef = useRef<flatpickr.Instance | null>(null);
+  // Normalize incoming values to Date | null
+  const selected: Date | null = value ? (typeof value === "string" ? new Date(value) : value) : null;
+  const _min = typeof minDate === "string" ? new Date(minDate) : (minDate as Date | undefined) || undefined;
+  const _max = typeof maxDate === "string" ? new Date(maxDate) : (maxDate as Date | undefined) || undefined;
 
   useEffect(() => {
-    if (!inputRef.current) return;
-
-    flatpickrRef.current = flatpickr(inputRef.current, {
-      dateFormat: enableTime ? `${dateFormat} H:i` : dateFormat,
-      enableTime,
-      time_24hr: true,
-      minDate,
-      maxDate,
-      defaultDate: value || undefined,
-      onChange: (selectedDates) => {
-        onChange?.(selectedDates[0] || null);
-      },
-      // Dark theme support
-      onReady: () => {
-        const isDark = document.documentElement.classList.contains("dark");
-        const calendarContainer = document.querySelector(".flatpickr-calendar");
-        if (calendarContainer && isDark) {
-          calendarContainer.classList.add("dark");
-        }
-      },
-    });
-
-    return () => {
-      flatpickrRef.current?.destroy();
-    };
+    // noop; kept for parity with previous implementation if side-effects are needed later
   }, []);
-
-  // Update value when prop changes
-  useEffect(() => {
-    if (flatpickrRef.current && value) {
-      flatpickrRef.current.setDate(value, false);
-    } else if (flatpickrRef.current && !value) {
-      flatpickrRef.current.clear();
-    }
-  }, [value]);
-
-  // Update options when they change
-  useEffect(() => {
-    if (flatpickrRef.current) {
-      if (minDate) flatpickrRef.current.set("minDate", minDate);
-      if (maxDate) flatpickrRef.current.set("maxDate", maxDate);
-    }
-  }, [minDate, maxDate]);
 
   return (
     <div className="relative">
-      <input
-        ref={inputRef}
+      <ReactDatePicker
+        selected={selected}
+        onChange={(d: Date | null) => onChange?.(d)}
+        placeholderText={placeholder}
+        minDate={_min}
+        maxDate={_max}
+        showTimeSelect={enableTime}
+        dateFormat={enableTime ? `${dateFormat} HH:mm` : dateFormat}
+        disabled={disabled}
         id={id}
         name={name}
-        placeholder={placeholder}
-        disabled={disabled}
         className={cn(
-          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-          "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
           "placeholder:text-muted-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "disabled:cursor-not-allowed disabled:opacity-50",
@@ -105,7 +69,7 @@ export function DatePicker({
       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
     </div>
   );
-}
+} 
 
 // =====================================================
 // DateRangePicker Component

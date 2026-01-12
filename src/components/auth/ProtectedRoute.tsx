@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, isAuthenticated, isLoading, hasRole } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -23,12 +23,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check if user has any of the allowed roles
-  if (allowedRoles && user) {
-    const hasAllowedRole = allowedRoles.some(role => hasRole(role));
-    if (!hasAllowedRole) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (allowedRoles && user && !allowedRoles.some(role => user.roles.includes(role))) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

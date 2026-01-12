@@ -16,9 +16,6 @@ const USER_KEY = 'luxestay_user';
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // =====================================================
@@ -29,13 +26,18 @@ api.interceptors.request.use(
     const token = localStorage.getItem(TOKEN_KEY);
     
     // Skip auth for public endpoints
-    const publicEndpoints = ['/auth/login', '/auth/reset-password', '/auth/forgot-password'];
+    const publicEndpoints = ['v2/auths/login', '/auth/reset-password', '/auth/forgot-password'];
     const isPublicEndpoint = publicEndpoints.some(endpoint => 
       config.url?.includes(endpoint)
     );
     
     if (token && !isPublicEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Set Content-Type for non-FormData requests
+    if (config.data && !(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
     }
     
     return config;

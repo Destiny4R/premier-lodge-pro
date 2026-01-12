@@ -33,21 +33,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Check for existing session on mount
-    const storedUser = getStoredUser();
-    const storedToken = getStoredToken();
-    
-    if (storedUser && storedToken) {
-      setUser(storedUser);
-      setToken(storedToken);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      return getStoredUser();
+    } catch {
+      return null;
     }
-    setIsLoading(false);
-  }, []);
+  });
+  const [token, setToken] = useState<string | null>(() => {
+    try {
+      return getStoredToken();
+    } catch {
+      return null;
+    }
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Login user with email and password

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Pagination } from '@/components/Pagination';
 import { Plus, Search, Filter, BedDouble, MoreVertical, Edit, Trash, Eye } from "lucide-react";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow, ImageUpload, ExistingImage } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +24,10 @@ import {
   updateRoomCategory,
   deleteRoomCategory,
   getRoomItems,
-  RoomCategorySelectItem
+  RoomCategorySelectItem,
+  getCategoryById,
+  deleteCategoryImage,
+  getRoomById,
 } from "@/services/roomService";
 import { Room, RoomCategory } from "@/types/api";
 
@@ -61,6 +65,7 @@ export default function RoomsPage() {
     basePrice: "",
     maxOccupancy: "",
     amenities: "",
+    amenity: "",
   });
 
   // Image upload state for categories
@@ -75,7 +80,6 @@ export default function RoomsPage() {
     categoryId: "",
     roomNumber: "",
     floor: "",
-    price: "",
     status: "available",
     isPromoted: false,
   });
@@ -121,8 +125,13 @@ export default function RoomsPage() {
      * Returns: { success: boolean, data: { items: Room[], totalItems: number, ... }, message: string }
      */
     const response = await roomsApi.execute(() => getRooms());
+    console.log('Fetched rooms:', response);
     if (response.success && response.data) {
-      setRooms(response.data.items);
+      const normalized = response.data.items.map(r => ({
+        ...r,
+        doorNumber: r.doorNumber ?? (r as any).roomNumber ?? (r as any).number ?? '',
+      }));
+      setRooms(normalized);
     }
   };
 
@@ -134,6 +143,7 @@ export default function RoomsPage() {
     const response = await categoriesApi.execute(() => getRoomCategories());
     if (response.success && response.data) {
       // Transform API response to include UI-specific image format
+      console.log('Fetched categories:', response.data.items);
       const categoriesWithImages: RoomCategoryWithImages[] = response.data.items.map(cat => ({
         ...cat,
         uiImages: cat.images?.map((img, idx) => ({ 
@@ -147,22 +157,53 @@ export default function RoomsPage() {
   };
 
   // Category handlers
-  const openCategoryModal = (category?: RoomCategoryWithImages) => {
+  const openCategoryModal = async (category?: RoomCategoryWithImages) => {
     if (category) {
-      setEditingCategory(category);
-      setCategoryForm({
-        name: category.name,
-        description: category.description,
-        basePrice: category.basePrice.toString(),
-        maxOccupancy: category.maxOccupancy.toString(),
-        amenities: category.amenities.join(", "),
-      });
-      setExistingCategoryImages(category.uiImages || []);
-      setCategoryImages([]);
-      setRemovedImageIds([]);
+      // Edit existing category - fetch full data
+      try {
+        const response = await getCategoryById(category.id);
+        console.log('Fetched category details:', response);
+        if (response.success && response.data) {
+          const data = response.data;
+          setEditingCategory(category);
+          setCategoryForm({
+            name: data.name,
+            description: data.description,
+            basePrice: data.basePrice.toString(),
+            maxOccupancy: data.maxOccupancy.toString(),
+            amenities: data.amenities,
+            amenity: data.amenity,
+          });
+          //const baseUrl = import.meta.env.BASE_URL || 'https://localhost:44353';
+          const existingImages: ExistingImage[] = data.images.map(img => ({
+            id: img.id.toString(),
+            url: img.path,
+            name: img.path.split('/').pop() || 'image',
+          }));
+          console.log('Existing images:', existingImages);
+          setExistingCategoryImages(existingImages);
+          setCategoryImages([]);
+          setRemovedImageIds([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch category details:', error);
+        // Fallback to basic data
+        setEditingCategory(category);
+        setCategoryForm({
+          name: category.name,
+          description: category.description,
+          basePrice: category.basePrice.toString(),
+          maxOccupancy: category.maxOccupancy.toString(),
+          amenities: category.amenities,
+          amenity: category.amenity,
+        });
+        setExistingCategoryImages(category.uiImages || []);
+        setCategoryImages([]);
+        setRemovedImageIds([]);
+      }
     } else {
       setEditingCategory(null);
-      setCategoryForm({ name: "", description: "", basePrice: "", maxOccupancy: "", amenities: "" });
+      setCategoryForm({ name: "", description: "", basePrice: "", maxOccupancy: "", amenities: "", amenity: "" });
       setExistingCategoryImages([]);
       setCategoryImages([]);
       setRemovedImageIds([]);
@@ -170,9 +211,15 @@ export default function RoomsPage() {
     setCategoryModalOpen(true);
   };
 
-  const handleRemoveExistingImage = (imageId: string) => {
+  const handleRemoveExistingImage = async (imageId: string) => {
     setExistingCategoryImages(prev => prev.filter(img => img.id !== imageId));
     setRemovedImageIds(prev => [...prev, imageId]);
+    try {
+      await deleteCategoryImage(imageId);
+    } catch (error) {
+      console.error('Failed to delete image:', error);
+      // Optionally revert the UI change
+    }
   };
 
   const handleCategorySubmit = async () => {
@@ -181,8 +228,9 @@ export default function RoomsPage() {
       description: categoryForm.description,
       basePrice: parseFloat(categoryForm.basePrice),
       maxOccupancy: parseInt(categoryForm.maxOccupancy),
-      amenities: categoryForm.amenities.split(",").map(a => a.trim()),
-      images: categoryImages,
+      amenities: categoryForm.amenities,
+      amenity: categoryForm.amenity,
+      files: categoryImages,
     };
 
     if (editingCategory) {
@@ -191,7 +239,7 @@ export default function RoomsPage() {
        * Request: { name, description, basePrice, maxOccupancy, amenities, images?, removedImageIds? }
        */
       const response = await mutationApi.execute(() => 
-        updateRoomCategory(editingCategory.id, categoryData)
+        updateRoomCategory(editingCategory.id, { ...categoryData, removedImageIds })
       );
       if (response.success) {
         fetchCategories();
@@ -211,41 +259,51 @@ export default function RoomsPage() {
   };
 
   // Room handlers
-  const openRoomModal = (room?: Room) => {
+  const openRoomModal = async (room?: Room) => {
     if (room) {
-      setEditingRoom(room);
-      setRoomForm({
-        categoryId: room.categoryId,
-        roomNumber: room.roomNumber,
-        floor: room.floor.toString(),
-        price: room.price.toString(),
-        status: room.status,
-        isPromoted: room.isPromoted,
-      });
+      const response = await getRoomById(room.id);
+
+      console.log('Fetched room details:', response);
+      if (response.success && response.data) {
+        setEditingRoom(room);
+        setRoomForm({
+          categoryId: response.data.categoryId.toString(),
+          roomNumber: response.data.doorNumber,
+          floor: response.data.floor.toString(),
+          status: response.data.status,
+          isPromoted: response.data.isPromoted,
+
+          // categoryId: room.categoryId.toString(),
+          // roomNumber: room.doorNumber,
+          // floor: room.floor.toString(),
+          // status: room.status,
+          // isPromoted: room.isPromoted,
+        });
+      }
     } else {
       setEditingRoom(null);
-      setRoomForm({ categoryId: "", roomNumber: "", floor: "", price: "", status: "available", isPromoted: false });
+      setRoomForm({ categoryId: "", roomNumber: "", floor: "", status: "available", isPromoted: false });
     }
     setRoomModalOpen(true);
   };
 
   const handleRoomSubmit = async () => {
     const roomData = {
-      categoryId: roomForm.categoryId,
-      roomNumber: roomForm.roomNumber,
+      doorNumber: roomForm.roomNumber,
       floor: parseInt(roomForm.floor),
-      price: parseFloat(roomForm.price),
-      status: roomForm.status as 'available' | 'occupied' | 'reserved' | 'maintenance',
+      status: roomForm.status,
+      categoryId: parseInt(roomForm.categoryId),
       isPromoted: roomForm.isPromoted,
     };
 
     if (editingRoom) {
       /**
        * PUT /api/rooms/:id
-       * Request: { categoryId, roomNumber, floor, price, status, isPromoted }
+       * Request: { doorNumber, floor, status, categoryId, isPromoted }
        * Note: hotelId is derived from authenticated user's hotel context
        */
       const response = await mutationApi.execute(() => updateRoom(editingRoom.id, roomData));
+      console.log('Update room response:', response);
       if (response.success) {
         fetchRooms();
         setRoomModalOpen(false);
@@ -253,9 +311,10 @@ export default function RoomsPage() {
     } else {
       /**
        * POST /api/rooms
-       * Request: { categoryId, roomNumber, floor, price, status, isPromoted }
+       * Request: { doorNumber, floor, status, categoryId, isPromoted }
        * Note: hotelId is derived from authenticated user's hotel context
        */
+      console.log('Creating room with data:', roomData);
       const response = await mutationApi.execute(() => createRoom(roomData));
       if (response.success) {
         fetchRooms();
@@ -416,10 +475,10 @@ export default function RoomsPage() {
                   <CardTitle className="text-lg">All Rooms</CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant="available">
-                      Available: {rooms.filter((r) => r.status === "available").length}
+                      Available: {rooms.filter((r) => r.status === "Available").length}
                     </Badge>
                     <Badge variant="occupied">
-                      Occupied: {rooms.filter((r) => r.status === "occupied").length}
+                      Occupied: {rooms.filter((r) => r.status === "Occupied").length}
                     </Badge>
                   </div>
                 </CardHeader>
@@ -442,7 +501,7 @@ export default function RoomsPage() {
                         <thead>
                           <tr className="border-b border-border">
                             <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Room</th>
-                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Hotel</th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Door Number</th>
                             <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Category</th>
                             <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Floor</th>
                             <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Price</th>
@@ -459,18 +518,20 @@ export default function RoomsPage() {
                                   <div className="flex items-center gap-3">
                                     <img
                                       src={room.image || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=100'}
-                                      alt={`Room ${room.roomNumber}`}
+                                      alt={`Room ${room.doorNumber}`}
                                       className="w-12 h-12 rounded-lg object-cover"
                                     />
                                     <div>
-                                      <p className="font-medium text-foreground">Room {room.roomNumber}</p>
+                                      <p className="font-medium text-foreground">Room {room.doorNumber}</p>
                                       {room.isPromoted && (
                                         <Badge variant="default" className="text-xs mt-1">Featured</Badge>
                                       )}
                                     </div>
                                   </div>
                                 </td>
-                                <td className="py-4 px-4 text-sm text-muted-foreground">{room.hotelName || '-'}</td>
+                                <td className="py-4 px-4 text-sm text-muted-foreground">
+                                  {room.doorNumber ?? (room as any).roomNumber ?? '-'}
+                                </td>
                                 <td className="py-4 px-4 text-sm text-foreground">{category?.name || room.categoryName || '-'}</td>
                                 <td className="py-4 px-4 text-sm text-muted-foreground">Floor {room.floor}</td>
                                 <td className="py-4 px-4 text-sm font-semibold text-foreground">${room.price}</td>
@@ -510,6 +571,11 @@ export default function RoomsPage() {
                 </CardContent>
               </Card>
             </motion.div>
+            {/* Pagination */}
+            <Pagination totalPages={Math.ceil(roomsApi.data?.totalItems / 10) || 1} currentPage={1} onPageChange={(page) => {
+
+            }}
+              />
           </>
         )}
       </div>
@@ -560,8 +626,8 @@ export default function RoomsPage() {
           </div>
           <FormField label="Amenities" hint="Comma-separated list">
             <Input
-              value={categoryForm.amenities}
-              onChange={(e) => setCategoryForm({ ...categoryForm, amenities: e.target.value })}
+              value={categoryForm.amenity}
+              onChange={(e) => setCategoryForm({ ...categoryForm, amenity: e.target.value })}
               placeholder="WiFi, TV, Mini Bar, Air Conditioning"
             />
           </FormField>
@@ -615,7 +681,7 @@ export default function RoomsPage() {
               </SelectContent>
             </Select>
           </FormField>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <FormField label="Room Number" required>
               <Input
                 value={roomForm.roomNumber}
@@ -629,14 +695,6 @@ export default function RoomsPage() {
                 value={roomForm.floor}
                 onChange={(e) => setRoomForm({ ...roomForm, floor: e.target.value })}
                 placeholder="1"
-              />
-            </FormField>
-            <FormField label="Price" required>
-              <Input
-                type="number"
-                value={roomForm.price}
-                onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })}
-                placeholder="150"
               />
             </FormField>
           </div>
@@ -660,11 +718,11 @@ export default function RoomsPage() {
       <ViewModal
         open={!!viewRoom}
         onOpenChange={() => setViewRoom(null)}
-        title={`Room ${viewRoom?.roomNumber}`}
+        title={`Room ${viewRoom?.doorNumber}`}
       >
         {viewRoom && (
           <div className="space-y-4">
-            <img src={viewRoom.image || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400'} alt={`Room ${viewRoom.roomNumber}`} className="w-full h-48 object-cover rounded-lg" />
+            <img src={viewRoom.image || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400'} alt={`Room ${viewRoom.doorNumber}`} className="w-full h-48 object-cover rounded-lg" />
             <DetailRow label="Hotel" value={viewRoom.hotelName || '-'} />
             <DetailRow label="Category" value={categories.find(c => c.id === viewRoom.categoryId)?.name || viewRoom.categoryName || '-'} />
             <DetailRow label="Floor" value={`Floor ${viewRoom.floor}`} />
@@ -686,7 +744,7 @@ export default function RoomsPage() {
             <DetailRow label="Description" value={viewCategory.description} />
             <DetailRow label="Base Price" value={`$${viewCategory.basePrice}/night`} />
             <DetailRow label="Max Occupancy" value={`${viewCategory.maxOccupancy} guests`} />
-            <DetailRow label="Amenities" value={viewCategory.amenities.join(", ")} />
+            <DetailRow label="Amenities" value={viewCategory.amenities.split(", ")} />
           </div>
         )}
       </ViewModal>

@@ -9,7 +9,7 @@ export interface PublicRoom extends Room {
   categoryName: string;
   hotelName: string;
   hotelCity: string;
-  amenities: string[];
+  amenities: string;
 }
 
 export interface PublicBookingRequest {
@@ -73,7 +73,7 @@ export interface PublicBookingResponse {
  *         hotelId: string,
  *         hotelName: string,
  *         hotelCity: string,
- *         amenities: string[]
+ *         amenities: string
  *       }
  *     ],
  *     totalItems: number,

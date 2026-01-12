@@ -39,7 +39,7 @@ import {
 } from "@/services/bookingService";
 import { getRooms } from "@/services/roomService";
 import { getGuests } from "@/services/guestService";
-import { Booking, Room, Guest } from "@/types/api";
+import { Booking, Room, Guest, PaginationParams } from "@/types/api";
 
 const statusColors: Record<string, "success" | "info" | "warning" | "secondary"> = {
   "checked-in": "success",
@@ -61,6 +61,9 @@ export default function BookingsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [stats, setStats] = useState({ todayCheckIns: 0, todayCheckOuts: 0, pendingPayments: 0, activeBookings: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal States
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
@@ -79,22 +82,59 @@ export default function BookingsPage() {
 
   // Fetch data on mount
   useEffect(() => {
-    fetchBookings();
+    fetchBookings({ page, pageSize });
     fetchStats();
     fetchRooms();
     fetchGuests();
   }, []);
 
-  const fetchBookings = async () => {
+  // Debounced search: when the user types, wait 300ms before fetching
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchBookings({ search: searchQuery || undefined, page, pageSize });
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, page, pageSize]);
+
+  // Keep check-in/check-out consistent and not in the past
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    setBookingForm((prev) => {
+      let changed = false;
+      let next = { ...prev };
+
+      if (next.checkIn && next.checkIn < today) {
+        next.checkIn = null;
+        changed = true;
+      }
+
+      if (next.checkOut && next.checkOut < today) {
+        next.checkOut = null;
+        changed = true;
+      }
+
+      if (next.checkIn && next.checkOut && next.checkOut < next.checkIn) {
+        next.checkOut = null;
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [bookingForm.checkIn, bookingForm.checkOut]);
+
+  const fetchBookings = async (params?: PaginationParams) => {
     /**
      * GET /api/bookings
      * Returns: { success: boolean, data: { items: Booking[], totalItems: number, ... }, message: string }
      */
-    const response = await bookingsApi.execute(() => getBookings());
+    const response = await bookingsApi.execute(() => getBookings(params));
+    console.log(response);
     if (response.success && response.data) {
       setBookings(response.data.items);
     }
-  };
+  }; 
 
   const fetchStats = async () => {
     /**
@@ -225,7 +265,7 @@ export default function BookingsPage() {
     }
   };
 
-  const availableRooms = rooms.filter(r => r.status === "available");
+  const availableRooms = rooms.filter(r => r.status === "Available");
   const isLoading = bookingsApi.isLoading || statsApi.isLoading;
 
   return (
@@ -242,7 +282,7 @@ export default function BookingsPage() {
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search bookings..." className="pl-10 bg-secondary border-border" />
+              <Input placeholder="Search bookings..." className="pl-10 bg-secondary border-border" onChange={(e) => { setSearchQuery((e.target as HTMLInputElement).value); setPage(1); }} value={searchQuery} />
             </div>
             <Button variant="outline" size="icon">
               <Filter className="w-4 h-4" />
@@ -461,7 +501,7 @@ export default function BookingsPage() {
               <SelectContent>
                 {availableRooms.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    Room {r.roomNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
+                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -471,14 +511,14 @@ export default function BookingsPage() {
             <FormField label="Check-in Date" required>
               <DatePicker
                 value={bookingForm.checkIn}
-                onChange={(date) => setBookingForm({ ...bookingForm, checkIn: date })}
+                onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
                 placeholder="Select check-in date"
               />
             </FormField>
             <FormField label="Check-out Date" required>
               <DatePicker
                 value={bookingForm.checkOut}
-                onChange={(date) => setBookingForm({ ...bookingForm, checkOut: date })}
+                onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
                 placeholder="Select check-out date"
                 minDate={bookingForm.checkIn || undefined}
               />
@@ -527,7 +567,7 @@ export default function BookingsPage() {
               <SelectContent>
                 {availableRooms.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    Room {r.roomNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
+                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -537,14 +577,14 @@ export default function BookingsPage() {
             <FormField label="Check-in Date" required>
               <DatePicker
                 value={bookingForm.checkIn}
-                onChange={(date) => setBookingForm({ ...bookingForm, checkIn: date })}
+                onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
                 placeholder="Select check-in date"
               />
             </FormField>
             <FormField label="Check-out Date" required>
               <DatePicker
                 value={bookingForm.checkOut}
-                onChange={(date) => setBookingForm({ ...bookingForm, checkOut: date })}
+                onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
                 placeholder="Select check-out date"
                 minDate={bookingForm.checkIn || undefined}
               />

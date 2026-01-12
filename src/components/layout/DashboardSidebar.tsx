@@ -52,15 +52,15 @@ const menuItems: MenuItem[] = [
     icon: UtensilsCrossed, 
     label: "Restaurant & Bar", 
     path: "/dashboard/restaurant", 
-    roles: ["sub-admin", "manager", "restaurant-staff"],
+    roles: ["sub-admin", "manager", "restaurant"],
     children: [
       { icon: UtensilsCrossed, label: "Menu Items", path: "/dashboard/restaurant", roles: ["all"] },
       { icon: ShoppingBag, label: "Take Order", path: "/dashboard/restaurant/orders", roles: ["all"] },
     ]
   },
-  { icon: Shirt, label: "Laundry", path: "/dashboard/laundry", roles: ["sub-admin", "manager", "laundry-staff"] },
-  { icon: PartyPopper, label: "Events", path: "/dashboard/events", roles: ["sub-admin", "manager", "event-manager"] },
-  { icon: Dumbbell, label: "Gym", path: "/dashboard/gym", roles: ["sub-admin", "manager", "gym-head"] },
+  { icon: Shirt, label: "Laundry", path: "/dashboard/laundry", roles: ["sub-admin", "manager", "dry cleaner"] },
+  { icon: PartyPopper, label: "Events", path: "/dashboard/events", roles: ["sub-admin", "manager", "receptionist"] },
+  { icon: Dumbbell, label: "Gym", path: "/dashboard/gym", roles: ["sub-admin", "manager", "gymhead"] },
   { icon: Waves, label: "Pool", path: "/dashboard/pool", roles: ["sub-admin", "manager"] },
   { 
     icon: BarChart3, 
@@ -68,19 +68,19 @@ const menuItems: MenuItem[] = [
     path: "/dashboard/reports", 
     roles: ["sub-admin", "manager"],
     children: [
-      { icon: PieChart, label: "Overview", path: "/dashboard/reports", roles: ["all"] },
-      { icon: BedDouble, label: "Rooms Report", path: "/dashboard/reports/rooms", roles: ["all"] },
-      { icon: CalendarCheck, label: "Bookings Report", path: "/dashboard/reports/bookings", roles: ["all"] },
-      { icon: UtensilsCrossed, label: "Restaurant Report", path: "/dashboard/reports/restaurant", roles: ["all"] },
-      { icon: Shirt, label: "Laundry Report", path: "/dashboard/reports/laundry", roles: ["all"] },
-      { icon: PartyPopper, label: "Events Report", path: "/dashboard/reports/events", roles: ["all"] },
-      { icon: Dumbbell, label: "Gym Report", path: "/dashboard/reports/gym", roles: ["all"] },
-      { icon: Waves, label: "Pool Report", path: "/dashboard/reports/pool", roles: ["all"] },
-      { icon: DollarSign, label: "Revenue Report", path: "/dashboard/reports/revenue", roles: ["all"] },
+      { icon: PieChart, label: "Overview", path: "/dashboard/reports", roles: ["sub-admin"] },
+      { icon: BedDouble, label: "Rooms Report", path: "/dashboard/reports/rooms", roles: ["sub-admin"] },
+      { icon: CalendarCheck, label: "Bookings Report", path: "/dashboard/reports/bookings", roles: ["sub-admin"] },
+      { icon: UtensilsCrossed, label: "Restaurant Report", path: "/dashboard/reports/restaurant", roles: ["sub-admin"] },
+      { icon: Shirt, label: "Laundry Report", path: "/dashboard/reports/laundry", roles: ["sub-admin"] },
+      { icon: PartyPopper, label: "Events Report", path: "/dashboard/reports/events", roles: ["sub-admin"] },
+      { icon: Dumbbell, label: "Gym Report", path: "/dashboard/reports/gym", roles: ["sub-admin"] },
+      { icon: Waves, label: "Pool Report", path: "/dashboard/reports/pool", roles: ["sub-admin"] },
+      { icon: DollarSign, label: "Revenue Report", path: "/dashboard/reports/revenue", roles: ["sub-admin"] },
     ]
   },
-  { icon: UserCog, label: "Employees", path: "/dashboard/employees", roles: ["sub-admin", "manager"] },
-  { icon: Building2, label: "Departments", path: "/dashboard/departments", roles: ["sub-admin", "manager"] },
+  { icon: UserCog, label: "Employees", path: "/dashboard/employees", roles: ["sub-admin", "Manager"] },
+  { icon: Building2, label: "Departments", path: "/dashboard/departments", roles: ["sub-admin", "Manager"] },
   { icon: Shield, label: "Super Admin", path: "/dashboard/super-admin", roles: ["super-admin"] },
   { icon: UserCog, label: "Hotel Admins", path: "/dashboard/hotel-admins", roles: ["super-admin"] },
   { icon: Settings, label: "Settings", path: "/dashboard/settings", roles: ["sub-admin", "super-admin"] },
@@ -93,9 +93,15 @@ export function DashboardSidebar({ userRole = "sub-admin" }: SidebarProps) {
   const { collapsed, toggleCollapsed, isMobileOpen, setMobileOpen } = useSidebarContext();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
-  const actualRole = user?.roles?.[0]?.toLowerCase() || userRole;
-  const filteredMenuItems = menuItems.filter(
-    (item) => item.roles.includes("all") || item.roles.includes(actualRole)
+  const actualRoleRaw = user?.roles?.[0] || userRole;
+
+  const normalizeRole = (r: string | undefined) =>
+    (r || "").toString().toLowerCase().replace(/\s+/g, "").replace(/[-_]/g, "");
+
+  const normalizedActual = normalizeRole(actualRoleRaw as string);
+
+  const filteredMenuItems = menuItems.filter((item) =>
+    item.roles.includes("all") || item.roles.some((role) => normalizeRole(role) === normalizedActual)
   );
 
   const handleLogout = () => {

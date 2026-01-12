@@ -3,11 +3,12 @@ import {
   ApiResponse, 
   Room, 
   RoomCategory, 
+  RoomCategoryUpdate,
   PaginationParams, 
   PaginatedResponse,
   CreateRoomRequest,
   UpdateRoomRequest,
-  CreateRoomCategoryRequest
+  CreateRoomCategoryRequest,
 } from '@/types/api';
 
 // =====================================================
@@ -31,18 +32,11 @@ import {
  */
 export async function getRooms(params?: PaginationParams & { status?: string; categoryId?: string }): Promise<ApiResponse<PaginatedResponse<Room>>> {
   try {
-    return await apiGet<PaginatedResponse<Room>>('/rooms', params);
+    return await apiGet<PaginatedResponse<Room>>('v3/rooms/getrooms', params);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
-    const mockRooms: Room[] = [
-      { id: 'r1', hotelId: 'h1', categoryId: 'rc1', roomNumber: '101', floor: 1, status: 'available', price: 150, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Standard Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r2', hotelId: 'h1', categoryId: 'rc1', roomNumber: '102', floor: 1, status: 'occupied', price: 150, image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Standard Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r3', hotelId: 'h1', categoryId: 'rc2', roomNumber: '201', floor: 2, status: 'available', price: 280, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Deluxe Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r4', hotelId: 'h1', categoryId: 'rc2', roomNumber: '202', floor: 2, status: 'reserved', price: 280, image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600', isPromoted: false, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Deluxe Room', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r5', hotelId: 'h1', categoryId: 'rc3', roomNumber: '301', floor: 3, status: 'available', price: 450, image: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Executive Suite', hotelName: 'LuxeStay Grand Palace' },
-      { id: 'r6', hotelId: 'h1', categoryId: 'rc4', roomNumber: '401', floor: 4, status: 'available', price: 850, image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600', isPromoted: true, createdAt: '2024-01-01', updatedAt: '2024-01-01', categoryName: 'Presidential Suite', hotelName: 'LuxeStay Grand Palace' },
-    ];
+    const mockRooms: Room[] = [];
     
     return {
       success: true,
@@ -65,7 +59,7 @@ export async function getRooms(params?: PaginationParams & { status?: string; ca
  */
 export async function getRoomById(id: string): Promise<ApiResponse<Room>> {
   try {
-    return await apiGet<Room>(`/rooms/${id}`);
+    return await apiGet<Room>(`v3/rooms/getroombyid/${id}`);
   } catch (error) {
     throw error;
   }
@@ -77,26 +71,24 @@ export async function getRoomById(id: string): Promise<ApiResponse<Room>> {
  * 
  * Request payload:
  * {
- *   categoryId: string,
- *   roomNumber: string,
+ *   doorNumber: string,
  *   floor: number,
- *   price: number,
- *   status: 'available' | 'maintenance',
- *   isPromoted: boolean,
- *   image?: string
+ *   status: string,
+ *   categoryId: number,
+ *   isPromoted: boolean
  * }
  * 
  * Note: hotelId is derived from authenticated user's hotel context
  */
 export async function createRoom(data: CreateRoomRequest): Promise<ApiResponse<Room>> {
   try {
-    return await apiPost<Room>('/rooms', data);
+    return await apiPost<Room>('v3/rooms/createRoom/', data);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
     return {
       success: true,
-      data: { ...data, id: `r${Date.now()}`, hotelId: 'h1', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Room,
+      data: { ...data, id: `r${Date.now()}`, hotelId: 'h1', categoryId: data.categoryId.toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Room,
       message: 'Room created successfully',
       status: 201,
     };
@@ -109,13 +101,17 @@ export async function createRoom(data: CreateRoomRequest): Promise<ApiResponse<R
  */
 export async function updateRoom(id: string, data: Partial<UpdateRoomRequest>): Promise<ApiResponse<Room>> {
   try {
-    return await apiPut<Room>(`/rooms/${id}`, data);
+    return await apiPut<Room>(`v3/rooms/updateRoom/${id}`, data);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
+    const updatedData = { ...data };
+    if (updatedData.categoryId !== undefined) {
+      updatedData.categoryId = updatedData.categoryId.toString() as any;
+    }
     return {
       success: true,
-      data: { id, ...data } as Room,
+      data: { id, ...updatedData } as Room,
       message: 'Room updated successfully',
       status: 200,
     };
@@ -128,7 +124,7 @@ export async function updateRoom(id: string, data: Partial<UpdateRoomRequest>): 
  */
 export async function deleteRoom(id: string): Promise<ApiResponse<null>> {
   try {
-    return await apiDelete<null>(`/rooms/${id}`);
+    return await apiDelete<null>(`v3/rooms/deleteroom/${id}`);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -151,15 +147,15 @@ export async function deleteRoom(id: string): Promise<ApiResponse<null>> {
  */
 export async function getRoomCategories(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<RoomCategory>>> {
   try {
-    return await apiGet<PaginatedResponse<RoomCategory>>('/room-categories', params);
+    return await apiGet<PaginatedResponse<RoomCategory>>('v3/rooms/getroomscategories', params);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
     const mockCategories: RoomCategory[] = [
-      { id: 'rc1', hotelId: 'h1', name: 'Standard Room', description: 'Comfortable room with essential amenities', basePrice: 150, maxOccupancy: 2, amenities: ['WiFi', 'TV', 'Air Conditioning', 'Mini Bar'], images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-      { id: 'rc2', hotelId: 'h1', name: 'Deluxe Room', description: 'Spacious room with premium amenities and city view', basePrice: 280, maxOccupancy: 3, amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Mini Bar', 'City View', 'Work Desk'], images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-      { id: 'rc3', hotelId: 'h1', name: 'Executive Suite', description: 'Luxury suite with separate living area', basePrice: 450, maxOccupancy: 4, amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Full Bar', 'City View', 'Living Room', 'Jacuzzi'], images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
-      { id: 'rc4', hotelId: 'h1', name: 'Presidential Suite', description: 'Ultimate luxury with panoramic views and butler service', basePrice: 850, maxOccupancy: 6, amenities: ['WiFi', 'Smart TV', 'Air Conditioning', 'Full Bar', 'Panoramic View', 'Living Room', 'Jacuzzi', 'Butler Service', 'Private Dining'], images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01' },
+      { id: 'rc1', hotelId: 'h1', name: 'Standard Room', description: 'Comfortable room with essential amenities', basePrice: 150, maxOccupancy: 2, amenities: 'WiFi, TV, Air Conditioning, Mini Bar', images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01', amenity: '' },
+      { id: 'rc2', hotelId: 'h1', name: 'Deluxe Room', description: 'Spacious room with premium amenities and city view', basePrice: 280, maxOccupancy: 3, amenities: 'WiFi, Smart TV, Air Conditioning, Mini Bar, City View, Work Desk', images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01', amenity: '' },
+      { id: 'rc3', hotelId: 'h1', name: 'Executive Suite', description: 'Luxury suite with separate living area', basePrice: 450, maxOccupancy: 4, amenities: 'WiFi, Smart TV, Air Conditioning, Full Bar, City View, Living Room, Jacuzzi', images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01', amenity: '' },
+      { id: 'rc4', hotelId: 'h1', name: 'Presidential Suite', description: 'Ultimate luxury with panoramic views and butler service', basePrice: 850, maxOccupancy: 6, amenities: 'WiFi, Smart TV, Air Conditioning, Full Bar, Panoramic View, Living Room, Jacuzzi, Butler Service, Private Dining', images: [], createdAt: '2024-01-01', updatedAt: '2024-01-01', amenity: '' },
     ];
     
     return {
@@ -187,8 +183,9 @@ export async function getRoomCategories(params?: PaginationParams): Promise<ApiR
  *   description: string,
  *   basePrice: number,
  *   maxOccupancy: number,
- *   amenities: string[],
- *   images?: File[]
+ *   amenities: string,
+ *   amenity?: string,
+ *   files?: File[]
  * }
  */
 export async function createRoomCategory(data: CreateRoomCategoryRequest): Promise<ApiResponse<RoomCategory>> {
@@ -198,13 +195,14 @@ export async function createRoomCategory(data: CreateRoomCategoryRequest): Promi
     formData.append('description', data.description);
     formData.append('basePrice', data.basePrice.toString());
     formData.append('maxOccupancy', data.maxOccupancy.toString());
-    formData.append('amenities', JSON.stringify(data.amenities));
+    formData.append('amenities', data.amenities);
+    if (data.amenity) formData.append('amenity', data.amenity);
     
-    if (data.images) {
-      data.images.forEach(file => formData.append('images', file));
+    if (data.files) {
+      data.files.forEach(file => formData.append('files', file));
     }
     
-    return await apiPost<RoomCategory>('/room-categories', formData);
+    return await apiPost<RoomCategory>('v3/rooms/createCategory', formData);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -221,13 +219,28 @@ export async function createRoomCategory(data: CreateRoomCategoryRequest): Promi
  * PUT /api/room-categories/:id
  * Update room category
  */
-export async function updateRoomCategory(id: string, data: Partial<CreateRoomCategoryRequest>): Promise<ApiResponse<RoomCategory>> {
+export async function updateRoomCategory(id: string, data: Partial<CreateRoomCategoryRequest & { removedImageIds?: string[] }>): Promise<ApiResponse<RoomCategory>> {
   try {
-    return await apiPut<RoomCategory>(`/room-categories/${id}`, data);
+    if (data.files || data.removedImageIds) {
+      const formData = new FormData();
+      if (data.name) formData.append('name', data.name);
+      if (data.description) formData.append('description', data.description);
+      if (data.basePrice !== undefined) formData.append('basePrice', data.basePrice.toString());
+      if (data.maxOccupancy !== undefined) formData.append('maxOccupancy', data.maxOccupancy.toString());
+      if (data.amenities) formData.append('amenities', data.amenities);
+      if (data.amenity) formData.append('amenity', data.amenity);
+      if (data.files) {
+        data.files.forEach(file => formData.append('files', file));
+      }
+      if (data.removedImageIds) formData.append('removedImageIds', JSON.stringify(data.removedImageIds));
+      return await apiPut<RoomCategory>(`v3/rooms/updateCategory/${id}`, formData);
+    } else {
+      return await apiPut<RoomCategory>(`v3/rooms/updateCategory/${id}`, data);
+    }
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
-    const { images, ...rest } = data;
+    const { files, ...rest } = data;
     return {
       success: true,
       data: { 
@@ -237,8 +250,9 @@ export async function updateRoomCategory(id: string, data: Partial<CreateRoomCat
         description: '',
         basePrice: 0,
         maxOccupancy: 2,
-        amenities: [],
+        amenities: '',
         images: [],
+        amenity: '',
         createdAt: new Date().toISOString(), 
         updatedAt: new Date().toISOString(), 
         ...rest 
@@ -250,12 +264,24 @@ export async function updateRoomCategory(id: string, data: Partial<CreateRoomCat
 }
 
 /**
+ * GET /api/rooms/:id
+ * Get single room category by ID
+ */
+export async function getCategoryById(id: string): Promise<ApiResponse<RoomCategoryUpdate>> {
+  try {
+    return await apiGet<RoomCategoryUpdate>(`v3/rooms/getcategory/${id}`);
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * DELETE /api/room-categories/:id
  * Delete room category
  */
 export async function deleteRoomCategory(id: string): Promise<ApiResponse<null>> {
   try {
-    return await apiDelete<null>(`/room-categories/${id}`);
+    return await apiDelete<null>(`v3/rooms/deletecategory/${id}`);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -265,6 +291,18 @@ export async function deleteRoomCategory(id: string): Promise<ApiResponse<null>>
       message: 'Room category deleted successfully',
       status: 200,
     };
+  }
+}
+
+/**
+ * DELETE /api/v3/rooms/deletecategoryimage/:id
+ * Delete category image
+ */
+export async function deleteCategoryImage(id: string): Promise<ApiResponse<null>> {
+  try {
+    return await apiDelete<null>(`v3/rooms/deletecategoryimage/${id}`);
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -295,21 +333,7 @@ export interface RoomCategorySelectItem {
  * }
  */
 export async function getRoomItems(): Promise<ApiResponse<RoomCategorySelectItem[]>> {
-  return await apiGet<RoomCategorySelectItem[]>('/v3/rooms/getroomsitems');
+  return await apiGet<RoomCategorySelectItem[]>('v3/rooms/getroomsitems');
 }
 
 // Note: Public room endpoints moved to publicService.ts
-
-// Export as named object
-export const roomService = {
-  getRooms,
-  getRoomById,
-  createRoom,
-  updateRoom,
-  deleteRoom,
-  getRoomCategories,
-  createRoomCategory,
-  updateRoomCategory,
-  deleteRoomCategory,
-  getRoomItems,
-};
