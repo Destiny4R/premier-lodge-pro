@@ -137,14 +137,32 @@ export interface Guest {
   updatedAt?: string;
 }
 
+/**
+ * Booking type values:
+ * - 'check-in': Direct check-in booking
+ * - 'reservation': Reserved booking pending check-in
+ */
+export type BookingType = 'check-in' | 'reservation';
+
+/**
+ * Booking status values:
+ * - 'confirmed': Reservation confirmed, pending check-in
+ * - 'checked-in': Guest has checked in
+ * - 'checked-out': Guest has checked out
+ * - 'cancelled': Booking was cancelled
+ */
+export type BookingStatus = 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
+
 export interface Booking {
   id: string;
+  bookingReference: string; // Unique reference number e.g., "BK-2024-001234"
   guestId: string;
   roomId: string;
   hotelId: string;
   checkIn: string;
   checkOut: string;
-  status: 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
+  bookingType: BookingType;
+  status: BookingStatus;
   totalAmount: number;
   paidAmount: number;
   createdAt: string;
@@ -152,9 +170,15 @@ export interface Booking {
   // Joined fields for display
   guestName?: string;
   guestEmail?: string;
+  guestPhone?: string;
   guestAvatar?: string;
   roomNumber?: string;
+  roomCategory?: string;
   hotelName?: string;
+  // Additional charges
+  restaurantCharges?: number;
+  laundryCharges?: number;
+  otherCharges?: number;
 }
 
 export interface MenuItem {
@@ -329,14 +353,24 @@ export interface DashboardStats {
 // Reports
 export interface CheckoutReport {
   bookingId: string;
+  bookingReference: string;
   guestName: string;
+  guestEmail?: string;
+  guestPhone?: string;
   roomNumber: string;
+  roomCategory?: string;
+  hotelName?: string;
   checkIn: string;
   checkOut: string;
+  nights: number;
   roomCharges: number;
   restaurantCharges: number;
   laundryCharges: number;
+  poolCharges?: number;
+  gymCharges?: number;
   otherCharges: number;
+  subtotal: number;
+  tax: number;
   totalAmount: number;
   paidAmount: number;
   balance: number;
@@ -453,8 +487,24 @@ export interface UpdateGuestRequest extends Partial<CreateGuestRequest> {
 }
 
 /**
- * POST /api/bookings
- * Request payload for creating booking
+ * POST /api/v3/bookings/addbooking
+ * Request payload for creating booking (check-in)
+ * 
+ * Request: {
+ *   guestId: string,
+ *   roomId: string,
+ *   checkIn: string (YYYY-MM-DD),
+ *   checkOut: string (YYYY-MM-DD),
+ *   paidAmount: number,
+ *   bookingType: 'check-in'
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: Booking,
+ *   message: string,
+ *   status: number
+ * }
  */
 export interface CreateBookingRequest {
   guestId: string;
@@ -462,6 +512,41 @@ export interface CreateBookingRequest {
   checkIn: string;
   checkOut: string;
   paidAmount: number;
+  bookingType?: BookingType;
+}
+
+/**
+ * POST /api/v3/bookings/addreservation
+ * Request payload for creating reservation
+ * 
+ * Request: {
+ *   guestId: string,
+ *   roomId: string,
+ *   checkIn: string (YYYY-MM-DD),
+ *   checkOut: string (YYYY-MM-DD),
+ *   bookingType: 'reservation'
+ * }
+ */
+export interface CreateReservationRequest {
+  guestId: string;
+  roomId: string;
+  checkIn: string;
+  checkOut: string;
+  bookingType?: BookingType;
+}
+
+/**
+ * PUT /api/v3/bookings/extend/:id
+ * Request payload for extending a booking stay
+ * 
+ * Request: {
+ *   newCheckOut: string (YYYY-MM-DD),
+ *   additionalPayment?: number
+ * }
+ */
+export interface ExtendBookingRequest {
+  newCheckOut: string;
+  additionalPayment?: number;
 }
 
 /**
@@ -515,29 +600,18 @@ export interface CreateGymMemberRequest {
   membershipType: 'basic' | 'premium' | 'vip';
   startDate: string;
   endDate: string;
+  isGuest: boolean;
 }
 
 /**
- * POST /api/hotel-admins
- * Request payload for creating hotel admin (sub-admin)
+ * POST /api/pool/access
+ * Request payload for recording pool access
  */
-export interface CreateHotelAdminRequest {
-  hotelId: string;
+export interface CreatePoolAccessRequest {
+  guestId?: string;
   name: string;
-  email: string;
-  phone: string;
-  password: string;
-}
-
-/**
- * PUT /api/profile
- * Request payload for updating user profile
- */
-export interface UpdateProfileRequest {
-  name: string;
-  email: string;
-  phone?: string;
-  address?: string;
+  accessType: 'included' | 'paid';
+  amount?: number;
 }
 
 /**
@@ -548,7 +622,6 @@ export interface CreateDepartmentRequest {
   name: string;
   description: string;
   headId?: string;
-  status: 'active' | 'inactive';
 }
 
 /**
@@ -563,5 +636,39 @@ export interface CreateEmployeeRequest {
   position: string;
   salary: number;
   startDate: string;
-  avatar?: string;
+}
+
+/**
+ * POST /api/hotel-admins
+ * Request payload for creating hotel admin
+ */
+export interface CreateHotelAdminRequest {
+  hotelId: string;
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
+// Guest Services - for Guest Details Page
+export interface GuestBooking extends Booking {
+  // Additional booking details for guest view
+}
+
+export interface GuestRestaurantOrder extends RestaurantOrder {
+  // Restaurant orders for this guest
+}
+
+export interface GuestLaundryOrder extends LaundryOrder {
+  // Laundry orders for this guest
+}
+
+/**
+ * GET /api/v3/guests/:id/services
+ * Response for guest services (bookings, restaurant, laundry)
+ */
+export interface GuestServicesResponse {
+  bookings: GuestBooking[];
+  restaurantOrders: GuestRestaurantOrder[];
+  laundryOrders: GuestLaundryOrder[];
 }
