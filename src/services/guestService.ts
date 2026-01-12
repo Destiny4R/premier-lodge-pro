@@ -4,7 +4,11 @@ import {
   Guest, 
   PaginationParams, 
   PaginatedResponse,
-  CreateGuestRequest
+  CreateGuestRequest,
+  GuestServicesResponse,
+  Booking,
+  RestaurantOrder,
+  LaundryOrder
 } from '@/types/api';
 
 // =====================================================
@@ -12,7 +16,7 @@ import {
 // =====================================================
 
 /**
- * GET /api/guests
+ * GET /api/v3/guests/guestlist
  * Get all guests with pagination
  * 
  * Query params:
@@ -22,6 +26,20 @@ import {
  *   search?: string,
  *   sortBy?: string,
  *   sortOrder?: 'asc' | 'desc'
+ * }
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     items: Guest[],
+ *     totalItems: number,
+ *     totalPages: number,
+ *     currentPage: number,
+ *     pageSize: number
+ *   },
+ *   message: string,
+ *   status: number
  * }
  */
 export async function getGuests(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Guest>>> {
@@ -60,8 +78,16 @@ export async function getGuests(params?: PaginationParams): Promise<ApiResponse<
 }
 
 /**
- * GET /api/guests/:id
+ * GET /api/v3/guests/getGuestinfo/:id
  * Get single guest by ID
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: Guest,
+ *   message: string,
+ *   status: number
+ * }
  */
 export async function getGuestById(id: string): Promise<ApiResponse<Guest>> {
   try {
@@ -72,16 +98,42 @@ export async function getGuestById(id: string): Promise<ApiResponse<Guest>> {
 }
 
 /**
- * POST /api/guests
+ * POST /api/v3/guests/addGuest
  * Create new guest
  * 
- * Request payload follows the new guest schema defined in types
+ * Request payload:
+ * {
+ *   firstname: string,
+ *   lastname: string,
+ *   gender: string,
+ *   address: string,
+ *   city: string,
+ *   country: string,
+ *   Email: string,
+ *   phone: string,
+ *   identificationnumber: string,
+ *   identificationtype: string,
+ *   emergencycontactname: string,
+ *   emergencycontactphone: string,
+ *   accommodation?: string
+ * }
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: Guest,
+ *   message: string,
+ *   status: number
+ * }
  * 
  * Note: hotelId is derived from authenticated user's hotel context
+ * Note: Room selection is handled separately via booking
  */
 export async function createGuest(data: CreateGuestRequest): Promise<ApiResponse<Guest>> {
   try {
-    return await apiPost<Guest>('v3/guests/addGuest', data);
+    // Remove roomids from the request - room assignment is done via booking
+    const { roomids, checkindate, checkoutdate, ...guestData } = data;
+    return await apiPost<Guest>('v3/guests/addGuest', guestData);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -91,6 +143,8 @@ export async function createGuest(data: CreateGuestRequest): Promise<ApiResponse
         ...data,
         id: `g${Date.now()}`,
         hotelId: 'h1',
+        name: `${data.firstname} ${data.lastname}`,
+        email: data.Email,
         totalStays: 0,
         totalSpent: 0,
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
@@ -104,12 +158,25 @@ export async function createGuest(data: CreateGuestRequest): Promise<ApiResponse
 }
 
 /**
- * PUT /api/guests/:id
+ * PUT /api/v3/guests/updateGuest/:id
  * Update guest
+ * 
+ * Request payload: Partial<CreateGuestRequest>
+ * Note: Room selection is NOT part of guest update - use booking instead
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: Guest,
+ *   message: string,
+ *   status: number
+ * }
  */
 export async function updateGuest(id: string, data: Partial<CreateGuestRequest>): Promise<ApiResponse<Guest>> {
   try {
-    return await apiPut<Guest>(`/guests/${id}`, data);
+    // Remove roomids from the request - room assignment is done via booking
+    const { roomids, checkindate, checkoutdate, ...guestData } = data;
+    return await apiPut<Guest>(`v3/guests/updateGuest/${id}`, guestData);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -123,12 +190,20 @@ export async function updateGuest(id: string, data: Partial<CreateGuestRequest>)
 }
 
 /**
- * DELETE /api/guests/:id
+ * DELETE /api/v3/guests/deleteGuest/:id
  * Delete guest
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: null,
+ *   message: string,
+ *   status: number
+ * }
  */
 export async function deleteGuest(id: string): Promise<ApiResponse<null>> {
   try {
-    return await apiDelete<null>(`/guests/${id}`);
+    return await apiDelete<null>(`v3/guests/deleteGuest/${id}`);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -142,31 +217,168 @@ export async function deleteGuest(id: string): Promise<ApiResponse<null>> {
 }
 
 /**
- * GET /api/guests/:id/history
- * Get guest stay history
+ * GET /api/v3/guests/:id/services
+ * Get guest services (bookings, restaurant orders, laundry orders)
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     bookings: Booking[],
+ *     restaurantOrders: RestaurantOrder[],
+ *     laundryOrders: LaundryOrder[]
+ *   },
+ *   message: string,
+ *   status: number
+ * }
  */
-export async function getGuestHistory(id: string): Promise<ApiResponse<unknown[]>> {
+export async function getGuestServices(id: string): Promise<ApiResponse<GuestServicesResponse>> {
   try {
-    return await apiGet(`/guests/${id}/history`);
+    return await apiGet<GuestServicesResponse>(`v3/guests/${id}/services`);
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
     return {
       success: true,
-      data: [],
-      message: 'Guest history retrieved successfully',
+      data: {
+        bookings: [],
+        restaurantOrders: [],
+        laundryOrders: [],
+      },
+      message: 'Guest services retrieved successfully',
       status: 200,
     };
   }
 }
 
 /**
- * GET /api/guests/stats
+ * GET /api/v3/guests/:id/bookings
+ * Get guest booking history
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     items: Booking[],
+ *     totalItems: number
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getGuestBookings(id: string): Promise<ApiResponse<PaginatedResponse<Booking>>> {
+  try {
+    return await apiGet<PaginatedResponse<Booking>>(`v3/guests/${id}/bookings`);
+  } catch (error) {
+    // Mock response for demo
+    console.warn('API not available, using mock response');
+    return {
+      success: true,
+      data: {
+        items: [],
+        totalItems: 0,
+        totalPages: 0,
+        currentPage: 1,
+        pageSize: 10,
+      },
+      message: 'Guest bookings retrieved successfully',
+      status: 200,
+    };
+  }
+}
+
+/**
+ * GET /api/v3/guests/:id/restaurant-orders
+ * Get guest restaurant orders
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     items: RestaurantOrder[],
+ *     totalItems: number
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getGuestRestaurantOrders(id: string): Promise<ApiResponse<PaginatedResponse<RestaurantOrder>>> {
+  try {
+    return await apiGet<PaginatedResponse<RestaurantOrder>>(`v3/guests/${id}/restaurant-orders`);
+  } catch (error) {
+    // Mock response for demo
+    console.warn('API not available, using mock response');
+    return {
+      success: true,
+      data: {
+        items: [],
+        totalItems: 0,
+        totalPages: 0,
+        currentPage: 1,
+        pageSize: 10,
+      },
+      message: 'Guest restaurant orders retrieved successfully',
+      status: 200,
+    };
+  }
+}
+
+/**
+ * GET /api/v3/guests/:id/laundry-orders
+ * Get guest laundry orders
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     items: LaundryOrder[],
+ *     totalItems: number
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getGuestLaundryOrders(id: string): Promise<ApiResponse<PaginatedResponse<LaundryOrder>>> {
+  try {
+    return await apiGet<PaginatedResponse<LaundryOrder>>(`v3/guests/${id}/laundry-orders`);
+  } catch (error) {
+    // Mock response for demo
+    console.warn('API not available, using mock response');
+    return {
+      success: true,
+      data: {
+        items: [],
+        totalItems: 0,
+        totalPages: 0,
+        currentPage: 1,
+        pageSize: 10,
+      },
+      message: 'Guest laundry orders retrieved successfully',
+      status: 200,
+    };
+  }
+}
+
+/**
+ * GET /api/v3/guests/stats
  * Get guest statistics
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: {
+ *     totalGuests: number,
+ *     checkedIn: number,
+ *     vipGuests: number,
+ *     returningRate: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
  */
 export async function getGuestStats(): Promise<ApiResponse<{ totalGuests: number; checkedIn: number; vipGuests: number; returningRate: string }>> {
   try {
-    return await apiGet('/guests/stats');
+    return await apiGet('v3/guests/stats');
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');

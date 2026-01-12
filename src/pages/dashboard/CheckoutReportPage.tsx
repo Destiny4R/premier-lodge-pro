@@ -1,35 +1,40 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Printer, Download, CreditCard, Banknote } from "lucide-react";
-import { bookings, guests, rooms, hotels, roomCategories, laundryOrders } from "@/data/mockData";
+import { ArrowLeft, Printer, Download, CreditCard, Banknote, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useApi } from "@/hooks/useApi";
+import { getCheckoutReport } from "@/services/bookingService";
+import { CheckoutReport } from "@/types/api";
+import { LoadingState, ErrorState } from "@/components/ui/loading-state";
 
 export default function CheckoutReportPage() {
   const { bookingId } = useParams();
-  
-  const booking = bookings.find(b => b.id === bookingId) || bookings[0];
-  const guest = guests.find(g => g.id === booking?.guestId);
-  const room = rooms.find(r => r.id === booking?.roomId);
-  const hotel = hotels.find(h => h.id === booking?.hotelId);
-  const category = roomCategories.find(c => c.id === room?.categoryId);
+  const reportApi = useApi<CheckoutReport>();
+  const [report, setReport] = useState<CheckoutReport | null>(null);
 
-  // Mock charges
-  const roomCharges = booking?.totalAmount || 0;
-  const restaurantCharges = 125.40;
-  const laundryCharges = 65.00;
-  const poolCharges = 0; // Included in booking
-  const gymCharges = 0; // Included in booking
-  const otherCharges = 45.00; // Mini bar, phone calls, etc.
-  
-  const subtotal = roomCharges + restaurantCharges + laundryCharges + poolCharges + gymCharges + otherCharges;
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
-  const paidAmount = booking?.paidAmount || 0;
-  const balance = total - paidAmount;
+  useEffect(() => {
+    if (bookingId) {
+      fetchReport();
+    }
+  }, [bookingId]);
+
+  /**
+   * GET /api/v3/bookings/checkout-report/:id
+   * Fetch checkout report for a booking
+   */
+  const fetchReport = async () => {
+    if (!bookingId) return;
+    
+    const response = await reportApi.execute(() => getCheckoutReport(bookingId));
+    if (response.success && response.data) {
+      setReport(response.data);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -40,12 +45,52 @@ export default function CheckoutReportPage() {
   };
 
   const handlePayment = (method: string) => {
-    toast.success(`Payment of $${balance.toFixed(2)} received via ${method}`);
+    if (report) {
+      toast.success(`Payment of $${report.balance.toFixed(2)} received via ${method}`);
+    }
   };
+
+  if (reportApi.isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader title="Checkout Report" subtitle="Loading..." />
+        <div className="p-6">
+          <LoadingState message="Loading checkout report..." />
+        </div>
+      </div>
+    );
+  }
+
+  if (reportApi.error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader title="Checkout Report" subtitle="Error" />
+        <div className="p-6">
+          <ErrorState message={reportApi.error} onRetry={fetchReport} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DashboardHeader title="Checkout Report" subtitle="Not Found" />
+        <div className="p-6">
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground mb-4">Report not found</p>
+            <Link to="/dashboard/bookings">
+              <Button variant="outline">Back to Bookings</Button>
+            </Link>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader title="Checkout Report" subtitle={`Booking #${bookingId}`} />
+      <DashboardHeader title="Checkout Report" subtitle={`Booking ${report.bookingReference}`} />
 
       <div className="p-6 space-y-6">
         {/* Back Button */}
@@ -84,20 +129,30 @@ export default function CheckoutReportPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Booking Reference Banner */}
+                <div className="p-4 bg-primary/10 rounded-lg text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
+                  <p className="text-2xl font-bold text-primary">{report.bookingReference}</p>
+                </div>
+
                 {/* Guest Info */}
                 <div className="flex items-start justify-between p-4 bg-secondary/30 rounded-lg">
                   <div className="flex items-center gap-4">
-                    <img src={guest?.avatar} alt={guest?.name} className="w-14 h-14 rounded-full" />
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-xl font-semibold text-primary">
+                        {report.guestName.charAt(0)}
+                      </span>
+                    </div>
                     <div>
-                      <h3 className="font-semibold text-foreground text-lg">{guest?.name}</h3>
-                      <p className="text-muted-foreground">{guest?.email}</p>
-                      <p className="text-muted-foreground">{guest?.phone}</p>
+                      <h3 className="font-semibold text-foreground text-lg">{report.guestName}</h3>
+                      <p className="text-muted-foreground">{report.guestEmail}</p>
+                      <p className="text-muted-foreground">{report.guestPhone}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">Room</p>
-                    <p className="font-semibold">{room?.roomNumber} - {category?.name}</p>
-                    <p className="text-sm text-muted-foreground">{hotel?.name}</p>
+                    <p className="font-semibold">{report.roomNumber} - {report.roomCategory}</p>
+                    <p className="text-sm text-muted-foreground">{report.hotelName}</p>
                   </div>
                 </div>
 
@@ -105,15 +160,15 @@ export default function CheckoutReportPage() {
                 <div className="grid grid-cols-3 gap-4 p-4 bg-secondary/30 rounded-lg">
                   <div>
                     <p className="text-sm text-muted-foreground">Check-in</p>
-                    <p className="font-semibold">{booking?.checkIn}</p>
+                    <p className="font-semibold">{report.checkIn}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Check-out</p>
-                    <p className="font-semibold">{booking?.checkOut}</p>
+                    <p className="font-semibold">{report.checkOut}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Nights</p>
-                    <p className="font-semibold">3</p>
+                    <p className="font-semibold">{report.nights}</p>
                   </div>
                 </div>
 
@@ -130,64 +185,72 @@ export default function CheckoutReportPage() {
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">
                           <p className="font-medium">Room Charges</p>
-                          <p className="text-sm text-muted-foreground">3 nights @ ${room?.price}/night</p>
+                          <p className="text-sm text-muted-foreground">{report.nights} nights</p>
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold">${roomCharges.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-semibold">${report.roomCharges.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">
                           <p className="font-medium">Restaurant & Bar</p>
                           <p className="text-sm text-muted-foreground">Food and beverages charged to room</p>
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold">${restaurantCharges.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-semibold">${report.restaurantCharges.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">
                           <p className="font-medium">Laundry Services</p>
-                          <p className="text-sm text-muted-foreground">3x Shirts, 2x Pants</p>
+                          <p className="text-sm text-muted-foreground">Laundry items</p>
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold">${laundryCharges.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-semibold">${report.laundryCharges.toFixed(2)}</td>
                       </tr>
-                      <tr className="border-t border-border">
-                        <td className="py-3 px-4">
-                          <p className="font-medium">Swimming Pool</p>
-                          <p className="text-sm text-muted-foreground">Included in booking</p>
-                        </td>
-                        <td className="py-3 px-4 text-right font-semibold text-success">Included</td>
-                      </tr>
-                      <tr className="border-t border-border">
-                        <td className="py-3 px-4">
-                          <p className="font-medium">Gym Access</p>
-                          <p className="text-sm text-muted-foreground">Included in booking</p>
-                        </td>
-                        <td className="py-3 px-4 text-right font-semibold text-success">Included</td>
-                      </tr>
+                      {report.poolCharges !== undefined && (
+                        <tr className="border-t border-border">
+                          <td className="py-3 px-4">
+                            <p className="font-medium">Swimming Pool</p>
+                            <p className="text-sm text-muted-foreground">{report.poolCharges === 0 ? 'Included in booking' : 'Pool access'}</p>
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold">
+                            {report.poolCharges === 0 ? <span className="text-success">Included</span> : `$${report.poolCharges.toFixed(2)}`}
+                          </td>
+                        </tr>
+                      )}
+                      {report.gymCharges !== undefined && (
+                        <tr className="border-t border-border">
+                          <td className="py-3 px-4">
+                            <p className="font-medium">Gym Access</p>
+                            <p className="text-sm text-muted-foreground">{report.gymCharges === 0 ? 'Included in booking' : 'Gym access'}</p>
+                          </td>
+                          <td className="py-3 px-4 text-right font-semibold">
+                            {report.gymCharges === 0 ? <span className="text-success">Included</span> : `$${report.gymCharges.toFixed(2)}`}
+                          </td>
+                        </tr>
+                      )}
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">
                           <p className="font-medium">Other Charges</p>
-                          <p className="text-sm text-muted-foreground">Mini bar, phone calls</p>
+                          <p className="text-sm text-muted-foreground">Mini bar, phone calls, etc.</p>
                         </td>
-                        <td className="py-3 px-4 text-right font-semibold">${otherCharges.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-semibold">${report.otherCharges.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t-2 border-border bg-secondary/30">
                         <td className="py-3 px-4 font-semibold">Subtotal</td>
-                        <td className="py-3 px-4 text-right font-semibold">${subtotal.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right font-semibold">${report.subtotal.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">Tax (10%)</td>
-                        <td className="py-3 px-4 text-right">${tax.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right">${report.tax.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t-2 border-border bg-primary/5">
                         <td className="py-4 px-4 font-bold text-lg">Total</td>
-                        <td className="py-4 px-4 text-right font-bold text-lg text-primary">${total.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right font-bold text-lg text-primary">${report.totalAmount.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4 text-muted-foreground">Already Paid</td>
-                        <td className="py-3 px-4 text-right text-success">-${paidAmount.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right text-success">-${report.paidAmount.toFixed(2)}</td>
                       </tr>
                       <tr className="border-t-2 border-border bg-warning/10">
                         <td className="py-4 px-4 font-bold text-lg">Balance Due</td>
-                        <td className="py-4 px-4 text-right font-bold text-lg text-warning">${balance.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right font-bold text-lg text-warning">${report.balance.toFixed(2)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -210,7 +273,7 @@ export default function CheckoutReportPage() {
               <CardContent className="space-y-4">
                 <div className="p-4 bg-secondary/30 rounded-lg text-center">
                   <p className="text-sm text-muted-foreground">Balance Due</p>
-                  <p className="text-3xl font-bold text-warning">${balance.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-warning">${report.balance.toFixed(2)}</p>
                 </div>
 
                 <div className="space-y-3">
@@ -229,15 +292,15 @@ export default function CheckoutReportPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Bill</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span>${report.totalAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-success">
                       <span>Advance Payment</span>
-                      <span>-${paidAmount.toFixed(2)}</span>
+                      <span>-${report.paidAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-semibold pt-2 border-t border-border">
                       <span>Remaining</span>
-                      <span className="text-warning">${balance.toFixed(2)}</span>
+                      <span className="text-warning">${report.balance.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

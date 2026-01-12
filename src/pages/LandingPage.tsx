@@ -74,29 +74,6 @@ export default function LandingPage() {
   /**
    * GET /api/public/rooms
    * Fetch available rooms for public display
-   * 
-   * Query params:
-   * - page: number
-   * - pageSize: number
-   * - city?: string (filter by city)
-   * - minPrice?: number
-   * - maxPrice?: number
-   * - checkIn?: string (YYYY-MM-DD)
-   * - checkOut?: string (YYYY-MM-DD)
-   * - guests?: number
-   * 
-   * Response: {
-   *   success: boolean,
-   *   data: {
-   *     items: PublicRoom[],
-   *     totalItems: number,
-   *     totalPages: number,
-   *     currentPage: number,
-   *     pageSize: number
-   *   },
-   *   message: string,
-   *   status: number
-   * }
    */
   const fetchRooms = async () => {
     const params: Record<string, unknown> = { pageSize: 6 };
@@ -129,39 +106,6 @@ export default function LandingPage() {
   /**
    * POST /api/public/bookings
    * Create a new booking
-   * 
-   * Request payload:
-   * {
-   *   roomId: string,
-   *   guestName: string,
-   *   guestEmail: string,
-   *   guestPhone: string,
-   *   checkInDate: string (YYYY-MM-DD),
-   *   checkOutDate: string (YYYY-MM-DD),
-   *   numberOfGuests: number,
-   *   specialRequests?: string
-   * }
-   * 
-   * Response: {
-   *   success: boolean,
-   *   data: {
-   *     id: string,
-   *     bookingReference: string,
-   *     roomId: string,
-   *     roomNumber: string,
-   *     categoryName: string,
-   *     hotelName: string,
-   *     guestName: string,
-   *     guestEmail: string,
-   *     checkInDate: string,
-   *     checkOutDate: string,
-   *     totalAmount: number,
-   *     status: 'pending' | 'confirmed',
-   *     createdAt: string
-   *   },
-   *   message: string,
-   *   status: number
-   * }
    */
   const handleBookingSubmit = async () => {
     if (!selectedRoom) return;
@@ -173,7 +117,7 @@ export default function LandingPage() {
     
     const response = await bookingApi.execute(() => 
       createPublicBooking({
-        roomId: selectedRoom.id,
+        roomId: selectedRoom.id || '',
         guestName: bookingForm.guestName,
         guestEmail: bookingForm.guestEmail,
         guestPhone: bookingForm.guestPhone,
@@ -202,7 +146,7 @@ export default function LandingPage() {
 
   // Get available rooms sorted by promotion status
   const availableRooms = rooms
-    .filter((room) => room.status === "available")
+    .filter((room) => room.status === "Available")
     .sort((a, b) => (b.isPromoted ? 1 : 0) - (a.isPromoted ? 1 : 0));
 
   return (
@@ -395,7 +339,7 @@ export default function LandingPage() {
                         {room.categoryName}
                       </h3>
                       <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                        Room {room.roomNumber} • Floor {room.floor}
+                        Room {room.doorNumber} • Floor {room.floor}
                       </p>
                       <div className="flex flex-wrap gap-2 mb-4">
                         {room.amenities?.slice(0, 3).map((amenity) => (
@@ -466,9 +410,9 @@ export default function LandingPage() {
           >
             {amenities.map((amenity) => (
               <motion.div key={amenity.label} variants={fadeInUp}>
-                <Card variant="glass" className="p-6 text-center hover-lift cursor-pointer">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-                    <amenity.icon className="w-8 h-8 text-primary" />
+                <Card variant="glass" className="p-6 text-center hover-lift">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                    <amenity.icon className="w-7 h-7 text-primary" />
                   </div>
                   <p className="font-medium text-foreground">{amenity.label}</p>
                 </Card>
@@ -478,30 +422,81 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-24 bg-card">
+      {/* Testimonials Section */}
+      <section className="py-24 bg-card" id="testimonials">
         <div className="container mx-auto px-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            initial="initial"
+            whileInView="animate"
             viewport={{ once: true }}
-            className="relative overflow-hidden rounded-3xl gold-gradient p-12 md:p-20 text-center"
+            variants={staggerContainer}
+            className="text-center mb-16"
           >
-            <div className="relative z-10">
-              <h2 className="font-heading text-3xl md:text-5xl font-bold text-primary-foreground mb-6">
-                Ready to Experience Luxury?
-              </h2>
-              <p className="text-primary-foreground/80 text-lg mb-8 max-w-2xl mx-auto">
-                Book your stay today and discover why guests around the world choose LuxeStay for their most memorable moments.
-              </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Button size="xl" className="bg-background text-foreground hover:bg-background/90">
-                  Book Your Stay
+            <motion.p variants={fadeInUp} className="text-primary font-medium mb-4">
+              GUEST REVIEWS
+            </motion.p>
+            <motion.h2 variants={fadeInUp} className="font-heading text-4xl md:text-5xl font-bold text-foreground mb-6">
+              What Our Guests Say
+            </motion.h2>
+          </motion.div>
+
+          <motion.div
+            initial="initial"
+            whileInView="animate"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          >
+            {[
+              { name: "Sarah M.", role: "Business Traveler", text: "Exceptional service and beautiful rooms. The attention to detail is remarkable.", rating: 5 },
+              { name: "James L.", role: "Family Vacation", text: "Perfect for our family getaway. The kids loved the pool and the staff was incredibly accommodating.", rating: 5 },
+              { name: "Emily R.", role: "Honeymoon", text: "Made our honeymoon unforgettable. The romantic dinner setup was a beautiful surprise.", rating: 5 },
+            ].map((testimonial) => (
+              <motion.div key={testimonial.name} variants={fadeInUp}>
+                <Card variant="elevated" className="p-6 h-full">
+                  <div className="flex items-center gap-1 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-primary text-primary" />
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground mb-6 italic">"{testimonial.text}"</p>
+                  <div>
+                    <p className="font-semibold text-foreground">{testimonial.name}</p>
+                    <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center max-w-3xl mx-auto"
+          >
+            <h2 className="font-heading text-4xl md:text-5xl font-bold text-foreground mb-6">
+              Ready to Experience Luxury?
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              Book your stay today and discover why guests from around the world choose LuxeStay.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <Link to="/login">
+                <Button variant="hero" size="lg">
+                  Book Now
                 </Button>
-                <Button size="xl" variant="glass" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
-                  Contact Us
+              </Link>
+              <Link to="#rooms">
+                <Button variant="outline" size="lg">
+                  View Rooms
                 </Button>
-              </div>
+              </Link>
             </div>
           </motion.div>
         </div>
@@ -511,25 +506,27 @@ export default function LandingPage() {
 
       {/* Booking Modal */}
       <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Book Your Stay</DialogTitle>
+            <DialogTitle>Book Room</DialogTitle>
             <DialogDescription>
-              {selectedRoom && `${selectedRoom.categoryName} - Room ${selectedRoom.roomNumber}`}
+              {selectedRoom && `${selectedRoom.categoryName} - Room ${selectedRoom.doorNumber}`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Full Name *</Label>
+              <Label htmlFor="guestName">Full Name *</Label>
               <Input
+                id="guestName"
                 value={bookingForm.guestName}
                 onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
                 placeholder="John Doe"
               />
             </div>
             <div className="space-y-2">
-              <Label>Email *</Label>
+              <Label htmlFor="guestEmail">Email *</Label>
               <Input
+                id="guestEmail"
                 type="email"
                 value={bookingForm.guestEmail}
                 onChange={(e) => setBookingForm({ ...bookingForm, guestEmail: e.target.value })}
@@ -537,25 +534,28 @@ export default function LandingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
+              <Label htmlFor="guestPhone">Phone</Label>
               <Input
+                id="guestPhone"
                 value={bookingForm.guestPhone}
                 onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })}
-                placeholder="+1 555-0000"
+                placeholder="+1 555-0123"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Check-in Date *</Label>
+                <Label htmlFor="checkInDate">Check-in Date *</Label>
                 <Input
+                  id="checkInDate"
                   type="date"
                   value={bookingForm.checkInDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, checkInDate: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Check-out Date *</Label>
+                <Label htmlFor="checkOutDate">Check-out Date *</Label>
                 <Input
+                  id="checkOutDate"
                   type="date"
                   value={bookingForm.checkOutDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, checkOutDate: e.target.value })}
@@ -563,43 +563,46 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Number of Guests</Label>
+              <Label htmlFor="numberOfGuests">Number of Guests</Label>
               <Input
+                id="numberOfGuests"
                 type="number"
                 min={1}
+                max={10}
                 value={bookingForm.numberOfGuests}
                 onChange={(e) => setBookingForm({ ...bookingForm, numberOfGuests: parseInt(e.target.value) || 1 })}
               />
             </div>
             <div className="space-y-2">
-              <Label>Special Requests</Label>
+              <Label htmlFor="specialRequests">Special Requests</Label>
               <Input
+                id="specialRequests"
                 value={bookingForm.specialRequests}
                 onChange={(e) => setBookingForm({ ...bookingForm, specialRequests: e.target.value })}
                 placeholder="Any special requests..."
               />
             </div>
             {selectedRoom && (
-              <div className="p-4 bg-secondary rounded-lg">
-                <div className="flex justify-between items-center">
+              <div className="p-4 bg-secondary/50 rounded-lg">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Price per night</span>
-                  <span className="font-bold text-foreground">${selectedRoom.price}</span>
+                  <span className="font-semibold">${selectedRoom.price}</span>
                 </div>
               </div>
             )}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setBookingModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="hero" 
-              className="flex-1" 
-              onClick={handleBookingSubmit}
-              disabled={bookingApi.isLoading}
-            >
-              {bookingApi.isLoading ? "Booking..." : "Confirm Booking"}
-            </Button>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setBookingModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="hero" 
+                className="flex-1" 
+                onClick={handleBookingSubmit}
+                disabled={bookingApi.isLoading}
+              >
+                {bookingApi.isLoading ? "Booking..." : "Confirm Booking"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -608,47 +611,49 @@ export default function LandingPage() {
       <Dialog open={!!bookingConfirmation} onOpenChange={() => setBookingConfirmation(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-center">Booking Confirmed!</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-success">✓</span> Booking Confirmed!
+            </DialogTitle>
+            <DialogDescription>
+              Your reservation has been successfully created.
+            </DialogDescription>
           </DialogHeader>
           {bookingConfirmation && (
-            <div className="space-y-4 py-4 text-center">
-              <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
-                <Star className="w-8 h-8 text-green-500" />
-              </div>
-              <div>
-                <p className="text-muted-foreground">Your booking reference</p>
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-primary/10 rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
                 <p className="text-2xl font-bold text-primary">{bookingConfirmation.bookingReference}</p>
               </div>
-              <div className="p-4 bg-secondary rounded-lg space-y-2 text-left">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Room</span>
-                  <span className="font-medium">{bookingConfirmation.categoryName}</span>
+                  <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Hotel</span>
-                  <span className="font-medium">{bookingConfirmation.hotelName}</span>
+                  <span>{bookingConfirmation.hotelName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Check-in</span>
-                  <span className="font-medium">{bookingConfirmation.checkInDate}</span>
+                  <span>{bookingConfirmation.checkInDate}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Check-out</span>
-                  <span className="font-medium">{bookingConfirmation.checkOutDate}</span>
+                  <span>{bookingConfirmation.checkOutDate}</span>
                 </div>
-                <div className="flex justify-between pt-2 border-t border-border">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-bold text-primary">${bookingConfirmation.totalAmount}</span>
+                <div className="flex justify-between font-semibold pt-2 border-t border-border">
+                  <span>Total Amount</span>
+                  <span>${bookingConfirmation.totalAmount}</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground text-center">
                 A confirmation email has been sent to {bookingConfirmation.guestEmail}
               </p>
+              <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
+                Done
+              </Button>
             </div>
           )}
-          <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
-            Done
-          </Button>
         </DialogContent>
       </Dialog>
     </div>
