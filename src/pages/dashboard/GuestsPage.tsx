@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,14 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { LoadingState, EmptyState, StatsSkeleton } from "@/components/ui/loading-state";
-import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History, Edit, Trash } from "lucide-react";
+import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History, Edit, Trash, ExternalLink } from "lucide-react";
 import { getGuests, createGuest, updateGuest, deleteGuest, getGuestStats } from "@/services/guestService";
-import { Guest, CreateGuestRequest, Room } from "@/types/api";
-import { getRooms } from "@/services/roomService";
+import { Guest, CreateGuestRequest } from "@/types/api";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
@@ -25,9 +24,10 @@ interface GuestStats {
 }
 
 export default function GuestsPage() {
+  const navigate = useNavigate();
+  
   // Data state
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
   const [stats, setStats] = useState<GuestStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +40,7 @@ export default function GuestsPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Guest form - room selection removed (handled via booking)
   const [guestForm, setGuestForm] = useState({
     firstname: "",
     lastname: "",
@@ -53,24 +54,19 @@ export default function GuestsPage() {
     identificationtype: "National Identification Number (NIN)",
     emergencycontactname: "",
     emergencycontactphone: "",
-    accommodation: "",
-    checkindate: null as Date | null,
-    checkoutdate: null as Date | null,
-    roomids: [] as number[],
   });
 
   // Fetch data
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    //
+    
     try {
-      const [guestsRes, statsRes, roomsRes] = await Promise.all([
+      const [guestsRes, statsRes] = await Promise.all([
         getGuests({ page: 1, limit: 10, search: searchQuery }),
         getGuestStats(),
-        getRooms({ page: 1, limit: 200 }),
       ]);
-      console.log(guestsRes, statsRes, roomsRes);
+      
       if (guestsRes.success) {
         setGuests(guestsRes.data.items);
       } else {
@@ -79,10 +75,6 @@ export default function GuestsPage() {
 
       if (statsRes.success) {
         setStats(statsRes.data);
-      }
-
-      if (roomsRes.success) {
-        setRooms(roomsRes.data.items);
       }
     } catch (err) {
       setError("Failed to load guests");
@@ -118,14 +110,23 @@ export default function GuestsPage() {
         identificationtype: guest.identificationtype || guest.idType || 'National Identification Number (NIN)',
         emergencycontactname: guest.emergencycontactname || '',
         emergencycontactphone: guest.emergencycontactphone || '',
-        accommodation: guest.accommodation || '',
-        checkindate: guest.checkindate ? new Date(guest.checkindate) : null,
-        checkoutdate: guest.checkoutdate ? new Date(guest.checkoutdate) : null,
-        roomids: guest.roomids || [],
       });
     } else {
       setEditingGuest(null);
-      setGuestForm({ firstname: "", lastname: "", gender: "Male", address: "", city: "", country: "", Email: "", phone: "", identificationnumber: "", identificationtype: "National Identification Number (NIN)", emergencycontactname: "", emergencycontactphone: "", accommodation: "", checkindate: null, checkoutdate: null, roomids: [] });
+      setGuestForm({ 
+        firstname: "", 
+        lastname: "", 
+        gender: "Male", 
+        address: "", 
+        city: "", 
+        country: "", 
+        Email: "", 
+        phone: "", 
+        identificationnumber: "", 
+        identificationtype: "National Identification Number (NIN)", 
+        emergencycontactname: "", 
+        emergencycontactphone: "" 
+      });
     }
     setGuestModalOpen(true);
   };
@@ -134,6 +135,7 @@ export default function GuestsPage() {
     setIsSubmitting(true);
     
     try {
+      // Room selection removed - handled via booking flow
       const payload: CreateGuestRequest = {
         firstname: guestForm.firstname,
         lastname: guestForm.lastname,
@@ -147,10 +149,6 @@ export default function GuestsPage() {
         identificationtype: guestForm.identificationtype,
         emergencycontactname: guestForm.emergencycontactname,
         emergencycontactphone: guestForm.emergencycontactphone,
-        accommodation: guestForm.accommodation,
-        checkindate: guestForm.checkindate ? guestForm.checkindate.toISOString() : undefined,
-        checkoutdate: guestForm.checkoutdate ? guestForm.checkoutdate.toISOString() : undefined,
-        roomids: guestForm.roomids,
       };
 
       const response = editingGuest
@@ -191,33 +189,10 @@ export default function GuestsPage() {
     }
   };
 
-  // Ensure check-in / check-out dates are valid relative to each other and today
-  useEffect(() => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    setGuestForm((prev) => {
-      let changed = false;
-      let next = { ...prev };
-
-      if (next.checkindate && next.checkindate < today) {
-        next.checkindate = null;
-        changed = true;
-      }
-
-      if (next.checkoutdate && next.checkoutdate < today) {
-        next.checkoutdate = null;
-        changed = true;
-      }
-
-      if (next.checkindate && next.checkoutdate && next.checkoutdate < next.checkindate) {
-        next.checkoutdate = null;
-        changed = true;
-      }
-
-      return changed ? next : prev;
-    });
-  }, [guestForm.checkindate, guestForm.checkoutdate]);
+  // Navigate to guest details page
+  const handleViewGuestDetails = (guestId: string) => {
+    navigate(`/dashboard/guests/${guestId}`);
+  };
 
   if (isLoading) {
     return (
@@ -320,7 +295,12 @@ export default function GuestsPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredGuests.map((guest) => (
-                    <Card key={guest.id} variant="elevated" className="p-4 hover-lift">
+                    <Card 
+                      key={guest.id} 
+                      variant="elevated" 
+                      className="p-4 hover-lift cursor-pointer transition-all"
+                      onClick={() => handleViewGuestDetails(guest.id)}
+                    >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -335,23 +315,31 @@ export default function GuestsPage() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setViewGuest(guest)}>
-                              <Eye className="w-4 h-4 mr-2" /> View Details
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewGuestDetails(guest.id); }}>
+                              <ExternalLink className="w-4 h-4 mr-2" /> View Full Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openGuestModal(guest)}>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setViewGuest(guest); }}>
+                              <Eye className="w-4 h-4 mr-2" /> Quick View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openGuestModal(guest); }}>
                               <Edit className="w-4 h-4 mr-2" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewGuestDetails(guest.id); }}>
                               <History className="w-4 h-4 mr-2" /> Stay History
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => setDeleteDialog({ open: true, id: guest.id })}
+                              onClick={(e) => { e.stopPropagation(); setDeleteDialog({ open: true, id: guest.id }); }}
                             >
                               <Trash className="w-4 h-4 mr-2" /> Delete
                             </DropdownMenuItem>
@@ -432,21 +420,6 @@ export default function GuestsPage() {
             <FormField label="Phone" required>
               <Input value={guestForm.phone} onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })} placeholder="+234..." />
             </FormField>
-            <FormField label="Accommodation">
-              <Select value={guestForm.accommodation} onValueChange={(e) => setGuestForm({ ...guestForm, accommodation: e })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Checked In">Checked In</SelectItem>
-                  <SelectItem value="Reservations">Reservations</SelectItem>
-                  {/* <SelectItem value="Other">Other</SelectItem> */}
-                </SelectContent>
-              </Select>
-            </FormField>
-            {/* <FormField label="Accommodation">
-              <Input value={guestForm.accommodation} onChange={(e) => setGuestForm({ ...guestForm, accommodation: e.target.value })} placeholder="Deluxe Suite with River View" />
-            </FormField> */}
           </div>
 
           <FormField label="Identification" hint="Type and number">
@@ -487,41 +460,11 @@ export default function GuestsPage() {
               <Input value={guestForm.emergencycontactphone} onChange={(e) => setGuestForm({ ...guestForm, emergencycontactphone: e.target.value })} placeholder="+234..." />
             </FormField>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Check-in Date">
-              <DatePicker value={guestForm.checkindate} onChange={(d) => setGuestForm(prev => ({ ...prev, checkindate: d }))} placeholder="Select check-in" minDate={new Date()} />
-            </FormField>
-            <FormField label="Check-out Date">
-              <DatePicker value={guestForm.checkoutdate} onChange={(d) => setGuestForm(prev => ({ ...prev, checkoutdate: d }))} placeholder="Select check-out" minDate={guestForm.checkindate ? guestForm.checkindate : new Date()} />
-            </FormField>
-          </div>
-
-          <FormField label="Select Rooms">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded">
-              {rooms.map((r) => {
-                const idNum = parseInt(r.id);
-                const checked = guestForm.roomids.includes(idNum);
-                return (
-                  <label key={r.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        setGuestForm((prev) => {
-                          const roomSet = new Set(prev.roomids);
-                          if (e.target.checked) roomSet.add(idNum);
-                          else roomSet.delete(idNum);
-                          return { ...prev, roomids: Array.from(roomSet) } as any;
-                        });
-                      }}
-                    />
-                    <span className="text-sm">Room {r.doorNumber || (r as any).roomNumber || r.id} - {r.categoryName || 'Unknown'} - ${r.price}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </FormField>
+          
+          {/* Note: Room selection and booking is now handled through the booking flow */}
+          <p className="text-sm text-muted-foreground italic">
+            To book a room for this guest, use the "Book Room" option from the guest's profile page.
+          </p>
         </div>
       </FormModal>
 

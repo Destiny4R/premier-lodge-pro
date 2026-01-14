@@ -100,6 +100,11 @@ export default function GuestDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("bookings");
 
+  // Pagination state for each tab
+  const [bookingsPagination, setBookingsPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
+  const [restaurantPagination, setRestaurantPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
+  const [laundryPagination, setLaundryPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
+
   // Modal state
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingType, setBookingType] = useState<"check-in" | "reservation">("check-in");
@@ -145,14 +150,29 @@ export default function GuestDetailsPage() {
 
       if (bookingsRes.success) {
         setBookings(bookingsRes.data.items);
+        setBookingsPagination(prev => ({
+          ...prev,
+          totalItems: bookingsRes.data.totalItems,
+          totalPages: bookingsRes.data.totalPages || Math.ceil(bookingsRes.data.totalItems / prev.pageSize),
+        }));
       }
 
       if (restaurantRes.success) {
         setRestaurantOrders(restaurantRes.data.items);
+        setRestaurantPagination(prev => ({
+          ...prev,
+          totalItems: restaurantRes.data.totalItems,
+          totalPages: restaurantRes.data.totalPages || Math.ceil(restaurantRes.data.totalItems / prev.pageSize),
+        }));
       }
 
       if (laundryRes.success) {
         setLaundryOrders(laundryRes.data.items);
+        setLaundryPagination(prev => ({
+          ...prev,
+          totalItems: laundryRes.data.totalItems,
+          totalPages: laundryRes.data.totalPages || Math.ceil(laundryRes.data.totalItems / prev.pageSize),
+        }));
       }
 
       if (roomsRes.success) {
@@ -588,6 +608,35 @@ export default function GuestDetailsPage() {
                       </table>
                     </div>
                   )}
+                  {/* Bookings Pagination */}
+                  {bookings.length > 0 && bookingsPagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {bookings.length} of {bookingsPagination.totalItems} bookings
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBookingsPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                          disabled={bookingsPagination.page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {bookingsPagination.page} of {bookingsPagination.totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBookingsPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                          disabled={bookingsPagination.page === bookingsPagination.totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -639,6 +688,35 @@ export default function GuestDetailsPage() {
                       </table>
                     </div>
                   )}
+                  {/* Restaurant Pagination */}
+                  {restaurantOrders.length > 0 && restaurantPagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {restaurantOrders.length} of {restaurantPagination.totalItems} orders
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRestaurantPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                          disabled={restaurantPagination.page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {restaurantPagination.page} of {restaurantPagination.totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRestaurantPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                          disabled={restaurantPagination.page === restaurantPagination.totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -688,6 +766,35 @@ export default function GuestDetailsPage() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+                  {/* Laundry Pagination */}
+                  {laundryOrders.length > 0 && laundryPagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Showing {laundryOrders.length} of {laundryPagination.totalItems} orders
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLaundryPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                          disabled={laundryPagination.page === 1}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Page {laundryPagination.page} of {laundryPagination.totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLaundryPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                          disabled={laundryPagination.page === laundryPagination.totalPages}
+                        >
+                          Next
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>
