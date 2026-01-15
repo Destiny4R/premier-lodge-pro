@@ -40,6 +40,30 @@ export interface PublicBookingResponse {
   createdAt: string;
 }
 
+export interface Amenity {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: 'connectivity' | 'dining' | 'wellness' | 'services';
+  isActive: boolean;
+}
+
+export interface ContactRequest {
+  name: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+}
+
+export interface ContactResponse {
+  id: string;
+  ticketNumber: string;
+  status: 'received' | 'in_progress' | 'resolved';
+  createdAt: string;
+}
+
 /**
  * GET /api/public/rooms
  * Get all available rooms for public viewing (no authentication required)
@@ -65,7 +89,7 @@ export interface PublicBookingResponse {
  *         id: string,
  *         doorNumber: string,
  *         floor: number,
- *         price: number,
+ *         price: number,            // Price in Nigerian Naira (₦)
  *         status: 'Available',
  *         image: string,
  *         isPromoted: boolean,
@@ -98,52 +122,52 @@ export async function getPublicRooms(params?: PaginationParams & {
   try {
     return await apiGet<PaginatedResponse<PublicRoom>>('/public/rooms', params);
   } catch (error) {
-    // Mock response for demo
+    // Mock response for demo - prices in Nigerian Naira
     console.warn('API not available, using mock response');
     const mockRooms: PublicRoom[] = [
       {
         id: 'r1',
         doorNumber: '101',
         floor: 1,
-        price: 150,
+        price: 75000,
         status: 'Available',
         image: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600',
         isPromoted: true,
         categoryId: '1',
         categoryName: 'Deluxe Suite',
         hotelId: 'h1',
-        hotelName: 'LuxeStay Grand Palace',
-        hotelCity: 'New York',
+        hotelName: 'Premier Lodge',
+        hotelCity: 'Lagos',
         amenities: ['WiFi', 'TV', 'Mini Bar', 'Room Service'],
       },
       {
         id: 'r2',
         doorNumber: '202',
         floor: 2,
-        price: 200,
+        price: 95000,
         status: 'Available',
         image: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600',
         isPromoted: false,
         categoryId: '2',
         categoryName: 'Premium Room',
         hotelId: 'h1',
-        hotelName: 'LuxeStay Grand Palace',
-        hotelCity: 'New York',
+        hotelName: 'Premier Lodge',
+        hotelCity: 'Lagos',
         amenities: ['WiFi', 'TV', 'Balcony'],
       },
       {
         id: 'r3',
         doorNumber: '301',
         floor: 3,
-        price: 350,
+        price: 150000,
         status: 'Available',
         image: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600',
         isPromoted: true,
         categoryId: '3',
         categoryName: 'Executive Suite',
         hotelId: 'h1',
-        hotelName: 'LuxeStay Grand Palace',
-        hotelCity: 'New York',
+        hotelName: 'Premier Lodge',
+        hotelCity: 'Lagos',
         amenities: ['WiFi', 'TV', 'Mini Bar', 'Room Service', 'Jacuzzi'],
       },
     ];
@@ -197,6 +221,50 @@ export async function getPublicRoomCategories(): Promise<ApiResponse<PaginatedRe
 }
 
 /**
+ * GET /api/public/amenities
+ * Get all hotel amenities for public display
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     items: [
+ *       {
+ *         id: string,
+ *         name: string,
+ *         description: string,
+ *         icon: string,              // Icon name (e.g., "wifi", "utensils", "dumbbell")
+ *         category: 'connectivity' | 'dining' | 'wellness' | 'services',
+ *         isActive: boolean
+ *       }
+ *     ],
+ *     totalItems: number
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getPublicAmenities(): Promise<ApiResponse<PaginatedResponse<Amenity>>> {
+  try {
+    return await apiGet<PaginatedResponse<Amenity>>('/public/amenities');
+  } catch (error) {
+    // Mock response
+    const mockAmenities: Amenity[] = [
+      { id: '1', name: 'High-Speed WiFi', description: 'Complimentary high-speed internet', icon: 'wifi', category: 'connectivity', isActive: true },
+      { id: '2', name: 'Fine Dining', description: 'Award-winning restaurant', icon: 'utensils', category: 'dining', isActive: true },
+      { id: '3', name: 'Fitness Center', description: '24/7 gym access', icon: 'dumbbell', category: 'wellness', isActive: true },
+      { id: '4', name: 'Swimming Pool', description: 'Olympic-sized pool', icon: 'waves', category: 'wellness', isActive: true },
+    ];
+    
+    return {
+      success: true,
+      data: { items: mockAmenities, totalItems: mockAmenities.length, totalPages: 1, currentPage: 1, pageSize: 10 },
+      message: 'Amenities retrieved successfully',
+      status: 200,
+    };
+  }
+}
+
+/**
  * POST /api/public/bookings
  * Create a new booking (public - for guest self-booking)
  * 
@@ -225,7 +293,7 @@ export async function getPublicRoomCategories(): Promise<ApiResponse<PaginatedRe
  *     guestEmail: string,
  *     checkInDate: string,
  *     checkOutDate: string,
- *     totalAmount: number,
+ *     totalAmount: number,       // Amount in Nigerian Naira (₦)
  *     status: 'pending',
  *     createdAt: string
  *   },
@@ -252,10 +320,56 @@ export async function getPublicBookingByReference(reference: string): Promise<Ap
   return await apiGet<PublicBookingResponse>(`/public/bookings/${reference}`);
 }
 
+/**
+ * POST /api/public/contact
+ * Submit a contact form message
+ * 
+ * Request payload:
+ * {
+ *   name: string,
+ *   email: string,
+ *   phone?: string,
+ *   subject: string,
+ *   message: string
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     id: string,
+ *     ticketNumber: string,      // e.g., "TKT-2024-001234"
+ *     status: 'received',
+ *     createdAt: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function submitContactForm(data: ContactRequest): Promise<ApiResponse<ContactResponse>> {
+  try {
+    return await apiPost<ContactResponse>('/public/contact', data);
+  } catch (error) {
+    // Mock response
+    return {
+      success: true,
+      data: {
+        id: 'c1',
+        ticketNumber: `TKT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`,
+        status: 'received',
+        createdAt: new Date().toISOString(),
+      },
+      message: 'Message sent successfully',
+      status: 201,
+    };
+  }
+}
+
 export const publicService = {
   getPublicRooms,
   getPublicRoomById,
   getPublicRoomCategories,
+  getPublicAmenities,
   createPublicBooking,
   getPublicBookingByReference,
+  submitContactForm,
 };
