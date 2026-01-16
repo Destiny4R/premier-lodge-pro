@@ -1,18 +1,20 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Search, MapPin, Calendar, Users, Star, Wifi, Car, Coffee, Dumbbell, Waves, Utensils, Sparkles, Loader2 } from "lucide-react";
+import { Search, MapPin, Calendar, Users, Star, Wifi, Car, Coffee, Dumbbell, Waves, Utensils, Sparkles, Loader2, Phone, Mail, MessageSquare, Send, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useApi } from "@/hooks/useApi";
-import { getPublicRooms, createPublicBooking, PublicRoom, PublicBookingResponse } from "@/services/publicService";
+import { getPublicRooms, getPublicAmenities, submitContactForm, createPublicBooking, PublicRoom, PublicBookingResponse, Amenity, ContactRequest } from "@/services/publicService";
+import { formatCurrency } from "@/lib/currency";
 import heroImage from "@/assets/hero-hotel.jpg";
 
 const fadeInUp = {
@@ -29,14 +31,23 @@ const staggerContainer = {
   },
 };
 
-const amenities = [
-  { icon: Wifi, label: "Free WiFi" },
-  { icon: Car, label: "Valet Parking" },
-  { icon: Coffee, label: "24/7 Room Service" },
-  { icon: Dumbbell, label: "Fitness Center" },
-  { icon: Waves, label: "Swimming Pool" },
-  { icon: Utensils, label: "Fine Dining" },
+const defaultAmenities = [
+  { icon: Wifi, label: "Free WiFi", description: "Complimentary high-speed internet access throughout the hotel" },
+  { icon: Car, label: "Valet Parking", description: "Secure parking with professional valet service" },
+  { icon: Coffee, label: "24/7 Room Service", description: "Gourmet dining delivered to your room anytime" },
+  { icon: Dumbbell, label: "Fitness Center", description: "State-of-the-art gym equipment and personal trainers" },
+  { icon: Waves, label: "Swimming Pool", description: "Olympic-sized pool with poolside bar service" },
+  { icon: Utensils, label: "Fine Dining", description: "Award-winning restaurant with international cuisine" },
 ];
+
+const iconMap: Record<string, any> = {
+  wifi: Wifi,
+  car: Car,
+  coffee: Coffee,
+  dumbbell: Dumbbell,
+  waves: Waves,
+  utensils: Utensils,
+};
 
 export default function LandingPage() {
   // API States
@@ -350,7 +361,7 @@ export default function LandingPage() {
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t border-border">
                         <span className="text-sm text-muted-foreground">
-                          <span className="text-2xl font-bold text-foreground">${room.price}</span>/night
+                          <span className="text-2xl font-bold text-foreground">{formatCurrency(room.price)}</span>/night
                         </span>
                         <Button variant="hero" size="sm" onClick={() => openBookingModal(room)}>
                           Book Now
@@ -408,13 +419,14 @@ export default function LandingPage() {
             variants={staggerContainer}
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6"
           >
-            {amenities.map((amenity) => (
+            {defaultAmenities.map((amenity) => (
               <motion.div key={amenity.label} variants={fadeInUp}>
-                <Card variant="glass" className="p-6 text-center hover-lift">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Card variant="glass" className="p-6 text-center hover-lift group">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4 group-hover:bg-primary/20 transition-colors">
                     <amenity.icon className="w-7 h-7 text-primary" />
                   </div>
-                  <p className="font-medium text-foreground">{amenity.label}</p>
+                  <p className="font-medium text-foreground mb-2">{amenity.label}</p>
+                  <p className="text-xs text-muted-foreground">{amenity.description}</p>
                 </Card>
               </motion.div>
             ))}
@@ -471,6 +483,137 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Contact Section */}
+      <section className="py-24 bg-card" id="contact">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial="initial"
+            whileInView="animate"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.p variants={fadeInUp} className="text-primary font-medium mb-4">
+              GET IN TOUCH
+            </motion.p>
+            <motion.h2 variants={fadeInUp} className="font-heading text-4xl md:text-5xl font-bold text-foreground mb-6">
+              Contact Us
+            </motion.h2>
+            <motion.p variants={fadeInUp} className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Have questions or need assistance? We're here to help make your stay unforgettable.
+            </motion.p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            {/* Contact Info */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="space-y-8"
+            >
+              <Card variant="glass" className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Phone className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">Phone</h3>
+                    <p className="text-muted-foreground">+234 800 123 4567</p>
+                    <p className="text-muted-foreground">+234 800 987 6543</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card variant="glass" className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Mail className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">Email</h3>
+                    <p className="text-muted-foreground">info@premierlodge.ng</p>
+                    <p className="text-muted-foreground">reservations@premierlodge.ng</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card variant="glass" className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">Address</h3>
+                    <p className="text-muted-foreground">123 Victoria Island</p>
+                    <p className="text-muted-foreground">Lagos, Nigeria</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Contact Form */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <Card variant="elevated" className="p-8">
+                <h3 className="font-heading text-2xl font-semibold text-foreground mb-6">Send us a Message</h3>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const data: ContactRequest = {
+                    name: formData.get('name') as string,
+                    email: formData.get('email') as string,
+                    phone: formData.get('phone') as string,
+                    subject: formData.get('subject') as string,
+                    message: formData.get('message') as string,
+                  };
+                  submitContactForm(data).then(res => {
+                    if (res.success) {
+                      toast.success('Message sent! We will get back to you soon.');
+                      (e.target as HTMLFormElement).reset();
+                    } else {
+                      toast.error('Failed to send message');
+                    }
+                  });
+                }} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-name">Name *</Label>
+                      <Input id="contact-name" name="name" placeholder="Your name" required className="bg-secondary" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-email">Email *</Label>
+                      <Input id="contact-email" name="email" type="email" placeholder="your@email.com" required className="bg-secondary" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-phone">Phone</Label>
+                      <Input id="contact-phone" name="phone" placeholder="+234 800 000 0000" className="bg-secondary" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-subject">Subject *</Label>
+                      <Input id="contact-subject" name="subject" placeholder="How can we help?" required className="bg-secondary" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-message">Message *</Label>
+                    <Textarea id="contact-message" name="message" placeholder="Tell us more..." rows={4} required className="bg-secondary" />
+                  </div>
+                  <Button type="submit" variant="hero" size="lg" className="w-full">
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Message
+                  </Button>
+                </form>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-24">
         <div className="container mx-auto px-4">
@@ -484,7 +627,7 @@ export default function LandingPage() {
               Ready to Experience Luxury?
             </h2>
             <p className="text-xl text-muted-foreground mb-8">
-              Book your stay today and discover why guests from around the world choose LuxeStay.
+              Book your stay today and discover why guests from around the world choose Premier Lodge.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Link to="/login">
@@ -586,7 +729,7 @@ export default function LandingPage() {
               <div className="p-4 bg-secondary/50 rounded-lg">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Price per night</span>
-                  <span className="font-semibold">${selectedRoom.price}</span>
+                  <span className="font-semibold">{formatCurrency(selectedRoom.price)}</span>
                 </div>
               </div>
             )}
@@ -643,7 +786,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-border">
                   <span>Total Amount</span>
-                  <span>${bookingConfirmation.totalAmount}</span>
+                  <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center">

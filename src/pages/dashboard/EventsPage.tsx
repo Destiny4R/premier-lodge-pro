@@ -292,11 +292,11 @@ export default function EventsPage() {
                           <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 rounded-lg bg-secondary/50">
                               <p className="text-xs text-muted-foreground">Hourly</p>
-                              <p className="text-lg font-bold text-primary">${hall.hourlyRate}</p>
+                              <p className="text-lg font-bold text-primary">₦{hall.hourlyRate?.toLocaleString()}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-secondary/50">
                               <p className="text-xs text-muted-foreground">Daily</p>
-                              <p className="text-lg font-bold text-primary">${hall.dailyRate}</p>
+                              <p className="text-lg font-bold text-primary">₦{hall.dailyRate?.toLocaleString()}</p>
                             </div>
                           </div>
                           <Button variant="outline" className="w-full mt-4" onClick={() => setBookingModalOpen(true)}>
@@ -379,7 +379,7 @@ export default function EventsPage() {
                               <div className="flex items-center gap-4">
                                 <div className="text-right">
                                   <p className="text-sm text-muted-foreground">Total Amount</p>
-                                  <p className="text-xl font-bold text-primary">${event.totalAmount.toLocaleString()}</p>
+                                  <p className="text-xl font-bold text-primary">₦{event.totalAmount?.toLocaleString()}</p>
                                 </div>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -561,7 +561,7 @@ export default function EventsPage() {
           <Card variant="glass" className="p-4">
             <div className="flex justify-between items-center">
               <span className="font-semibold">Estimated Total</span>
-              <span className="text-xl font-bold text-primary">${calculateEstimate()}</span>
+              <span className="text-xl font-bold text-primary">₦{calculateEstimate()?.toLocaleString()}</span>
             </div>
           </Card>
         </div>
@@ -584,7 +584,7 @@ export default function EventsPage() {
             <DetailRow label="End Date" value={viewEvent.endDate} />
             <DetailRow label="Charge Type" value={viewEvent.chargeType} />
             <DetailRow label="Status" value={<Badge variant={statusColors[viewEvent.status]}>{viewEvent.status}</Badge>} />
-            <DetailRow label="Total Amount" value={<span className="text-primary font-bold">${viewEvent.totalAmount.toLocaleString()}</span>} />
+            <DetailRow label="Total Amount" value={<span className="text-primary font-bold">₦{viewEvent.totalAmount?.toLocaleString()}</span>} />
           </div>
         )}
       </ViewModal>

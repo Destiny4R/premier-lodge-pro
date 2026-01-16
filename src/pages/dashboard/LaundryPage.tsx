@@ -240,7 +240,7 @@ export default function LaundryPage() {
             { label: "Pending Orders", value: pendingOrders, icon: Clock, color: "text-warning" },
             { label: "In Processing", value: processingOrders, icon: Shirt, color: "text-info" },
             { label: "Ready for Pickup", value: readyOrders, icon: CheckCircle, color: "text-success" },
-            { label: "Today's Revenue", value: "$--", icon: DollarSign, color: "text-primary" },
+            { label: "Today's Revenue", value: "₦--", icon: DollarSign, color: "text-primary" },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">
               <CardContent className="p-4 flex items-center gap-4">
@@ -322,7 +322,7 @@ export default function LaundryPage() {
 
                             <div className="flex items-center gap-4">
                               <div className="text-right">
-                                <p className="font-semibold text-foreground">${order.totalAmount}</p>
+                                <p className="font-semibold text-foreground">₦{order.totalAmount?.toLocaleString()}</p>
                                 <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod}</p>
                               </div>
                               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
@@ -403,7 +403,7 @@ export default function LaundryPage() {
                           </DropdownMenu>
                           <Package className="w-8 h-8 mx-auto mb-2 text-primary" />
                           <p className="font-medium text-foreground">{item.name}</p>
-                          <p className="text-lg font-bold text-primary">${item.price}</p>
+                          <p className="text-lg font-bold text-primary">₦{item.price?.toLocaleString()}</p>
                         </Card>
                       ))}
                     </div>
@@ -512,7 +512,7 @@ export default function LaundryPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {clothingCategories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} - ${c.price}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>{c.name} - ₦{c.price?.toLocaleString()}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

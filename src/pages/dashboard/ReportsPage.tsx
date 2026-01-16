@@ -195,7 +195,7 @@ export default function ReportsPage() {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           {[
-            { label: "Total Revenue", value: "$145,680", change: "+12.3%", icon: DollarSign, trend: "up" },
+            { label: "Total Revenue", value: "₦145,680,000", change: "+12.3%", icon: DollarSign, trend: "up" },
             { label: "Occupancy Rate", value: "78%", change: "+5.2%", icon: BedDouble, trend: "up" },
             { label: "Total Guests", value: "1,245", change: "+8.1%", icon: Users, trend: "up" },
             { label: "Avg. Stay", value: "3.2 nights", change: "+0.5", icon: TrendingUp, trend: "up" },

@@ -172,7 +172,7 @@ export default function RestaurantPage() {
           className="grid grid-cols-1 md:grid-cols-4 gap-4"
         >
           {[
-            { label: "Today's Sales", value: "$--", icon: DollarSign, color: "text-success" },
+            { label: "Today's Sales", value: "₦--", icon: DollarSign, color: "text-success" },
             { label: "Active Orders", value: "--", icon: ShoppingCart, color: "text-primary" },
             { label: "Food Items", value: foodItems.length, icon: UtensilsCrossed, color: "text-warning" },
             { label: "Drink Items", value: drinkItems.length, icon: Wine, color: "text-info" },
@@ -289,7 +289,7 @@ export default function RestaurantPage() {
                               </DropdownMenu>
                             </div>
                             <div className="flex items-center justify-between mt-3">
-                              <span className="text-lg font-bold text-primary">${item.price}</span>
+                              <span className="text-lg font-bold text-primary">₦{item.price?.toLocaleString()}</span>
                               <Badge variant={item.inStock ? "success" : "destructive"}>
                                 {item.inStock ? "In Stock" : "Out of Stock"}
                               </Badge>

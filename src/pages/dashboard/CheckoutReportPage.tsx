@@ -238,19 +238,19 @@ export default function CheckoutReportPage() {
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4">Tax (10%)</td>
-                        <td className="py-3 px-4 text-right">${report.tax.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right">₦{report.tax.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                       </tr>
                       <tr className="border-t-2 border-border bg-primary/5">
                         <td className="py-4 px-4 font-bold text-lg">Total</td>
-                        <td className="py-4 px-4 text-right font-bold text-lg text-primary">${report.totalAmount.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right font-bold text-lg text-primary">₦{report.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                       </tr>
                       <tr className="border-t border-border">
                         <td className="py-3 px-4 text-muted-foreground">Already Paid</td>
-                        <td className="py-3 px-4 text-right text-success">-${report.paidAmount.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-right text-success">-₦{report.paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                       </tr>
                       <tr className="border-t-2 border-border bg-warning/10">
                         <td className="py-4 px-4 font-bold text-lg">Balance Due</td>
-                        <td className="py-4 px-4 text-right font-bold text-lg text-warning">${report.balance.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right font-bold text-lg text-warning">₦{report.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -273,7 +273,7 @@ export default function CheckoutReportPage() {
               <CardContent className="space-y-4">
                 <div className="p-4 bg-secondary/30 rounded-lg text-center">
                   <p className="text-sm text-muted-foreground">Balance Due</p>
-                  <p className="text-3xl font-bold text-warning">${report.balance.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-warning">₦{report.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
 
                 <div className="space-y-3">
@@ -292,11 +292,11 @@ export default function CheckoutReportPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Bill</span>
-                      <span>${report.totalAmount.toFixed(2)}</span>
+                      <span>₦{report.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     </div>
                     <div className="flex justify-between text-success">
                       <span>Advance Payment</span>
-                      <span>-${report.paidAmount.toFixed(2)}</span>
+                      <span>-₦{report.paidAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                     </div>
                     <div className="flex justify-between font-semibold pt-2 border-t border-border">
                       <span>Remaining</span>
