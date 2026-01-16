@@ -70,6 +70,11 @@ const ID_TYPE_OPTIONS = [
   { label: "Permanent Voter's Card (PVC)", value: "PVC" },
 ];
 
+const ACCOMMODATION_OPTIONS = [
+  { label: "Checked In", value: "Checked In" },
+  { label: "Reservation", value: "Reservation" },
+];
+
 // === PHONE FORMATTER ===
 const formatPhoneNumber = (value: string): string => {
   if (!value) return value;
@@ -129,6 +134,7 @@ export default function GuestsPage() {
     identificationtype: "NIN",
     emergencycontactname: "",
     emergencycontactphone: "",
+    accommodation: "checked_in", // ← DEFAULT TO "Checked In"
   });
 
   const fetchData = useCallback(async () => {
@@ -176,10 +182,11 @@ export default function GuestsPage() {
         country: guest.country || "NGN",
         Email: guest.Email || guest.email || "",
         phone: guest.phone || "",
-        identificationnumber: guest.identificationnumber || guest.idNumber || "",
-        identificationtype: guest.identificationtype || guest.idType || "NIN",
+        identificationnumber: guest.identificationNumber || guest.idNumber || "",
+        identificationtype: guest.identificationType || guest.idType || "NIN",
         emergencycontactname: guest.emergencycontactname || "",
         emergencycontactphone: guest.emergencycontactphone || "",
+        accommodation: guest.accommodation || "checked_in", // ← ensure default
       });
     } else {
       setEditingGuest(null);
@@ -196,6 +203,7 @@ export default function GuestsPage() {
         identificationtype: "NIN",
         emergencycontactname: "",
         emergencycontactphone: "",
+        accommodation: "checked_in", // ← always default to Checked In
       });
     }
     setGuestModalOpen(true);
@@ -211,6 +219,7 @@ export default function GuestsPage() {
       "address",
       "city",
       "country",
+      "accommodation", // ← NOW REQUIRED
     ];
 
     for (const field of requiredFields) {
@@ -249,6 +258,7 @@ export default function GuestsPage() {
         emergencycontactphone: guestForm.emergencycontactphone.trim()
           ? guestForm.emergencycontactphone.replace(/\D/g, "")
           : "",
+        accommodation: guestForm.accommodation, // ← always present
       };
 
       const response = editingGuest
@@ -556,6 +566,7 @@ export default function GuestsPage() {
             </FormField>
           </div>
 
+          {/* Phone + Accommodation side by side */}
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Phone" required>
               <Input
@@ -567,6 +578,23 @@ export default function GuestsPage() {
                 }}
                 placeholder="+234 803 123 4567"
               />
+            </FormField>
+            <FormField label="Accommodation" required> {/* ← LABEL CHANGED */}
+              <Select
+                value={guestForm.accommodation}
+                onValueChange={(v) => setGuestForm({ ...guestForm, accommodation: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOMMODATION_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FormField>
           </div>
 

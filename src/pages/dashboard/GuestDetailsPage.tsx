@@ -1,3 +1,5 @@
+// src/pages/dashboard/guestDetails.tsx
+
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -38,6 +40,7 @@ import {
   getGuestBookings,
   getGuestRestaurantOrders,
   getGuestLaundryOrders,
+  updateGuest, // ← ADDED
 } from "@/services/guestService";
 import {
   createBooking,
@@ -47,31 +50,8 @@ import {
   cancelBooking,
   extendBooking,
 } from "@/services/bookingService";
-import { getRooms } from "@/services/roomService";
-import { Guest, Booking, RestaurantOrder, LaundryOrder, Room, PaginatedResponse } from "@/types/api";
-
-/**
- * Guest Details Page
- * 
- * This page shows detailed guest information with tabs for:
- * - Bookings (with actions: Book room, Extend stay, Check in, Check out, Cancel)
- * - Restaurant orders
- * - Laundry orders
- * 
- * API Endpoints used:
- * 
- * GET /api/v3/guests/getGuestinfo/:id
- * Response: { success: boolean, data: Guest, message: string, status: number }
- * 
- * GET /api/v3/guests/:id/bookings
- * Response: { success: boolean, data: { items: Booking[], totalItems: number }, message: string, status: number }
- * 
- * GET /api/v3/guests/:id/restaurant-orders
- * Response: { success: boolean, data: { items: RestaurantOrder[], totalItems: number }, message: string, status: number }
- * 
- * GET /api/v3/guests/:id/laundry-orders
- * Response: { success: boolean, data: { items: LaundryOrder[], totalItems: number }, message: string, status: number }
- */
+import { getRooms, getRoomCategoriesWithAvailableRooms } from "@/services/roomService";
+import { Guest, Booking, RestaurantOrder, RoomCategoryWithRooms, LaundryOrder, Room, PaginatedResponse } from "@/types/api";
 
 const statusColors: Record<string, "success" | "info" | "warning" | "secondary"> = {
   "checked-in": "success",
@@ -86,11 +66,24 @@ const statusColors: Record<string, "success" | "info" | "warning" | "secondary">
   processing: "info",
 };
 
+const ID_TYPE_OPTIONS = [
+  { label: "National ID", value: "NIN" },
+  { label: "International Passport", value: "ITP" },
+  { label: "Driver's License", value: "DRL" },
+  { label: "Permanent Voter's Card", value: "PVC" },
+];
+
+const getIdTypeLabel = (code: string | undefined): string => {
+  if (!code) return '—';
+  const option = ID_TYPE_OPTIONS.find(opt => opt.value === code);
+  return option ? option.label : code;
+};
+
+
 export default function GuestDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Data state
   const [guest, setGuest] = useState<Guest | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [restaurantOrders, setRestaurantOrders] = useState<RestaurantOrder[]>([]);
@@ -100,7 +93,7 @@ export default function GuestDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("bookings");
 
-  // Pagination state for each tab
+  // Pagination state
   const [bookingsPagination, setBookingsPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
   const [restaurantPagination, setRestaurantPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
   const [laundryPagination, setLaundryPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
@@ -126,64 +119,87 @@ export default function GuestDetailsPage() {
     additionalPayment: "",
   });
 
-  // Fetch data
+  const [roomCategories, setRoomCategories] = useState<RoomCategoryWithRooms[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [filteredRooms, setFilteredRooms] = useState<{ id: string; roomnumber: string; floor: number }[]>([]);
+
   const fetchData = useCallback(async () => {
-    if (!id) return;
-    
-    setIsLoading(true);
-    setError(null);
+  if (!id) return;
+  setIsLoading(true);
+  setError(null);
+  try {
+    const [guestRes, bookingsRes, restaurantRes, laundryRes, roomsRes, categoriesRes] = await Promise.all([
+      getGuestById(id),
+      getGuestBookings(id),
+      getGuestRestaurantOrders(id),
+      getGuestLaundryOrders(id),
+      getRooms({ status: 'available' }),
+      getRoomCategoriesWithAvailableRooms(),
+    ]);
 
-    try {
-      const [guestRes, bookingsRes, restaurantRes, laundryRes, roomsRes] = await Promise.all([
-        getGuestById(id),
-        getGuestBookings(id),
-        getGuestRestaurantOrders(id),
-        getGuestLaundryOrders(id),
-        getRooms({ status: 'available' }),
-      ]);
-
-      if (guestRes.success) {
-        setGuest(guestRes.data);
-      } else {
-        setError(guestRes.message);
-      }
-
-      if (bookingsRes.success) {
-        setBookings(bookingsRes.data.items);
-        setBookingsPagination(prev => ({
-          ...prev,
-          totalItems: bookingsRes.data.totalItems,
-          totalPages: bookingsRes.data.totalPages || Math.ceil(bookingsRes.data.totalItems / prev.pageSize),
-        }));
-      }
-
-      if (restaurantRes.success) {
-        setRestaurantOrders(restaurantRes.data.items);
-        setRestaurantPagination(prev => ({
-          ...prev,
-          totalItems: restaurantRes.data.totalItems,
-          totalPages: restaurantRes.data.totalPages || Math.ceil(restaurantRes.data.totalItems / prev.pageSize),
-        }));
-      }
-
-      if (laundryRes.success) {
-        setLaundryOrders(laundryRes.data.items);
-        setLaundryPagination(prev => ({
-          ...prev,
-          totalItems: laundryRes.data.totalItems,
-          totalPages: laundryRes.data.totalPages || Math.ceil(laundryRes.data.totalItems / prev.pageSize),
-        }));
-      }
-
-      if (roomsRes.success) {
-        setRooms(roomsRes.data.items);
-      }
-    } catch (err) {
-      setError("Failed to load guest details");
-    } finally {
-      setIsLoading(false);
+    // Handle guest data
+    if (guestRes.success) {
+      const rawGuest = guestRes.data;
+      const normalizedGuest: Guest = {
+        ...rawGuest,
+        name: rawGuest.name || `${rawGuest.firstname || ''} ${rawGuest.lastname || ''}`.trim() || 'Guest',
+        firstname: rawGuest.firstname || (rawGuest.name?.split(' ')[0] || ''),
+        lastname: rawGuest.lastname || (rawGuest.name?.split(' ').slice(1).join(' ') || ''),
+        email: rawGuest.emailAddress || rawGuest.email || rawGuest.Email || '',
+        phone: rawGuest.phoneNo || rawGuest.phone || rawGuest.Phone || '',
+        address: rawGuest.address || '',
+        city: rawGuest.city || '',
+        country: rawGuest.country || '',
+        idType: rawGuest.idType || rawGuest.identificationType || '',
+        idNumber: rawGuest.idNumber || rawGuest.identificationNumber || '',
+        totalStays: rawGuest.totalStays ?? 0,
+        totalSpent: rawGuest.totalSpent ?? 0,
+        accommodation: rawGuest.accommodation || '',
+      };
+      setGuest(normalizedGuest);
+    } else {
+      setError(guestRes.message);
     }
-  }, [id]);
+
+    // Handle categories (independent of guest success)
+    if (categoriesRes.success) {
+      setRoomCategories(categoriesRes.data);
+    }
+
+    // Handle other data...
+    if (bookingsRes.success) {
+      setBookings(bookingsRes.data.items);
+      setBookingsPagination(prev => ({
+        ...prev,
+        totalItems: bookingsRes.data.totalItems,
+        totalPages: bookingsRes.data.totalPages || Math.ceil(bookingsRes.data.totalItems / prev.pageSize),
+      }));
+    }
+    if (restaurantRes.success) {
+      setRestaurantOrders(restaurantRes.data.items);
+      setRestaurantPagination(prev => ({
+        ...prev,
+        totalItems: restaurantRes.data.totalItems,
+        totalPages: restaurantRes.data.totalPages || Math.ceil(restaurantRes.data.totalItems / prev.pageSize),
+      }));
+    }
+    if (laundryRes.success) {
+      setLaundryOrders(laundryRes.data.items);
+      setLaundryPagination(prev => ({
+        ...prev,
+        totalItems: laundryRes.data.totalItems,
+        totalPages: laundryRes.data.totalPages || Math.ceil(laundryRes.data.totalItems / prev.pageSize),
+      }));
+    }
+    if (roomsRes.success) {
+      setRooms(roomsRes.data.items);
+    }
+  } catch (err) {
+    setError("Failed to load guest details");
+  } finally {
+    setIsLoading(false);
+  }
+}, [id]);
 
   useEffect(() => {
     fetchData();
@@ -198,9 +214,7 @@ export default function GuestDetailsPage() {
       toast.error("Please fill all required fields");
       return;
     }
-
     setIsSubmitting(true);
-
     try {
       const payload = {
         guestId: id,
@@ -215,6 +229,9 @@ export default function GuestDetailsPage() {
         : await createReservation(payload);
 
       if (response.success) {
+        // ✅ Sync guest accommodation status based on booking type
+        await updateGuest(id, { accommodation: bookingType === "check-in" ? "checked_in" : "reservation" });
+
         toast.success(bookingType === "check-in" ? "Guest checked in successfully" : "Reservation created successfully");
         setBookingModalOpen(false);
         resetBookingForm();
@@ -234,15 +251,12 @@ export default function GuestDetailsPage() {
       toast.error("Please select a new check-out date");
       return;
     }
-
     setIsSubmitting(true);
-
     try {
       const response = await extendBooking(selectedBooking.id, {
         newCheckOut: extendForm.newCheckOut.toISOString().split('T')[0],
         additionalPayment: parseFloat(extendForm.additionalPayment) || 0,
       });
-
       if (response.success) {
         toast.success("Booking extended successfully");
         setExtendModalOpen(false);
@@ -263,6 +277,8 @@ export default function GuestDetailsPage() {
     try {
       const response = await checkIn(bookingId);
       if (response.success) {
+        // ✅ Update guest status to "checked_in"
+        if (id) await updateGuest(id, { accommodation: "checked_in" });
         toast.success("Guest checked in successfully");
         fetchData();
       } else {
@@ -277,6 +293,8 @@ export default function GuestDetailsPage() {
     try {
       const response = await checkOut(bookingId);
       if (response.success) {
+        // Optional: clear accommodation or leave as historical
+        // if (id) await updateGuest(id, { accommodation: "" });
         toast.success("Guest checked out successfully");
         fetchData();
       } else {
@@ -289,7 +307,6 @@ export default function GuestDetailsPage() {
 
   const handleCancel = async () => {
     setIsSubmitting(true);
-
     try {
       const response = await cancelBooking(cancelDialog.id);
       if (response.success) {
@@ -307,9 +324,12 @@ export default function GuestDetailsPage() {
   };
 
   const openBookingModal = (type: "check-in" | "reservation") => {
-    setBookingType(type);
-    setBookingModalOpen(true);
-  };
+  setBookingType(type);
+  setSelectedCategory(null);
+  setFilteredRooms([]);
+  setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "" });
+  setBookingModalOpen(true);
+};
 
   const openExtendModal = (booking: Booking) => {
     setSelectedBooking(booking);
@@ -367,11 +387,10 @@ export default function GuestDetailsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader 
-        title="Guest Details" 
-        subtitle={`Viewing information for ${guestName}`} 
+      <DashboardHeader
+        title="Guest Details"
+        subtitle={`Viewing information for ${guestName}`}
       />
-
       <div className="p-6 space-y-6">
         {/* Back Button */}
         <Button variant="ghost" onClick={() => navigate("/dashboard/guests")} className="mb-4">
@@ -380,63 +399,95 @@ export default function GuestDetailsPage() {
         </Button>
 
         {/* Guest Info Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card variant="glass">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-3xl font-bold text-primary">
-                    {guestName.charAt(0)}
-                  </span>
-                </div>
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-foreground">{guestName}</h2>
-                    <Link to={`/dashboard/guests?edit=${guest.id}`}>
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Guest
-                      </Button>
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="w-4 h-4" />
-                      <span>{guestEmail}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      <span>{guestPhone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="w-4 h-4" />
-                      <span>{guest.address || guest.city || 'N/A'}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 pt-2">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-foreground">{guest.totalStays || 0}</p>
-                      <p className="text-sm text-muted-foreground">Total Stays</p>
-                    </div>
-                    <div className="h-8 w-px bg-border" />
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-primary">${(guest.totalSpent || 0).toLocaleString()}</p>
-                      <p className="text-sm text-muted-foreground">Total Spent</p>
-                    </div>
-                    <div className="h-8 w-px bg-border" />
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">ID: {guest.idType || guest.identificationtype || 'N/A'}</p>
-                      <p className="text-sm font-medium text-foreground">{guest.idNumber || guest.identificationnumber || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+>
+  <Card variant="glass">
+    <CardContent className="p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+        {/* Avatar */}
+        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <span className="text-3xl font-bold text-primary">
+            {(guest.firstname || guest.lastname || guest.name || 'G').charAt(0).toUpperCase()}
+          </span>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 w-full min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+            <div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-2xl font-bold text-foreground">
+                  {guest.name || `${guest.firstname || ''} ${guest.lastname || ''}`.trim() || 'Guest'}
+                </h2>
+                {guest.accommodation && (
+                  <Badge variant={guest.accommodation === 'checked_in' ? 'success' : 'info'}>
+                    {guest.accommodation === 'checked_in' ? 'Checked In' : 'Reservation'}
+                  </Badge>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Guest ID: {guest.id}
+              </p>
+            </div>
+            <Link to={`/dashboard/guests?edit=${guest.id}`}>
+              <Button variant="outline" size="sm">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Guest
+              </Button>
+            </Link>
+          </div>
+
+          {/* Contact & Address */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div className="flex items-start gap-2 text-muted-foreground">
+    <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
+    <span className="truncate">{guestEmail || '—'}</span>
+  </div>
+  <div className="flex items-start gap-2 text-muted-foreground">
+    <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
+    <span className="truncate">{guestPhone || '—'}</span>
+  </div>
+  <div className="flex items-start gap-2 text-muted-foreground">
+    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+    <span className="truncate">
+      {[
+        guest.address,
+        guest.city,
+        guest.country
+      ].filter(Boolean).join(', ') || '—'}
+    </span>
+  </div>
+</div>
+
+          {/* Key Metrics */}
+          <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-border/50">
+            <div className="text-center min-w-[100px]">
+              <p className="text-2xl font-bold text-foreground">{guest.totalStays || 0}</p>
+              <p className="text-sm text-muted-foreground">Total Stays</p>
+            </div>
+            <div className="h-8 w-px bg-border/50 hidden sm:block" />
+            <div className="text-center min-w-[120px]">
+              <p className="text-2xl font-bold text-primary">${(guest.totalSpent || 0).toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Total Spent</p>
+            </div>
+            <div className="h-8 w-px bg-border/50 hidden sm:block" />
+            <div className="text-center min-w-[140px]">
+              <p className="text-sm text-muted-foreground">ID Type</p>
+              <p className="text-sm font-medium text-foreground">
+                {getIdTypeLabel(guest.idType || guest.identificationType)}
+              </p>
+              <p className="text-sm font-mono text-foreground mt-1">
+                {guest.idNumber || guest.identificationNumber || '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</motion.div>
 
         {/* Actions */}
         <motion.div
@@ -566,23 +617,20 @@ export default function GuestDetailsPage() {
                                     <DropdownMenuItem onClick={() => setViewBooking(booking)}>
                                       <Eye className="w-4 h-4 mr-2" /> View Details
                                     </DropdownMenuItem>
-                                    {/* Check In - only for reservations */}
                                     {booking.bookingType === 'reservation' && booking.status === 'confirmed' && (
                                       <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Check In
                                       </DropdownMenuItem>
                                     )}
-                                    {/* Extend Stay - only for checked-in bookings */}
                                     {booking.status === 'checked-in' && (
-                                      <DropdownMenuItem onClick={() => openExtendModal(booking)}>
-                                        <Clock className="w-4 h-4 mr-2" /> Extend Stay
-                                      </DropdownMenuItem>
-                                    )}
-                                    {/* Check Out - only for checked-in bookings */}
-                                    {booking.status === 'checked-in' && (
-                                      <DropdownMenuItem onClick={() => handleCheckOut(booking.id)}>
-                                        <LogOut className="w-4 h-4 mr-2" /> Check Out
-                                      </DropdownMenuItem>
+                                      <>
+                                        <DropdownMenuItem onClick={() => openExtendModal(booking)}>
+                                          <Clock className="w-4 h-4 mr-2" /> Extend Stay
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleCheckOut(booking.id)}>
+                                          <LogOut className="w-4 h-4 mr-2" /> Check Out
+                                        </DropdownMenuItem>
+                                      </>
                                     )}
                                     <DropdownMenuItem asChild>
                                       <Link to={`/dashboard/checkout/${booking.id}`}>
@@ -590,7 +638,6 @@ export default function GuestDetailsPage() {
                                       </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    {/* Cancel - only for active bookings */}
                                     {(booking.status === 'confirmed' || booking.status === 'checked-in') && (
                                       <DropdownMenuItem
                                         className="text-destructive"
@@ -608,7 +655,7 @@ export default function GuestDetailsPage() {
                       </table>
                     </div>
                   )}
-                  {/* Bookings Pagination */}
+
                   {bookings.length > 0 && bookingsPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
@@ -688,7 +735,7 @@ export default function GuestDetailsPage() {
                       </table>
                     </div>
                   )}
-                  {/* Restaurant Pagination */}
+
                   {restaurantOrders.length > 0 && restaurantPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
@@ -768,7 +815,7 @@ export default function GuestDetailsPage() {
                       </table>
                     </div>
                   )}
-                  {/* Laundry Pagination */}
+
                   {laundryOrders.length > 0 && laundryPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
@@ -805,60 +852,103 @@ export default function GuestDetailsPage() {
       </div>
 
       {/* Booking Modal */}
-      <FormModal
-        open={bookingModalOpen}
-        onOpenChange={setBookingModalOpen}
-        title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
-        description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
-        onSubmit={handleBookingSubmit}
-        submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
-        size="lg"
-        isLoading={isSubmitting}
+<FormModal
+  open={bookingModalOpen}
+  onOpenChange={setBookingModalOpen}
+  title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
+  description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
+  onSubmit={handleBookingSubmit}
+  submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
+  size="lg"
+  isLoading={isSubmitting}
+>
+  <div className="space-y-4">
+    {/* Category Selection */}
+    <FormField label="Room Category" required>
+      <Select
+        value={selectedCategory || ""}
+        onValueChange={(value) => {
+          setSelectedCategory(value);
+          const category = roomCategories.find(c => c.id.toString() === value);
+          setFilteredRooms(
+            category?.rooms.map(r => ({
+              id: r.id.toString(), // Convert to string
+              roomnumber: r.roomnumber,
+              floor: r.floor
+            })) || []
+          );
+          setBookingForm(prev => ({ ...prev, roomId: "" }));
+        }}
       >
-        <div className="space-y-4">
-          <FormField label="Room" required>
-            <Select value={bookingForm.roomId} onValueChange={(v) => setBookingForm({ ...bookingForm, roomId: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select available room" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id || ''}>
-                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} - ${r.price}/night
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Check-in Date" required>
-              <DatePicker
-                value={bookingForm.checkIn}
-                onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
-                placeholder="Select check-in date"
-              />
-            </FormField>
-            <FormField label="Check-out Date" required>
-              <DatePicker
-                value={bookingForm.checkOut}
-                onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
-                placeholder="Select check-out date"
-                minDate={bookingForm.checkIn || undefined}
-              />
-            </FormField>
-          </div>
-          {bookingType === "check-in" && (
-            <FormField label="Payment Amount" hint="Initial payment">
-              <Input
-                type="number"
-                value={bookingForm.paidAmount}
-                onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
-                placeholder="0"
-              />
-            </FormField>
-          )}
-        </div>
-      </FormModal>
+        <SelectTrigger>
+          <SelectValue placeholder="Select a category" />
+        </SelectTrigger>
+        <SelectContent>
+          {roomCategories.map((category) => (
+            <SelectItem key={category.id} value={category.id.toString()}>
+              {category.name} — ₦{category.price.toLocaleString()}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+
+    {/* Room Selection */}
+    <FormField label="Room Number" required>
+      <Select
+        value={bookingForm.roomId}
+        onValueChange={(value) => setBookingForm(prev => ({ ...prev, roomId: value }))}
+        disabled={!selectedCategory}
+      >
+        <SelectTrigger>
+          <SelectValue 
+            placeholder={
+              selectedCategory 
+                ? "Select a room" 
+                : "Select category first"
+            } 
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {filteredRooms.map((room) => (
+            <SelectItem key={room.id} value={room.id}>
+              Room {room.roomnumber} (Floor {room.floor})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+
+    <div className="grid grid-cols-2 gap-4">
+      <FormField label="Check-in Date" required>
+        <DatePicker
+          value={bookingForm.checkIn}
+          onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
+          placeholder="Select check-in date"
+        />
+      </FormField>
+      <FormField label="Check-out Date" required>
+        <DatePicker
+          value={bookingForm.checkOut}
+          onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
+          placeholder="Select check-out date"
+          minDate={bookingForm.checkIn || undefined}
+        />
+      </FormField>
+    </div>
+
+    {bookingType === "check-in" && (
+      <FormField label="Payment Amount" hint="Initial payment">
+        <Input
+          type="number"
+          value={bookingForm.paidAmount}
+          onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+          placeholder="0"
+        />
+      </FormField>
+    )}
+  </div>
+</FormModal>
 
       {/* Extend Stay Modal */}
       <FormModal

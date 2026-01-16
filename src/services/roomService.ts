@@ -1,6 +1,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { 
-  ApiResponse, 
+  ApiResponse,
+  RoomCategoryWithRooms, 
   Room, 
   RoomCategory, 
   RoomCategoryUpdate,
@@ -334,6 +335,33 @@ export interface RoomCategorySelectItem {
  */
 export async function getRoomItems(): Promise<ApiResponse<RoomCategorySelectItem[]>> {
   return await apiGet<RoomCategorySelectItem[]>('v3/rooms/getroomsitems');
+}
+
+
+// =====================================================
+// Room Categories with Rooms (for Guest Booking Flow)
+// =====================================================
+
+/**
+ * GET /api/v3/rooms/getroomsandcategories
+ * Get all room categories with their available rooms
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   data: RoomCategoryWithRooms[],
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function getRoomCategoriesWithAvailableRooms(): Promise<ApiResponse<RoomCategoryWithRooms[]>> {
+  try {
+    // Adjust endpoint to match your backend
+    return await apiGet<RoomCategoryWithRooms[]>('v3/rooms/getroomsandcategories');
+  } catch (error) {
+    console.error('Failed to fetch room categories with rooms:', error);
+    throw error; // Do not mock — ensure real data for booking flow
+  }
 }
 
 // Note: Public room endpoints moved to publicService.ts

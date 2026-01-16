@@ -103,6 +103,21 @@ export interface Room {
   hotelName?: string;
 }
 
+// In src/types/api.ts
+export interface RoomInCategory {
+  id: number;
+  roomnumber: string; // matches your backend field name
+  floor: number;
+}
+
+export interface RoomCategoryWithRooms {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  rooms: RoomInCategory[];
+}
+
 export interface Guest {
   id: string;
   hotelId?: string;
@@ -114,10 +129,13 @@ export interface Guest {
   address?: string;
   city?: string;
   country?: string;
+  emailAddress?: string; // ← actual backend field
+  phoneNo?: string;  
   Email?: string;
   phone?: string;
-  identificationnumber?: string;
-  identificationtype?: string;
+  Phone?: string;
+  identificationNumber?: string;
+  identificationType?: string;
   emergencycontactname?: string;
   emergencycontactphone?: string;
   accommodation?: string;
