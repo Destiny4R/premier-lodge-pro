@@ -451,7 +451,7 @@ export default function RoomsPage() {
                             {category.description}
                           </p>
                           <div className="flex items-center justify-between">
-                            <span className="text-lg font-bold text-primary">${category.basePrice}</span>
+                            <span className="text-lg font-bold text-primary">₦{category.basePrice?.toLocaleString()}</span>
                             <span className="text-sm text-muted-foreground">
                               Max {category.maxOccupancy} guests
                             </span>
@@ -534,7 +534,7 @@ export default function RoomsPage() {
                                 </td>
                                 <td className="py-4 px-4 text-sm text-foreground">{category?.name || room.categoryName || '-'}</td>
                                 <td className="py-4 px-4 text-sm text-muted-foreground">Floor {room.floor}</td>
-                                <td className="py-4 px-4 text-sm font-semibold text-foreground">${room.price}</td>
+                                <td className="py-4 px-4 text-sm font-semibold text-foreground">₦{room.price?.toLocaleString()}</td>
                                 <td className="py-4 px-4">
                                   <Badge variant={statusVariants[room.status]}>{room.status}</Badge>
                                 </td>
@@ -726,7 +726,7 @@ export default function RoomsPage() {
             <DetailRow label="Hotel" value={viewRoom.hotelName || '-'} />
             <DetailRow label="Category" value={categories.find(c => c.id === viewRoom.categoryId)?.name || viewRoom.categoryName || '-'} />
             <DetailRow label="Floor" value={`Floor ${viewRoom.floor}`} />
-            <DetailRow label="Price" value={`$${viewRoom.price}/night`} />
+            <DetailRow label="Price" value={`₦${viewRoom.price?.toLocaleString()}/night`} />
             <DetailRow label="Status" value={<Badge variant={statusVariants[viewRoom.status]}>{viewRoom.status}</Badge>} />
             <DetailRow label="Featured" value={viewRoom.isPromoted ? "Yes" : "No"} />
           </div>

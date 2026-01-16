@@ -72,7 +72,7 @@ export default function SuperAdminPage() {
           {[
             { label: "Total Hotels", value: hotels.length, icon: Building2, change: "+2" },
             { label: "Active Hotels", value: hotels.filter((h) => h.status === "active").length, icon: Hotel, change: "+1" },
-            { label: "Total Revenue", value: "$328K", icon: DollarSign, change: "+15%" },
+            { label: "Total Revenue", value: "₦328M", icon: DollarSign, change: "+15%" },
             { label: "Total Guests", value: "2,450", icon: Users, change: "+8%" },
           ].map((stat) => (
             <Card key={stat.label} variant="elevated">

@@ -286,7 +286,7 @@ export default function PoolPage() {
                               <p className="text-sm text-muted-foreground">{plan.duration}</p>
                             </div>
                           </div>
-                          <p className="text-3xl font-bold text-primary mb-4">${plan.price}</p>
+                          <p className="text-3xl font-bold text-primary mb-4">₦{plan.price?.toLocaleString()}</p>
                           <ul className="space-y-2 mb-4">
                             {plan.features.map((feature, i) => (
                               <li key={i} className="text-sm text-muted-foreground flex items-center gap-2">
@@ -517,7 +517,7 @@ export default function PoolPage() {
               </SelectTrigger>
               <SelectContent>
                 {plans.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} - ${p.price}/{p.duration}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.name} - ₦{p.price?.toLocaleString()}/{p.duration}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
