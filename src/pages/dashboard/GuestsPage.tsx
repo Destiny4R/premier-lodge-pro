@@ -61,7 +61,6 @@ const COUNTRY_OPTIONS = [
   { label: "United Kingdom", value: "GBR" },
   { label: "Ghana", value: "GHA" },
   { label: "Kenya", value: "KEN" },
-  // Extend as needed
 ];
 
 const ID_TYPE_OPTIONS = [
@@ -74,9 +73,7 @@ const ID_TYPE_OPTIONS = [
 // === PHONE FORMATTER ===
 const formatPhoneNumber = (value: string): string => {
   if (!value) return value;
-
   const digits = value.replace(/\D/g, "");
-
   let formatted = digits;
   if (digits.startsWith("0") && digits.length > 1) {
     formatted = "234" + digits.slice(1);
@@ -85,14 +82,12 @@ const formatPhoneNumber = (value: string): string => {
   } else if (digits.length <= 10 && !digits.startsWith("234")) {
     formatted = "234" + digits;
   }
-
   if (formatted.startsWith("234") && formatted.length >= 4) {
     const rest = formatted.slice(3);
     if (rest.length <= 3) return `+234 ${rest}`;
     if (rest.length <= 6) return `+234 ${rest.slice(0, 3)} ${rest.slice(3)}`;
     return `+234 ${rest.slice(0, 3)} ${rest.slice(3, 6)} ${rest.slice(6, 10)}`;
   }
-
   return `+${formatted}`;
 };
 
@@ -106,14 +101,12 @@ interface GuestStats {
 export default function GuestsPage() {
   const navigate = useNavigate();
 
-  // Data state
   const [guests, setGuests] = useState<Guest[]>([]);
   const [stats, setStats] = useState<GuestStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modal state
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [viewGuest, setViewGuest] = useState<Guest | null>(null);
@@ -123,39 +116,34 @@ export default function GuestsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Guest form
   const [guestForm, setGuestForm] = useState({
     firstname: "",
     lastname: "",
     gender: "Male",
     address: "",
     city: "",
-    country: "NGN", // Default to Nigeria
+    country: "NGN",
     Email: "",
     phone: "",
     identificationnumber: "",
-    identificationtype: "NIN", // Short code
+    identificationtype: "NIN",
     emergencycontactname: "",
     emergencycontactphone: "",
   });
 
-  // Fetch data
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       const [guestsRes, statsRes] = await Promise.all([
         getGuests({ page: 1, limit: 10, search: searchQuery }),
         getGuestStats(),
       ]);
-
       if (guestsRes.success) {
         setGuests(guestsRes.data.items);
       } else {
         setError(guestsRes.message);
       }
-
       if (statsRes.success) {
         setStats(statsRes.data);
       }
@@ -252,15 +240,15 @@ export default function GuestsPage() {
         gender: guestForm.gender,
         address: guestForm.address.trim(),
         city: guestForm.city.trim(),
-        country: guestForm.country, // e.g., "NGN"
+        country: guestForm.country,
         Email: guestForm.Email.trim(),
-        phone: phoneDigits, // send clean digits only
+        phone: phoneDigits,
         identificationnumber: guestForm.identificationnumber.trim(),
-        identificationtype: guestForm.identificationtype, // e.g., "NIN"
+        identificationtype: guestForm.identificationtype,
         emergencycontactname: guestForm.emergencycontactname.trim(),
         emergencycontactphone: guestForm.emergencycontactphone.trim()
-  ? guestForm.emergencycontactphone.replace(/\D/g, '')
-  : '',
+          ? guestForm.emergencycontactphone.replace(/\D/g, "")
+          : "",
       };
 
       const response = editingGuest
@@ -656,16 +644,16 @@ export default function GuestsPage() {
               />
             </FormField>
             <FormField label="Emergency Contact Phone">
-  <Input
-    value={guestForm.emergencycontactphone}
-    onChange={(e) => {
-      const raw = e.target.value;
-      const formatted = formatPhoneNumber(raw);
-      setGuestForm({ ...guestForm, emergencycontactphone: formatted });
-    }}
-    placeholder="+234 803 123 4567"
-  />
-</FormField>
+              <Input
+                value={guestForm.emergencycontactphone}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const formatted = formatPhoneNumber(raw);
+                  setGuestForm({ ...guestForm, emergencycontactphone: formatted });
+                }}
+                placeholder="+234 803 123 4567"
+              />
+            </FormField>
           </div>
 
           <p className="text-sm text-muted-foreground italic">
