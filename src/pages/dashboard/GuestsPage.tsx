@@ -1,3 +1,5 @@
+// src/pages/dashboard/GuestsPage.tsx
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -7,14 +9,92 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { LoadingState, EmptyState, StatsSkeleton } from "@/components/ui/loading-state";
-import { Plus, Search, Filter, Users, Mail, Phone, MoreVertical, Eye, History, Edit, Trash, ExternalLink } from "lucide-react";
-import { getGuests, createGuest, updateGuest, deleteGuest, getGuestStats } from "@/services/guestService";
+import {
+  Plus,
+  Search,
+  Filter,
+  Users,
+  Mail,
+  Phone,
+  MoreVertical,
+  Eye,
+  History,
+  Edit,
+  Trash,
+  ExternalLink,
+} from "lucide-react";
+import {
+  getGuests,
+  createGuest,
+  updateGuest,
+  deleteGuest,
+  getGuestStats,
+} from "@/services/guestService";
 import { Guest, CreateGuestRequest } from "@/types/api";
-import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  FormModal,
+  FormField,
+  ConfirmDialog,
+  ViewModal,
+  DetailRow,
+} from "@/components/forms";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+
+// === CONSTANTS ===
+const COUNTRY_OPTIONS = [
+  { label: "Nigeria", value: "NGN" },
+  { label: "United States", value: "USA" },
+  { label: "United Kingdom", value: "GBR" },
+  { label: "Ghana", value: "GHA" },
+  { label: "Kenya", value: "KEN" },
+  // Extend as needed
+];
+
+const ID_TYPE_OPTIONS = [
+  { label: "National Identification Number (NIN)", value: "NIN" },
+  { label: "International Passport", value: "ITP" },
+  { label: "Driver's License", value: "DRL" },
+  { label: "Permanent Voter's Card (PVC)", value: "PVC" },
+];
+
+// === PHONE FORMATTER ===
+const formatPhoneNumber = (value: string): string => {
+  if (!value) return value;
+
+  const digits = value.replace(/\D/g, "");
+
+  let formatted = digits;
+  if (digits.startsWith("0") && digits.length > 1) {
+    formatted = "234" + digits.slice(1);
+  } else if (digits.startsWith("234")) {
+    formatted = digits;
+  } else if (digits.length <= 10 && !digits.startsWith("234")) {
+    formatted = "234" + digits;
+  }
+
+  if (formatted.startsWith("234") && formatted.length >= 4) {
+    const rest = formatted.slice(3);
+    if (rest.length <= 3) return `+234 ${rest}`;
+    if (rest.length <= 6) return `+234 ${rest.slice(0, 3)} ${rest.slice(3)}`;
+    return `+234 ${rest.slice(0, 3)} ${rest.slice(3, 6)} ${rest.slice(6, 10)}`;
+  }
+
+  return `+${formatted}`;
+};
 
 interface GuestStats {
   totalGuests: number;
@@ -25,7 +105,7 @@ interface GuestStats {
 
 export default function GuestsPage() {
   const navigate = useNavigate();
-  
+
   // Data state
   const [guests, setGuests] = useState<Guest[]>([]);
   const [stats, setStats] = useState<GuestStats | null>(null);
@@ -37,21 +117,24 @@ export default function GuestsPage() {
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [viewGuest, setViewGuest] = useState<Guest | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string }>({
+    open: false,
+    id: "",
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Guest form - room selection removed (handled via booking)
+  // Guest form
   const [guestForm, setGuestForm] = useState({
     firstname: "",
     lastname: "",
     gender: "Male",
     address: "",
     city: "",
-    country: "",
+    country: "NGN", // Default to Nigeria
     Email: "",
     phone: "",
     identificationnumber: "",
-    identificationtype: "National Identification Number (NIN)",
+    identificationtype: "NIN", // Short code
     emergencycontactname: "",
     emergencycontactphone: "",
   });
@@ -60,13 +143,13 @@ export default function GuestsPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const [guestsRes, statsRes] = await Promise.all([
         getGuests({ page: 1, limit: 10, search: searchQuery }),
         getGuestStats(),
       ]);
-      
+
       if (guestsRes.success) {
         setGuests(guestsRes.data.items);
       } else {
@@ -87,7 +170,6 @@ export default function GuestsPage() {
     fetchData();
   }, [fetchData]);
 
-  // Filter guests locally for immediate feedback
   const filteredGuests = guests.filter(
     (guest) =>
       guest.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -98,57 +180,87 @@ export default function GuestsPage() {
     if (guest) {
       setEditingGuest(guest);
       setGuestForm({
-        firstname: guest.firstname || guest.name?.split(' ')[0] || '',
-        lastname: guest.lastname || guest.name?.split(' ').slice(1).join(' ') || '',
-        gender: guest.gender || 'Male',
-        address: guest.address || '',
-        city: guest.city || '',
-        country: guest.country || '',
-        Email: guest.Email || guest.email || '',
-        phone: guest.phone || '',
-        identificationnumber: guest.identificationnumber || guest.idNumber || '',
-        identificationtype: guest.identificationtype || guest.idType || 'National Identification Number (NIN)',
-        emergencycontactname: guest.emergencycontactname || '',
-        emergencycontactphone: guest.emergencycontactphone || '',
+        firstname: guest.firstname || guest.name?.split(" ")[0] || "",
+        lastname: guest.lastname || guest.name?.split(" ").slice(1).join(" ") || "",
+        gender: guest.gender || "Male",
+        address: guest.address || "",
+        city: guest.city || "",
+        country: guest.country || "NGN",
+        Email: guest.Email || guest.email || "",
+        phone: guest.phone || "",
+        identificationnumber: guest.identificationnumber || guest.idNumber || "",
+        identificationtype: guest.identificationtype || guest.idType || "NIN",
+        emergencycontactname: guest.emergencycontactname || "",
+        emergencycontactphone: guest.emergencycontactphone || "",
       });
     } else {
       setEditingGuest(null);
-      setGuestForm({ 
-        firstname: "", 
-        lastname: "", 
-        gender: "Male", 
-        address: "", 
-        city: "", 
-        country: "", 
-        Email: "", 
-        phone: "", 
-        identificationnumber: "", 
-        identificationtype: "National Identification Number (NIN)", 
-        emergencycontactname: "", 
-        emergencycontactphone: "" 
+      setGuestForm({
+        firstname: "",
+        lastname: "",
+        gender: "Male",
+        address: "",
+        city: "",
+        country: "NGN",
+        Email: "",
+        phone: "",
+        identificationnumber: "",
+        identificationtype: "NIN",
+        emergencycontactname: "",
+        emergencycontactphone: "",
       });
     }
     setGuestModalOpen(true);
   };
 
   const handleGuestSubmit = async () => {
+    const requiredFields: Array<keyof typeof guestForm> = [
+      "firstname",
+      "lastname",
+      "Email",
+      "phone",
+      "identificationnumber",
+      "address",
+      "city",
+      "country",
+    ];
+
+    for (const field of requiredFields) {
+      if (!guestForm[field]?.trim()) {
+        toast.error(`Please fill in the ${field.replace(/([A-Z])/g, " $1").toLowerCase()} field.`);
+        return;
+      }
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(guestForm.Email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    const phoneDigits = guestForm.phone.replace(/\D/g, "");
+    if (phoneDigits.length < 10) {
+      toast.error("Please enter a valid phone number.");
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
-      // Room selection removed - handled via booking flow
       const payload: CreateGuestRequest = {
-        firstname: guestForm.firstname,
-        lastname: guestForm.lastname,
+        firstname: guestForm.firstname.trim(),
+        lastname: guestForm.lastname.trim(),
         gender: guestForm.gender,
-        address: guestForm.address,
-        city: guestForm.city,
-        country: guestForm.country,
-        Email: guestForm.Email,
-        phone: guestForm.phone,
-        identificationnumber: guestForm.identificationnumber,
-        identificationtype: guestForm.identificationtype,
-        emergencycontactname: guestForm.emergencycontactname,
-        emergencycontactphone: guestForm.emergencycontactphone,
+        address: guestForm.address.trim(),
+        city: guestForm.city.trim(),
+        country: guestForm.country, // e.g., "NGN"
+        Email: guestForm.Email.trim(),
+        phone: phoneDigits, // send clean digits only
+        identificationnumber: guestForm.identificationnumber.trim(),
+        identificationtype: guestForm.identificationtype, // e.g., "NIN"
+        emergencycontactname: guestForm.emergencycontactname.trim(),
+        emergencycontactphone: guestForm.emergencycontactphone.trim()
+  ? guestForm.emergencycontactphone.replace(/\D/g, '')
+  : '',
       };
 
       const response = editingGuest
@@ -171,10 +283,8 @@ export default function GuestsPage() {
 
   const handleDelete = async () => {
     setIsSubmitting(true);
-    
     try {
       const response = await deleteGuest(deleteDialog.id);
-      
       if (response.success) {
         toast.success("Guest deleted successfully");
         setDeleteDialog({ open: false, id: "" });
@@ -189,7 +299,6 @@ export default function GuestsPage() {
     }
   };
 
-  // Navigate to guest details page
   const handleViewGuestDetails = (guestId: string) => {
     navigate(`/dashboard/guests/${guestId}`);
   };
@@ -224,8 +333,8 @@ export default function GuestsPage() {
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search guests..." 
+              <Input
+                placeholder="Search guests..."
                 className="pl-10 bg-secondary border-border"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -295,9 +404,9 @@ export default function GuestsPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredGuests.map((guest) => (
-                    <Card 
-                      key={guest.id} 
-                      variant="elevated" 
+                    <Card
+                      key={guest.id}
+                      variant="elevated"
                       className="p-4 hover-lift cursor-pointer transition-all"
                       onClick={() => handleViewGuestDetails(guest.id)}
                     >
@@ -310,14 +419,16 @@ export default function GuestsPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold text-foreground">{guest.name}</h3>
-                            <p className="text-sm text-muted-foreground">{guest.idType}: {guest.idNumber}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {guest.idType}: {guest.idNumber}
+                            </p>
                           </div>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="h-8 w-8"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -325,21 +436,44 @@ export default function GuestsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewGuestDetails(guest.id); }}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewGuestDetails(guest.id);
+                              }}
+                            >
                               <ExternalLink className="w-4 h-4 mr-2" /> View Full Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setViewGuest(guest); }}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewGuest(guest);
+                              }}
+                            >
                               <Eye className="w-4 h-4 mr-2" /> Quick View
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openGuestModal(guest); }}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openGuestModal(guest);
+                              }}
+                            >
                               <Edit className="w-4 h-4 mr-2" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewGuestDetails(guest.id); }}>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewGuestDetails(guest.id);
+                              }}
+                            >
                               <History className="w-4 h-4 mr-2" /> Stay History
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-destructive"
-                              onClick={(e) => { e.stopPropagation(); setDeleteDialog({ open: true, id: guest.id }); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteDialog({ open: true, id: guest.id });
+                              }}
                             >
                               <Trash className="w-4 h-4 mr-2" /> Delete
                             </DropdownMenuItem>
@@ -365,7 +499,9 @@ export default function GuestsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Total Spent</p>
-                          <p className="font-semibold text-primary">${(guest.totalSpent || 0).toLocaleString()}</p>
+                          <p className="font-semibold text-primary">
+                            ${(guest.totalSpent || 0).toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     </Card>
@@ -391,16 +527,27 @@ export default function GuestsPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <FormField label="First Name" required>
-              <Input value={guestForm.firstname} onChange={(e) => setGuestForm({ ...guestForm, firstname: e.target.value })} placeholder="First name" />
+              <Input
+                value={guestForm.firstname}
+                onChange={(e) => setGuestForm({ ...guestForm, firstname: e.target.value })}
+                placeholder="First name"
+              />
             </FormField>
             <FormField label="Last Name" required>
-              <Input value={guestForm.lastname} onChange={(e) => setGuestForm({ ...guestForm, lastname: e.target.value })} placeholder="Last name" />
+              <Input
+                value={guestForm.lastname}
+                onChange={(e) => setGuestForm({ ...guestForm, lastname: e.target.value })}
+                placeholder="Last name"
+              />
             </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Gender">
-              <Select value={guestForm.gender} onValueChange={(v) => setGuestForm({ ...guestForm, gender: v })}>
+              <Select
+                value={guestForm.gender}
+                onValueChange={(v) => setGuestForm({ ...guestForm, gender: v })}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -412,56 +559,115 @@ export default function GuestsPage() {
               </Select>
             </FormField>
             <FormField label="Email" required>
-              <Input type="email" value={guestForm.Email} onChange={(e) => setGuestForm({ ...guestForm, Email: e.target.value })} placeholder="guest@example.com" />
+              <Input
+                type="email"
+                value={guestForm.Email}
+                onChange={(e) => setGuestForm({ ...guestForm, Email: e.target.value })}
+                placeholder="guest@example.com"
+              />
             </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Phone" required>
-              <Input value={guestForm.phone} onChange={(e) => setGuestForm({ ...guestForm, phone: e.target.value })} placeholder="+234..." />
+              <Input
+                value={guestForm.phone}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const formatted = formatPhoneNumber(raw);
+                  setGuestForm({ ...guestForm, phone: formatted });
+                }}
+                placeholder="+234 803 123 4567"
+              />
             </FormField>
           </div>
 
-          <FormField label="Identification" hint="Type and number">
+          <FormField label="Identification Document" required hint="Both type and number are required">
             <div className="grid grid-cols-2 gap-4">
-              <Select value={guestForm.identificationtype} onValueChange={(v) => setGuestForm({ ...guestForm, identificationtype: v })}>
+              <Select
+                value={guestForm.identificationtype}
+                onValueChange={(v) => setGuestForm({ ...guestForm, identificationtype: v })}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select identification type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="National Identification Number (NIN)">National Identification Number (NIN)</SelectItem>
-                  <SelectItem value="International Passport">International Passport</SelectItem>
-                  <SelectItem value="Driver's License">Driver's License</SelectItem>
-                  <SelectItem value="Permanent Voter's Card (PVC)">Permanent Voter's Card (PVC)</SelectItem>
+                  {ID_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Input value={guestForm.identificationnumber} onChange={(e) => setGuestForm({ ...guestForm, identificationnumber: e.target.value })} placeholder="A1298767890NG" />
+              <Input
+                value={guestForm.identificationnumber}
+                onChange={(e) =>
+                  setGuestForm({ ...guestForm, identificationnumber: e.target.value })
+                }
+                placeholder="A1298767890NG"
+              />
             </div>
           </FormField>
 
-          <FormField label="Address">
-            <Textarea value={guestForm.address} onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })} placeholder="Full address" rows={2} />
+          <FormField label="Address" required>
+            <Textarea
+              value={guestForm.address}
+              onChange={(e) => setGuestForm({ ...guestForm, address: e.target.value })}
+              placeholder="Full address"
+              rows={2}
+            />
           </FormField>
 
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="City">
-              <Input value={guestForm.city} onChange={(e) => setGuestForm({ ...guestForm, city: e.target.value })} placeholder="Makurdi" />
+            <FormField label="City" required>
+              <Input
+                value={guestForm.city}
+                onChange={(e) => setGuestForm({ ...guestForm, city: e.target.value })}
+                placeholder="Makurdi"
+              />
             </FormField>
-            <FormField label="Country">
-              <Input value={guestForm.country} onChange={(e) => setGuestForm({ ...guestForm, country: e.target.value })} placeholder="Nigeria" />
+            <FormField label="Country" required>
+              <Select
+                value={guestForm.country}
+                onValueChange={(v) => setGuestForm({ ...guestForm, country: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Emergency Contact Name">
-              <Input value={guestForm.emergencycontactname} onChange={(e) => setGuestForm({ ...guestForm, emergencycontactname: e.target.value })} placeholder="Grace Adoga" />
+              <Input
+                value={guestForm.emergencycontactname}
+                onChange={(e) =>
+                  setGuestForm({ ...guestForm, emergencycontactname: e.target.value })
+                }
+                placeholder="Grace Adoga"
+              />
             </FormField>
             <FormField label="Emergency Contact Phone">
-              <Input value={guestForm.emergencycontactphone} onChange={(e) => setGuestForm({ ...guestForm, emergencycontactphone: e.target.value })} placeholder="+234..." />
-            </FormField>
+  <Input
+    value={guestForm.emergencycontactphone}
+    onChange={(e) => {
+      const raw = e.target.value;
+      const formatted = formatPhoneNumber(raw);
+      setGuestForm({ ...guestForm, emergencycontactphone: formatted });
+    }}
+    placeholder="+234 803 123 4567"
+  />
+</FormField>
           </div>
-          
-          {/* Note: Room selection and booking is now handled through the booking flow */}
+
           <p className="text-sm text-muted-foreground italic">
             To book a room for this guest, use the "Book Room" option from the guest's profile page.
           </p>
@@ -469,11 +675,7 @@ export default function GuestsPage() {
       </FormModal>
 
       {/* View Guest Modal */}
-      <ViewModal
-        open={!!viewGuest}
-        onOpenChange={() => setViewGuest(null)}
-        title="Guest Details"
-      >
+      <ViewModal open={!!viewGuest} onOpenChange={() => setViewGuest(null)} title="Guest Details">
         {viewGuest && (
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b border-border">
@@ -484,7 +686,9 @@ export default function GuestsPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-foreground">{viewGuest.name}</h3>
-                <p className="text-muted-foreground">{viewGuest.idType}: {viewGuest.idNumber}</p>
+                <p className="text-muted-foreground">
+                  {viewGuest.idType}: {viewGuest.idNumber}
+                </p>
               </div>
             </div>
             <DetailRow label="Email" value={viewGuest.email} />
