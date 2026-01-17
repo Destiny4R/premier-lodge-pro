@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 
 const navLinks = [
   { label: "Home", path: "/" },
-  { label: "Rooms", path: "/#rooms" },
-  { label: "Amenities", path: "/#amenities" },
-  { label: "Contact", path: "/#contact" },
+  { label: "Rooms", path: "/rooms" },
+  { label: "Amenities", path: "/amenities" },
+  { label: "Contact", path: "/contact" },
 ];
 
 export function PublicNavbar() {
