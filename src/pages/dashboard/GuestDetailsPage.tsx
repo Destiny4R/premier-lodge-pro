@@ -34,7 +34,9 @@ import {
   XCircle,
   Clock,
   FileText,
+  Search,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/currency";
 import {
   getGuestById,
   getGuestBookings,
@@ -97,6 +99,11 @@ export default function GuestDetailsPage() {
   const [bookingsPagination, setBookingsPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
   const [restaurantPagination, setRestaurantPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
   const [laundryPagination, setLaundryPagination] = useState({ page: 1, pageSize: 5, totalItems: 0, totalPages: 1 });
+
+  // Search state
+  const [bookingsSearch, setBookingsSearch] = useState("");
+  const [restaurantSearch, setRestaurantSearch] = useState("");
+  const [laundrySearch, setLaundrySearch] = useState("");
 
   // Modal state
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
@@ -342,6 +349,42 @@ export default function GuestDetailsPage() {
 
   const availableRooms = rooms.filter(r => r.status === "Available");
 
+  // Filtered data based on search
+  const filteredBookings = bookings.filter(booking => {
+    if (!bookingsSearch) return true;
+    const search = bookingsSearch.toLowerCase();
+    return (
+      booking.bookingReference?.toLowerCase().includes(search) ||
+      booking.roomNumber?.toLowerCase().includes(search) ||
+      booking.roomCategory?.toLowerCase().includes(search) ||
+      booking.status?.toLowerCase().includes(search) ||
+      booking.checkIn?.toLowerCase().includes(search) ||
+      booking.checkOut?.toLowerCase().includes(search)
+    );
+  });
+
+  const filteredRestaurantOrders = restaurantOrders.filter(order => {
+    if (!restaurantSearch) return true;
+    const search = restaurantSearch.toLowerCase();
+    return (
+      order.id?.toLowerCase().includes(search) ||
+      order.status?.toLowerCase().includes(search) ||
+      order.paymentMethod?.toLowerCase().includes(search) ||
+      order.items?.some(item => item.name?.toLowerCase().includes(search))
+    );
+  });
+
+  const filteredLaundryOrders = laundryOrders.filter(order => {
+    if (!laundrySearch) return true;
+    const search = laundrySearch.toLowerCase();
+    return (
+      order.id?.toLowerCase().includes(search) ||
+      order.status?.toLowerCase().includes(search) ||
+      order.paymentMethod?.toLowerCase().includes(search) ||
+      order.items?.some(item => item.name?.toLowerCase().includes(search))
+    );
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -469,7 +512,7 @@ export default function GuestDetailsPage() {
             </div>
             <div className="h-8 w-px bg-border/50 hidden sm:block" />
             <div className="text-center min-w-[120px]">
-              <p className="text-2xl font-bold text-primary">${(guest.totalSpent || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-primary">{formatCurrency(guest.totalSpent || 0)}</p>
               <p className="text-sm text-muted-foreground">Total Spent</p>
             </div>
             <div className="h-8 w-px bg-border/50 hidden sm:block" />
@@ -541,11 +584,20 @@ export default function GuestDetailsPage() {
             {/* Bookings Tab */}
             <TabsContent value="bookings">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Booking History</CardTitle>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search bookings..."
+                      value={bookingsSearch}
+                      onChange={(e) => setBookingsSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {bookings.length === 0 ? (
+                  {filteredBookings.length === 0 ? (
                     <EmptyState
                       icon={Calendar}
                       title="No bookings yet"
@@ -573,7 +625,7 @@ export default function GuestDetailsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {bookings.map((booking) => (
+                          {filteredBookings.map((booking) => (
                             <tr key={booking.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                               <td className="py-4 px-4">
                                 <span className="font-mono text-sm text-foreground">{booking.bookingReference || '-'}</span>
@@ -595,8 +647,8 @@ export default function GuestDetailsPage() {
                                 </div>
                               </td>
                               <td className="py-4 px-4">
-                                <p className="font-semibold text-foreground">${booking.totalAmount}</p>
-                                <p className="text-xs text-muted-foreground">Paid: ${booking.paidAmount}</p>
+                                <p className="font-semibold text-foreground">{formatCurrency(booking.totalAmount)}</p>
+                                <p className="text-xs text-muted-foreground">Paid: {formatCurrency(booking.paidAmount)}</p>
                               </td>
                               <td className="py-4 px-4">
                                 <Badge variant={booking.bookingType === 'reservation' ? 'info' : 'success'}>
@@ -656,10 +708,10 @@ export default function GuestDetailsPage() {
                     </div>
                   )}
 
-                  {bookings.length > 0 && bookingsPagination.totalPages > 1 && (
+                  {filteredBookings.length > 0 && bookingsPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
-                        Showing {bookings.length} of {bookingsPagination.totalItems} bookings
+                        Showing {filteredBookings.length} of {bookingsPagination.totalItems} bookings
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -691,11 +743,20 @@ export default function GuestDetailsPage() {
             {/* Restaurant Tab */}
             <TabsContent value="restaurant">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Restaurant Orders</CardTitle>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search orders..."
+                      value={restaurantSearch}
+                      onChange={(e) => setRestaurantSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {restaurantOrders.length === 0 ? (
+                  {filteredRestaurantOrders.length === 0 ? (
                     <EmptyState
                       icon={Utensils}
                       title="No restaurant orders"
@@ -715,13 +776,13 @@ export default function GuestDetailsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {restaurantOrders.map((order) => (
+                          {filteredRestaurantOrders.map((order) => (
                             <tr key={order.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                               <td className="py-4 px-4 font-mono text-sm">{order.id}</td>
                               <td className="py-4 px-4">
                                 {order.items.map(item => `${item.name} x${item.quantity}`).join(', ')}
                               </td>
-                              <td className="py-4 px-4 font-semibold">${order.totalAmount}</td>
+                              <td className="py-4 px-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
                               <td className="py-4 px-4 capitalize">{order.paymentMethod}</td>
                               <td className="py-4 px-4">
                                 <Badge variant={statusColors[order.status]}>{order.status}</Badge>
@@ -736,10 +797,10 @@ export default function GuestDetailsPage() {
                     </div>
                   )}
 
-                  {restaurantOrders.length > 0 && restaurantPagination.totalPages > 1 && (
+                  {filteredRestaurantOrders.length > 0 && restaurantPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
-                        Showing {restaurantOrders.length} of {restaurantPagination.totalItems} orders
+                        Showing {filteredRestaurantOrders.length} of {restaurantPagination.totalItems} orders
                       </p>
                       <div className="flex items-center gap-2">
                         <Button
@@ -771,11 +832,20 @@ export default function GuestDetailsPage() {
             {/* Laundry Tab */}
             <TabsContent value="laundry">
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">Laundry Orders</CardTitle>
+                  <div className="relative w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search orders..."
+                      value={laundrySearch}
+                      onChange={(e) => setLaundrySearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {laundryOrders.length === 0 ? (
+                  {filteredLaundryOrders.length === 0 ? (
                     <EmptyState
                       icon={Shirt}
                       title="No laundry orders"
@@ -795,13 +865,13 @@ export default function GuestDetailsPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {laundryOrders.map((order) => (
+                          {filteredLaundryOrders.map((order) => (
                             <tr key={order.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                               <td className="py-4 px-4 font-mono text-sm">{order.id}</td>
                               <td className="py-4 px-4">
                                 {order.items.map(item => `${item.name} x${item.quantity}`).join(', ')}
                               </td>
-                              <td className="py-4 px-4 font-semibold">${order.totalAmount}</td>
+                              <td className="py-4 px-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
                               <td className="py-4 px-4 capitalize">{order.paymentMethod}</td>
                               <td className="py-4 px-4">
                                 <Badge variant={statusColors[order.status]}>{order.status}</Badge>
@@ -816,10 +886,10 @@ export default function GuestDetailsPage() {
                     </div>
                   )}
 
-                  {laundryOrders.length > 0 && laundryPagination.totalPages > 1 && (
+                  {filteredLaundryOrders.length > 0 && laundryPagination.totalPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-sm text-muted-foreground">
-                        Showing {laundryOrders.length} of {laundryPagination.totalItems} orders
+                        Showing {filteredLaundryOrders.length} of {laundryPagination.totalItems} orders
                       </p>
                       <div className="flex items-center gap-2">
                         <Button

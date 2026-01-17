@@ -75,6 +75,10 @@ export default function LandingPage() {
     specialRequests: "",
   });
   
+  // Room details modal state
+  const [roomDetailsOpen, setRoomDetailsOpen] = useState(false);
+  const [detailRoom, setDetailRoom] = useState<PublicRoom | null>(null);
+  
   // Booking confirmation state
   const [bookingConfirmation, setBookingConfirmation] = useState<PublicBookingResponse | null>(null);
 
@@ -112,6 +116,11 @@ export default function LandingPage() {
       numberOfGuests: searchParams.guests,
     });
     setBookingModalOpen(true);
+  };
+
+  const openRoomDetails = (room: PublicRoom) => {
+    setDetailRoom(room);
+    setRoomDetailsOpen(true);
   };
 
   /**
@@ -363,9 +372,14 @@ export default function LandingPage() {
                         <span className="text-sm text-muted-foreground">
                           <span className="text-2xl font-bold text-foreground">{formatCurrency(room.price)}</span>/night
                         </span>
-                        <Button variant="hero" size="sm" onClick={() => openBookingModal(room)}>
-                          Book Now
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => openRoomDetails(room)}>
+                            View Details
+                          </Button>
+                          <Button variant="hero" size="sm" onClick={() => openBookingModal(room)}>
+                            Book Now
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -794,6 +808,49 @@ export default function LandingPage() {
               </p>
               <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
                 Done
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Details Modal */}
+      <Dialog open={roomDetailsOpen} onOpenChange={setRoomDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl">{detailRoom?.categoryName}</DialogTitle>
+            <DialogDescription>{detailRoom?.hotelName} • {detailRoom?.hotelCity}</DialogDescription>
+          </DialogHeader>
+          {detailRoom && (
+            <div className="space-y-6">
+              <img
+                src={detailRoom.image || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600'}
+                alt={detailRoom.categoryName}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Room Number</span>
+                  <span className="font-medium">{detailRoom.doorNumber} • Floor {detailRoom.floor}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Price per night</span>
+                  <span className="text-2xl font-bold text-primary">{formatCurrency(detailRoom.price)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block mb-2">Amenities</span>
+                  <div className="flex flex-wrap gap-2">
+                    {detailRoom.amenities?.map((amenity) => (
+                      <Badge key={amenity} variant="secondary">{amenity}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Button variant="hero" className="w-full" onClick={() => {
+                setRoomDetailsOpen(false);
+                openBookingModal(detailRoom);
+              }}>
+                Book This Room
               </Button>
             </div>
           )}
