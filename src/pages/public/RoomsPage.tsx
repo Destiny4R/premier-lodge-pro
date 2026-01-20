@@ -37,10 +37,10 @@ export default function PublicRoomsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filters, setFilters] = useState({
     search: "",
-    category: "",
+    category: "all",
     minPrice: "",
     maxPrice: "",
-    guests: "",
+    guests: "any",
   });
 
   // Room details modal state
@@ -70,10 +70,10 @@ export default function PublicRoomsPage() {
   const fetchRooms = async () => {
     const params: Record<string, unknown> = { pageSize: 50 };
     if (filters.search) params.search = filters.search;
-    if (filters.category) params.category = filters.category;
+    if (filters.category && filters.category !== "all") params.category = filters.category;
     if (filters.minPrice) params.minPrice = filters.minPrice;
     if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-    if (filters.guests) params.guests = filters.guests;
+    if (filters.guests && filters.guests !== "any") params.guests = filters.guests;
     
     const response = await roomsApi.execute(() => getPublicRooms(params as any));
     if (response.success && response.data) {
@@ -177,9 +177,9 @@ export default function PublicRoomsPage() {
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  <SelectItem key={cat} value={cat || `category-${cat}`}>{cat}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -188,7 +188,7 @@ export default function PublicRoomsPage() {
                 <SelectValue placeholder="Guests" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
                 <SelectItem value="1">1 Guest</SelectItem>
                 <SelectItem value="2">2 Guests</SelectItem>
                 <SelectItem value="3">3 Guests</SelectItem>
