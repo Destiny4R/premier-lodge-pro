@@ -76,24 +76,59 @@ const ACCOMMODATION_OPTIONS = [
 ];
 
 // === PHONE FORMATTER ===
-const formatPhoneNumber = (value: string): string => {
-  if (!value) return value;
-  const digits = value.replace(/\D/g, "");
-  let formatted = digits;
-  if (digits.startsWith("0") && digits.length > 1) {
-    formatted = "234" + digits.slice(1);
-  } else if (digits.startsWith("234")) {
-    formatted = digits;
-  } else if (digits.length <= 10 && !digits.startsWith("234")) {
-    formatted = "234" + digits;
+const formatPhoneNumberDisplay = (phone: string | undefined): string => {
+  if (!phone) return '—';
+  
+  // Extract only digits
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return '—';
+
+  // Detect country code (assume 1-3 digits)
+  let countryCode = '';
+  let nationalNumber = digits;
+
+  // Common country codes (extend as needed)
+  if (digits.startsWith('234')) {
+    countryCode = '234';
+    nationalNumber = digits.slice(3);
+  } else if (digits.startsWith('1')) {
+    countryCode = '1';
+    nationalNumber = digits.slice(1);
+  } else if (digits.startsWith('44')) {
+    countryCode = '44';
+    nationalNumber = digits.slice(2);
+  } else if (digits.startsWith('233')) {
+    countryCode = '233';
+    nationalNumber = digits.slice(3);
+  } else {
+    // Fallback: assume first 1-3 digits are country code
+    if (digits.length >= 4) {
+      // Try 3-digit, then 2-digit, then 1-digit
+      if (['234', '233', '254', '256', '250'].some(cc => digits.startsWith(cc))) {
+        countryCode = digits.slice(0, 3);
+        nationalNumber = digits.slice(3);
+      } else if (['44', '33', '49'].some(cc => digits.startsWith(cc))) {
+        countryCode = digits.slice(0, 2);
+        nationalNumber = digits.slice(2);
+      } else {
+        countryCode = digits.slice(0, 1);
+        nationalNumber = digits.slice(1);
+      }
+    } else {
+      // No clear country code — treat as national
+      return `+(${digits})`;
+    }
   }
-  if (formatted.startsWith("234") && formatted.length >= 4) {
-    const rest = formatted.slice(3);
-    if (rest.length <= 3) return `+234 ${rest}`;
-    if (rest.length <= 6) return `+234 ${rest.slice(0, 3)} ${rest.slice(3)}`;
-    return `+234 ${rest.slice(0, 3)} ${rest.slice(3, 6)} ${rest.slice(6, 10)}`;
+
+  // Format national number in groups of 3-3-4 (or as available)
+  let formattedNational = nationalNumber;
+  if (nationalNumber.length > 6) {
+    formattedNational = `${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3, 6)} ${nationalNumber.slice(6, 10)}`;
+  } else if (nationalNumber.length > 3) {
+    formattedNational = `${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3)}`;
   }
-  return `+${formatted}`;
+
+  return `+(${countryCode}) ${formattedNational}`.trim();
 };
 
 interface GuestStats {
@@ -182,8 +217,8 @@ export default function GuestsPage() {
         country: guest.country || "NGN",
         Email: guest.Email || guest.email || "",
         phone: guest.phone || "",
-        identificationnumber: guest.identificationNumber || guest.idNumber || "",
-        identificationtype: guest.identificationType || guest.idType || "NIN",
+        identificationnumber: guest.identificationnumber || guest.idNumber || "",
+        identificationtype: guest.identificationtype || guest.idType || "NIN",
         emergencycontactname: guest.emergencycontactname || "",
         emergencycontactphone: guest.emergencycontactphone || "",
         accommodation: guest.accommodation || "checked_in", // ← ensure default
@@ -573,7 +608,7 @@ export default function GuestsPage() {
                 value={guestForm.phone}
                 onChange={(e) => {
                   const raw = e.target.value;
-                  const formatted = formatPhoneNumber(raw);
+                  const formatted = formatPhoneNumberDisplay(raw);
                   setGuestForm({ ...guestForm, phone: formatted });
                 }}
                 placeholder="+234 803 123 4567"
@@ -676,7 +711,7 @@ export default function GuestsPage() {
                 value={guestForm.emergencycontactphone}
                 onChange={(e) => {
                   const raw = e.target.value;
-                  const formatted = formatPhoneNumber(raw);
+                  const formatted = formatPhoneNumberDisplay(raw);
                   setGuestForm({ ...guestForm, emergencycontactphone: formatted });
                 }}
                 placeholder="+234 803 123 4567"

@@ -652,3 +652,12 @@ export async function getGuestBookings(guestId: string): Promise<ApiResponse<Pag
     };
   }
 }
+
+// In src/services/bookingService.ts
+export async function getPaymentMethods(): Promise<ApiResponse<string[]>> {
+  return await apiGet<string[]>('v3/bookings/paymentmethods');
+}
+
+export async function getPaymentStatuses(): Promise<ApiResponse<string[]>> {
+  return await apiGet<string[]>('v3/bookings/paymentstatus');
+}

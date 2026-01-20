@@ -129,13 +129,14 @@ export interface Guest {
   address?: string;
   city?: string;
   country?: string;
-  emailAddress?: string; // ← actual backend field
-  phoneNo?: string;  
+  countryLabel?: string;
+  emailaddress?: string; // ← actual backend field
+  phoneno?: string;  
   Email?: string;
   phone?: string;
   Phone?: string;
-  identificationNumber?: string;
-  identificationType?: string;
+  identificationnumber?: string;
+  identificationtype?: string;
   emergencycontactname?: string;
   emergencycontactphone?: string;
   accommodation?: string;

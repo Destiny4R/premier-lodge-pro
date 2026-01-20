@@ -1,6 +1,6 @@
 // src/pages/dashboard/guestDetails.tsx
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
@@ -17,12 +17,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { toast } from "sonner";
 import {
   ArrowLeft,
-  User,
   Mail,
   Phone,
   MapPin,
   Calendar,
-  CreditCard,
   Utensils,
   Shirt,
   Plus,
@@ -42,7 +40,7 @@ import {
   getGuestBookings,
   getGuestRestaurantOrders,
   getGuestLaundryOrders,
-  updateGuest, // ← ADDED
+  updateGuest,
 } from "@/services/guestService";
 import {
   createBooking,
@@ -51,6 +49,8 @@ import {
   checkOut,
   cancelBooking,
   extendBooking,
+  getPaymentMethods, 
+  getPaymentStatuses,
 } from "@/services/bookingService";
 import { getRooms, getRoomCategoriesWithAvailableRooms } from "@/services/roomService";
 import { Guest, Booking, RestaurantOrder, RoomCategoryWithRooms, LaundryOrder, Room, PaginatedResponse } from "@/types/api";
@@ -68,6 +68,7 @@ const statusColors: Record<string, "success" | "info" | "warning" | "secondary">
   processing: "info",
 };
 
+// === CONSTANTS ===
 const ID_TYPE_OPTIONS = [
   { label: "National ID", value: "NIN" },
   { label: "International Passport", value: "ITP" },
@@ -75,12 +76,41 @@ const ID_TYPE_OPTIONS = [
   { label: "Permanent Voter's Card", value: "PVC" },
 ];
 
+const COUNTRY_OPTIONS = [
+  { label: "Nigeria", value: "NGN" },
+  { label: "United States", value: "USA" },
+  { label: "United Kingdom", value: "GBR" },
+  { label: "Ghana", value: "GHA" },
+  { label: "Kenya", value: "KEN" },
+];
+
+// === HELPERS ===
 const getIdTypeLabel = (code: string | undefined): string => {
   if (!code) return '—';
   const option = ID_TYPE_OPTIONS.find(opt => opt.value === code);
   return option ? option.label : code;
 };
 
+const getCountryLabel = (code: string | undefined): string => {
+  if (!code) return '';
+  const option = COUNTRY_OPTIONS.find(opt => opt.value === code);
+  return option ? option.label : code;
+};
+
+const formatPhoneNumberDisplay = (phone: string | undefined): string => {
+  if (!phone) return '—';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 0) return '—';
+  let formatted = '+(';
+  if (digits.length >= 3) {
+    formatted += `${digits.slice(0, 3)}) `;
+    const rest = digits.slice(3);
+    formatted += rest.match(/.{1,4}/g)?.join(' ') || rest;
+  } else {
+    formatted += `${digits})`;
+  }
+  return formatted;
+};
 
 export default function GuestDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -119,6 +149,8 @@ export default function GuestDetailsPage() {
     checkIn: null as Date | null,
     checkOut: null as Date | null,
     paidAmount: "",
+    paymentMethod: "", // <-- Add this
+  paymentStatus: "", // <-- Add this
   });
 
   const [extendForm, setExtendForm] = useState({
@@ -126,132 +158,161 @@ export default function GuestDetailsPage() {
     additionalPayment: "",
   });
 
+  // For two-step room selection
   const [roomCategories, setRoomCategories] = useState<RoomCategoryWithRooms[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filteredRooms, setFilteredRooms] = useState<{ id: string; roomnumber: string; floor: number }[]>([]);
 
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
+const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
+
   const fetchData = useCallback(async () => {
-  if (!id) return;
-  setIsLoading(true);
-  setError(null);
-  try {
-    const [guestRes, bookingsRes, restaurantRes, laundryRes, roomsRes, categoriesRes] = await Promise.all([
-      getGuestById(id),
-      getGuestBookings(id),
-      getGuestRestaurantOrders(id),
-      getGuestLaundryOrders(id),
-      getRooms({ status: 'available' }),
-      getRoomCategoriesWithAvailableRooms(),
-    ]);
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [guestRes, bookingsRes, restaurantRes, laundryRes, roomsRes, categoriesRes, methodsRes, statusesRes] = await Promise.all([
+        getGuestById(id),
+        getGuestBookings(id),
+        getGuestRestaurantOrders(id),
+        getGuestLaundryOrders(id),
+        getRooms({ status: 'available' }),
+        getRoomCategoriesWithAvailableRooms(),
+        getPaymentMethods(), 
+      getPaymentStatuses()
+      ]);
 
-    // Handle guest data
-    if (guestRes.success) {
-      const rawGuest = guestRes.data;
-      const normalizedGuest: Guest = {
-        ...rawGuest,
-        name: rawGuest.name || `${rawGuest.firstname || ''} ${rawGuest.lastname || ''}`.trim() || 'Guest',
-        firstname: rawGuest.firstname || (rawGuest.name?.split(' ')[0] || ''),
-        lastname: rawGuest.lastname || (rawGuest.name?.split(' ').slice(1).join(' ') || ''),
-        email: rawGuest.emailAddress || rawGuest.email || rawGuest.Email || '',
-        phone: rawGuest.phoneNo || rawGuest.phone || rawGuest.Phone || '',
-        address: rawGuest.address || '',
-        city: rawGuest.city || '',
-        country: rawGuest.country || '',
-        idType: rawGuest.idType || rawGuest.identificationType || '',
-        idNumber: rawGuest.idNumber || rawGuest.identificationNumber || '',
-        totalStays: rawGuest.totalStays ?? 0,
-        totalSpent: rawGuest.totalSpent ?? 0,
-        accommodation: rawGuest.accommodation || '',
-      };
-      setGuest(normalizedGuest);
-    } else {
-      setError(guestRes.message);
-    }
+      // Handle guest data
+      if (guestRes.success) {
+        const rawGuest = guestRes.data;
+        console.log(guestRes.data);
+        const normalizedGuest: Guest = {
+          ...rawGuest,
+          name: rawGuest.name || `${rawGuest.firstname || ''} ${rawGuest.lastname || ''}`.trim() || 'Guest',
+          firstname: rawGuest.firstname || '',
+          lastname: rawGuest.lastname || '',
+          email: rawGuest.emailaddress || rawGuest.email || rawGuest.Email || '',
+          phone: rawGuest.phoneno || rawGuest.phone || rawGuest.Phone || '',
+          address: rawGuest.address || '',
+          city: rawGuest.city || '',
+          country: rawGuest.country || '',
+          countryLabel: getCountryLabel(rawGuest.country),
+          idType: rawGuest.idType || rawGuest.identificationtype || '',
+          idNumber: rawGuest.idNumber || rawGuest.identificationnumber || '',
+          totalStays: rawGuest.totalStays ?? 0,
+          totalSpent: rawGuest.totalSpent ?? 0,
+          accommodation: rawGuest.accommodation || '',
+        };
+        setGuest(normalizedGuest);
+        if (methodsRes.success) setPaymentMethods(methodsRes.data);
+    if (statusesRes.success) setPaymentStatuses(statusesRes.data);
+      } else {
+        setError(guestRes.message);
+      }
 
-    // Handle categories (independent of guest success)
-    if (categoriesRes.success) {
-      setRoomCategories(categoriesRes.data);
-    }
+      // Handle categories
+      if (categoriesRes.success) {
+        setRoomCategories(categoriesRes.data);
+      }
 
-    // Handle other data...
-    if (bookingsRes.success) {
-      setBookings(bookingsRes.data.items);
-      setBookingsPagination(prev => ({
-        ...prev,
-        totalItems: bookingsRes.data.totalItems,
-        totalPages: bookingsRes.data.totalPages || Math.ceil(bookingsRes.data.totalItems / prev.pageSize),
-      }));
+      // Handle other data...
+      if (bookingsRes.success) {
+        setBookings(bookingsRes.data.items);
+        setBookingsPagination(prev => ({
+          ...prev,
+          totalItems: bookingsRes.data.totalItems,
+          totalPages: bookingsRes.data.totalPages || Math.ceil(bookingsRes.data.totalItems / prev.pageSize),
+        }));
+      }
+      if (restaurantRes.success) {
+        setRestaurantOrders(restaurantRes.data.items);
+        setRestaurantPagination(prev => ({
+          ...prev,
+          totalItems: restaurantRes.data.totalItems,
+          totalPages: restaurantRes.data.totalPages || Math.ceil(restaurantRes.data.totalItems / prev.pageSize),
+        }));
+      }
+      if (laundryRes.success) {
+        setLaundryOrders(laundryRes.data.items);
+        setLaundryPagination(prev => ({
+          ...prev,
+          totalItems: laundryRes.data.totalItems,
+          totalPages: laundryRes.data.totalPages || Math.ceil(laundryRes.data.totalItems / prev.pageSize),
+        }));
+      }
+      if (roomsRes.success) {
+        setRooms(roomsRes.data.items);
+      }
+    } catch (err) {
+      setError("Failed to load guest details");
+    } finally {
+      setIsLoading(false);
     }
-    if (restaurantRes.success) {
-      setRestaurantOrders(restaurantRes.data.items);
-      setRestaurantPagination(prev => ({
-        ...prev,
-        totalItems: restaurantRes.data.totalItems,
-        totalPages: restaurantRes.data.totalPages || Math.ceil(restaurantRes.data.totalItems / prev.pageSize),
-      }));
-    }
-    if (laundryRes.success) {
-      setLaundryOrders(laundryRes.data.items);
-      setLaundryPagination(prev => ({
-        ...prev,
-        totalItems: laundryRes.data.totalItems,
-        totalPages: laundryRes.data.totalPages || Math.ceil(laundryRes.data.totalItems / prev.pageSize),
-      }));
-    }
-    if (roomsRes.success) {
-      setRooms(roomsRes.data.items);
-    }
-  } catch (err) {
-    setError("Failed to load guest details");
-  } finally {
-    setIsLoading(false);
-  }
-}, [id]);
+  }, [id]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const resetBookingForm = () => {
-    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "" });
+    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: "Cash", paymentStatus: "Pending" });
   };
+
+  const totalAmountPayable = useMemo(() => {
+  if (!bookingForm.checkIn || !bookingForm.checkOut || !selectedCategory) return 0;
+  
+  const category = roomCategories.find(c => c.id.toString() === selectedCategory);
+  if (!category) return 0;
+
+  const start = new Date(bookingForm.checkIn);
+  const end = new Date(bookingForm.checkOut);
+  
+  // Calculate difference in nights
+  const diffTime = end.getTime() - start.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // Hotel logic: same-day or 0 diff defaults to 1 night
+  const nights = diffDays > 0 ? diffDays : 1;
+  return nights * category.price;
+}, [bookingForm.checkIn, bookingForm.checkOut, selectedCategory, roomCategories]);
 
   const handleBookingSubmit = async () => {
-    if (!id || !bookingForm.checkIn || !bookingForm.checkOut || !bookingForm.roomId) {
-      toast.error("Please fill all required fields");
-      return;
+  if (!id || !bookingForm.checkIn || !bookingForm.checkOut || !bookingForm.roomId || !bookingForm.paymentMethod || !bookingForm.paymentStatus) {
+    toast.error("Please fill all required fields");
+    return;
+  }
+  setIsSubmitting(true);
+  try {
+    const payload = {
+      guestId: id,
+      roomId: bookingForm.roomId,
+      checkIn: bookingForm.checkIn.toISOString().split('T')[0],
+      checkOut: bookingForm.checkOut.toISOString().split('T')[0],
+      paidAmount: parseFloat(bookingForm.paidAmount) || 0,
+      paymentMethod: bookingForm.paymentMethod, // <-- Added
+      paymentStatus: bookingForm.paymentStatus, // <-- Added
+      totalAmount: totalAmountPayable       // <-- Added
+    };
+
+    const response = bookingType === "check-in"
+      ? await createBooking(payload)
+      : await createReservation(payload);
+
+    if (response.success) {
+      await updateGuest(id, { accommodation: bookingType === "check-in" ? "checked_in" : "reservation" });
+      toast.success(bookingType === "check-in" ? "Check in successful" : "Reservation created");
+      setBookingModalOpen(false);
+      resetBookingForm();
+      fetchData();
+    } else {
+      toast.error(response.message);
     }
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        guestId: id,
-        roomId: bookingForm.roomId,
-        checkIn: bookingForm.checkIn.toISOString().split('T')[0],
-        checkOut: bookingForm.checkOut.toISOString().split('T')[0],
-        paidAmount: parseFloat(bookingForm.paidAmount) || 0,
-      };
-
-      const response = bookingType === "check-in"
-        ? await createBooking(payload)
-        : await createReservation(payload);
-
-      if (response.success) {
-        // ✅ Sync guest accommodation status based on booking type
-        await updateGuest(id, { accommodation: bookingType === "check-in" ? "checked_in" : "reservation" });
-
-        toast.success(bookingType === "check-in" ? "Guest checked in successfully" : "Reservation created successfully");
-        setBookingModalOpen(false);
-        resetBookingForm();
-        fetchData();
-      } else {
-        toast.error(response.message);
-      }
-    } catch (err) {
-      toast.error("An error occurred");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } catch (err) {
+    toast.error("An error occurred");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleExtendSubmit = async () => {
     if (!selectedBooking || !extendForm.newCheckOut) {
@@ -284,7 +345,6 @@ export default function GuestDetailsPage() {
     try {
       const response = await checkIn(bookingId);
       if (response.success) {
-        // ✅ Update guest status to "checked_in"
         if (id) await updateGuest(id, { accommodation: "checked_in" });
         toast.success("Guest checked in successfully");
         fetchData();
@@ -300,8 +360,6 @@ export default function GuestDetailsPage() {
     try {
       const response = await checkOut(bookingId);
       if (response.success) {
-        // Optional: clear accommodation or leave as historical
-        // if (id) await updateGuest(id, { accommodation: "" });
         toast.success("Guest checked out successfully");
         fetchData();
       } else {
@@ -331,12 +389,12 @@ export default function GuestDetailsPage() {
   };
 
   const openBookingModal = (type: "check-in" | "reservation") => {
-  setBookingType(type);
-  setSelectedCategory(null);
-  setFilteredRooms([]);
-  setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "" });
-  setBookingModalOpen(true);
-};
+    setBookingType(type);
+    setSelectedCategory(null);
+    setFilteredRooms([]);
+    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: "Cash", paymentStatus: "Pending" });
+    setBookingModalOpen(true);
+  };
 
   const openExtendModal = (booking: Booking) => {
     setSelectedBooking(booking);
@@ -346,8 +404,6 @@ export default function GuestDetailsPage() {
     });
     setExtendModalOpen(true);
   };
-
-  const availableRooms = rooms.filter(r => r.status === "Available");
 
   // Filtered data based on search
   const filteredBookings = bookings.filter(booking => {
@@ -425,8 +481,6 @@ export default function GuestDetailsPage() {
   }
 
   const guestName = guest.name || `${guest.firstname || ''} ${guest.lastname || ''}`.trim() || 'Guest';
-  const guestEmail = guest.email || guest.Email || '';
-  const guestPhone = guest.phone || '';
 
   return (
     <div className="min-h-screen bg-background">
@@ -442,95 +496,97 @@ export default function GuestDetailsPage() {
         </Button>
 
         {/* Guest Info Card */}
-<motion.div
-  initial={{ opacity: 0, y: 20 }}
-  animate={{ opacity: 1, y: 0 }}
->
-  <Card variant="glass">
-    <CardContent className="p-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-        {/* Avatar */}
-        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-3xl font-bold text-primary">
-            {(guest.firstname || guest.lastname || guest.name || 'G').charAt(0).toUpperCase()}
-          </span>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card variant="glass">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                {/* Avatar */}
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-3xl font-bold text-primary">
+                    {(guest.name || guest.firstname || guest.lastname || 'G').charAt(0).toUpperCase()}
+                  </span>
+                </div>
 
-        {/* Main Content */}
-        <div className="flex-1 w-full min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-            <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-2xl font-bold text-foreground">
-                  {guest.name || `${guest.firstname || ''} ${guest.lastname || ''}`.trim() || 'Guest'}
-                </h2>
-                {guest.accommodation && (
-                  <Badge variant={guest.accommodation === 'checked_in' ? 'success' : 'info'}>
-                    {guest.accommodation === 'checked_in' ? 'Checked In' : 'Reservation'}
-                  </Badge>
-                )}
+                {/* Main Content */}
+                <div className="flex-1 w-full min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-foreground">
+                        {guestName}
+                      </h2>
+                      {guest.accommodation && (
+                        <Badge variant={guest.accommodation === 'checked_in' ? 'success' : 'info'}>
+                          {guest.accommodation === 'checked_in' ? 'Checked In' : 'Reservation'}
+                        </Badge>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Guest Full Name
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/dashboard/guests?edit=${guest.id}`)}
+                      className="whitespace-nowrap"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Guest
+                    </Button>
+                  </div>
+
+                  {/* Contact & Address */}
+                  <div className="space-y-2 mb-5 text-sm">
+                    <div className="flex items-start gap-2">
+                      <Mail className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-foreground font-medium">Email:</span>{' '}
+                      <span className="text-muted-foreground">{guest.email || '—'}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Phone className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-foreground font-medium">Phone:</span>{' '}
+                      <span className="text-muted-foreground">{formatPhoneNumberDisplay(guest.phone)}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                      <span className="text-foreground font-medium">Address:</span>{' '}
+                      <span className="text-muted-foreground">
+                        {[
+                          guest.address,
+                          guest.city,
+                          guest.countryLabel
+                        ].filter(Boolean).join(', ') || '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Key Metrics */}
+                  <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-border/50">
+                    <div className="text-center min-w-[100px]">
+                      <p className="text-lg font-bold text-foreground">{guest.totalStays || 0}</p>
+                      <p className="text-xs text-muted-foreground">Total Stays</p>
+                    </div>
+                    <div className="text-center min-w-[100px]">
+                      <p className="text-lg font-bold text-primary">{formatCurrency(guest.totalSpent || 0)}</p>
+                      <p className="text-xs text-muted-foreground">Total Spent</p>
+                    </div>
+                    <div className="text-center min-w-[120px]">
+                      <p className="text-xs text-muted-foreground">ID Type</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {getIdTypeLabel(guest.idType || guest.identificationtype)}
+                      </p>
+                      <p className="text-sm font-mono text-foreground mt-1">
+                        {guest.idNumber || guest.identificationnumber || '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Guest ID: {guest.id}
-              </p>
-            </div>
-            <Link to={`/dashboard/guests?edit=${guest.id}`}>
-              <Button variant="outline" size="sm">
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Guest
-              </Button>
-            </Link>
-          </div>
-
-          {/* Contact & Address */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div className="flex items-start gap-2 text-muted-foreground">
-    <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-    <span className="truncate">{guestEmail || '—'}</span>
-  </div>
-  <div className="flex items-start gap-2 text-muted-foreground">
-    <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
-    <span className="truncate">{guestPhone || '—'}</span>
-  </div>
-  <div className="flex items-start gap-2 text-muted-foreground">
-    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-    <span className="truncate">
-      {[
-        guest.address,
-        guest.city,
-        guest.country
-      ].filter(Boolean).join(', ') || '—'}
-    </span>
-  </div>
-</div>
-
-          {/* Key Metrics */}
-          <div className="flex flex-wrap items-center gap-6 pt-4 border-t border-border/50">
-            <div className="text-center min-w-[100px]">
-              <p className="text-2xl font-bold text-foreground">{guest.totalStays || 0}</p>
-              <p className="text-sm text-muted-foreground">Total Stays</p>
-            </div>
-            <div className="h-8 w-px bg-border/50 hidden sm:block" />
-            <div className="text-center min-w-[120px]">
-              <p className="text-2xl font-bold text-primary">{formatCurrency(guest.totalSpent || 0)}</p>
-              <p className="text-sm text-muted-foreground">Total Spent</p>
-            </div>
-            <div className="h-8 w-px bg-border/50 hidden sm:block" />
-            <div className="text-center min-w-[140px]">
-              <p className="text-sm text-muted-foreground">ID Type</p>
-              <p className="text-sm font-medium text-foreground">
-                {getIdTypeLabel(guest.idType || guest.identificationType)}
-              </p>
-              <p className="text-sm font-mono text-foreground mt-1">
-                {guest.idNumber || guest.identificationNumber || '—'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-</motion.div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Actions */}
         <motion.div
@@ -922,18 +978,21 @@ export default function GuestDetailsPage() {
       </div>
 
       {/* Booking Modal */}
-<FormModal
-  open={bookingModalOpen}
-  onOpenChange={setBookingModalOpen}
-  title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
-  description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
-  onSubmit={handleBookingSubmit}
-  submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
-  size="lg"
-  isLoading={isSubmitting}
->
-  <div className="space-y-4">
-    {/* Category Selection */}
+      <FormModal
+        open={bookingModalOpen}
+        onOpenChange={setBookingModalOpen}
+        title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
+        description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
+        onSubmit={handleBookingSubmit}
+        submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
+        size="lg"
+        isLoading={isSubmitting}
+      >
+        {/* Replace the content inside <FormModal ...> <div className="space-y-4"> ... </div> </FormModal> */}
+
+<div className="space-y-4">
+  {/* 1. Room Selection Row (Category then Room) */}
+  <div className="grid grid-cols-2 gap-4">
     <FormField label="Room Category" required>
       <Select
         value={selectedCategory || ""}
@@ -942,7 +1001,7 @@ export default function GuestDetailsPage() {
           const category = roomCategories.find(c => c.id.toString() === value);
           setFilteredRooms(
             category?.rooms.map(r => ({
-              id: r.id.toString(), // Convert to string
+              id: r.id.toString(),
               roomnumber: r.roomnumber,
               floor: r.floor
             })) || []
@@ -950,20 +1009,17 @@ export default function GuestDetailsPage() {
           setBookingForm(prev => ({ ...prev, roomId: "" }));
         }}
       >
-        <SelectTrigger>
-          <SelectValue placeholder="Select a category" />
-        </SelectTrigger>
+        <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
         <SelectContent>
           {roomCategories.map((category) => (
             <SelectItem key={category.id} value={category.id.toString()}>
-              {category.name} — ₦{category.price.toLocaleString()}
+              {category.name} — {formatCurrency(category.price)}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     </FormField>
 
-    {/* Room Selection */}
     <FormField label="Room Number" required>
       <Select
         value={bookingForm.roomId}
@@ -971,13 +1027,7 @@ export default function GuestDetailsPage() {
         disabled={!selectedCategory}
       >
         <SelectTrigger>
-          <SelectValue 
-            placeholder={
-              selectedCategory 
-                ? "Select a room" 
-                : "Select category first"
-            } 
-          />
+          <SelectValue placeholder={selectedCategory ? "Select a room" : "Select category first"} />
         </SelectTrigger>
         <SelectContent>
           {filteredRooms.map((room) => (
@@ -988,37 +1038,111 @@ export default function GuestDetailsPage() {
         </SelectContent>
       </Select>
     </FormField>
-
-    <div className="grid grid-cols-2 gap-4">
-      <FormField label="Check-in Date" required>
-        <DatePicker
-          value={bookingForm.checkIn}
-          onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
-          placeholder="Select check-in date"
-        />
-      </FormField>
-      <FormField label="Check-out Date" required>
-        <DatePicker
-          value={bookingForm.checkOut}
-          onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
-          placeholder="Select check-out date"
-          minDate={bookingForm.checkIn || undefined}
-        />
-      </FormField>
-    </div>
-
-    {bookingType === "check-in" && (
-      <FormField label="Payment Amount" hint="Initial payment">
-        <Input
-          type="number"
-          value={bookingForm.paidAmount}
-          onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
-          placeholder="0"
-        />
-      </FormField>
-    )}
   </div>
-</FormModal>
+
+  {/* 2. Dates Row */}
+  <div className="grid grid-cols-2 gap-4">
+    <FormField label="Check-in Date" required>
+      <DatePicker
+        value={bookingForm.checkIn}
+        onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
+      />
+    </FormField>
+    <FormField label="Check-out Date" required>
+      <DatePicker
+        value={bookingForm.checkOut}
+        onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
+        minDate={bookingForm.checkIn || undefined}
+      />
+    </FormField>
+  </div>
+
+  {/* 3. NEW: Divided Payment Row (Label + Textbox) */}
+<div className="grid grid-cols-2 gap-4 items-end bg-secondary/10 p-4 rounded-lg border">
+  <div className="space-y-1.5">
+    <label className="text-xs font-bold text-muted-foreground uppercase">Amount Payable</label>
+    <div className="h-10 flex items-center px-3 rounded-md border bg-background font-bold text-primary">
+      ₦ {totalAmountPayable.toLocaleString()}
+    </div>
+  </div>
+  <FormField label="Amount Paid Now">
+    <Input 
+      type="number" 
+      value={bookingForm.paidAmount} 
+      onChange={(e) => setBookingForm(p => ({ ...p, paidAmount: e.target.value }))}
+    />
+  </FormField>
+</div>
+
+
+  {/* 4. NEW: Payment Metadata Dropdowns */}
+  <div className="grid grid-cols-2 gap-4">
+    <FormField label="Payment Method" required>
+    <Select
+      value={bookingForm.paymentMethod}
+      onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select Method" />
+      </SelectTrigger>
+      <SelectContent>
+        {paymentMethods && paymentMethods.length > 0 ? (
+  paymentMethods
+    .filter((m): m is any => m !== null && m !== undefined) // The ": m is any" tells TS it's safe
+    .map((method, index) => {
+      const val = typeof method === "object" ? (method.value || method.name) : method;
+      const stringVal = String(val || "");
+      return (
+        <SelectItem key={`method-${index}`} value={stringVal}>
+          {stringVal}
+        </SelectItem>
+      );
+    })
+) : (
+  <SelectItem value="none" disabled>No methods available</SelectItem>
+)}
+      </SelectContent>
+    </Select>
+  </FormField>
+
+  <FormField label="Payment Status" required>
+    <Select
+      value={bookingForm.paymentStatus}
+      onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentStatus: value }))}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select Status" />
+      </SelectTrigger>
+      <SelectContent>
+        {paymentStatuses && paymentStatuses.length > 0 ? (
+  paymentStatuses
+    .filter((s): s is any => s !== null && s !== undefined)
+    .map((status, index) => {
+      // 1. Determine if it's an object or a primitive
+      // 2. Safely extract the value using bracket notation to bypass strict property checks
+      const val = (typeof status === "object" && status !== null) 
+        ? (status["value"] || status["name"] || "") 
+        : status;
+      
+      const stringVal = String(val || "");
+      
+      if (!stringVal) return null;
+
+      return (
+        <SelectItem key={`status-${index}`} value={stringVal}>
+          {stringVal}
+        </SelectItem>
+      );
+    })
+) : (
+  <SelectItem value="none" disabled>No statuses available</SelectItem>
+)}
+      </SelectContent>
+    </Select>
+  </FormField>
+  </div>
+</div>
+      </FormModal>
 
       {/* Extend Stay Modal */}
       <FormModal
@@ -1059,30 +1183,36 @@ export default function GuestDetailsPage() {
 
       {/* View Booking Modal */}
       <ViewModal
-        open={!!viewBooking}
-        onOpenChange={() => setViewBooking(null)}
-        title="Booking Details"
-        size="lg"
-      >
-        {viewBooking && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 pb-4 border-b border-border">
-              <div>
-                <h3 className="font-semibold text-foreground">{viewBooking.bookingReference}</h3>
-                <p className="text-sm text-muted-foreground">Booking Reference</p>
-              </div>
-              <Badge variant={statusColors[viewBooking.status]} className="ml-auto">{viewBooking.status}</Badge>
-            </div>
-            <DetailRow label="Room" value={`Room ${viewBooking.roomNumber || '-'} - ${viewBooking.roomCategory || 'Unknown'}`} />
-            <DetailRow label="Check-in" value={viewBooking.checkIn} />
-            <DetailRow label="Check-out" value={viewBooking.checkOut} />
-            <DetailRow label="Booking Type" value={viewBooking.bookingType || 'check-in'} />
-            <DetailRow label="Total Amount" value={`$${viewBooking.totalAmount}`} />
-            <DetailRow label="Paid Amount" value={`$${viewBooking.paidAmount}`} />
-            <DetailRow label="Balance Due" value={`$${viewBooking.totalAmount - viewBooking.paidAmount}`} />
-          </div>
-        )}
-      </ViewModal>
+  open={!!viewBooking}
+  onOpenChange={() => setViewBooking(null)}
+  title="Booking Details"
+  size="lg"
+>
+  {viewBooking && (
+    <div className="space-y-4">
+      <div className="flex items-center gap-4 pb-4 border-b border-border">
+        <div>
+          <h3 className="font-semibold text-foreground">{viewBooking.bookingReference}</h3>
+          <p className="text-sm text-muted-foreground">Booking Reference</p>
+        </div>
+        <Badge variant={statusColors[viewBooking.status] || "secondary"} className="ml-auto">
+          {viewBooking.status}
+        </Badge>
+      </div>
+      <DetailRow label="Room" value={`Room ${viewBooking.roomNumber || '-'} - ${viewBooking.roomCategory || '-'}`} />
+      <DetailRow label="Duration" value={`${viewBooking.checkIn} to ${viewBooking.checkOut}`} />
+      <div className="pt-4 border-t border-border">
+        <DetailRow label="Total Bill" value={formatCurrency(viewBooking.totalAmount)} />
+        <DetailRow label="Paid" value={formatCurrency(viewBooking.paidAmount)} />
+        {/* Removed className here to fix your TS error */}
+        <DetailRow 
+          label="Balance Due" 
+          value={formatCurrency(viewBooking.totalAmount - viewBooking.paidAmount)} 
+        />
+      </div>
+    </div>
+  )}
+</ViewModal>
 
       {/* Cancel Confirmation */}
       <ConfirmDialog
