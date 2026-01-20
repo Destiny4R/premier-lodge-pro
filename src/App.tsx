@@ -7,6 +7,9 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
+import PublicRoomsPage from "./pages/public/RoomsPage";
+import PublicAmenitiesPage from "./pages/public/AmenitiesPage";
+import PublicContactPage from "./pages/public/ContactPage";
 import LoginPage from "./pages/auth/LoginPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
@@ -44,6 +47,9 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/rooms" element={<PublicRoomsPage />} />
+              <Route path="/amenities" element={<PublicAmenitiesPage />} />
+              <Route path="/contact" element={<PublicContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

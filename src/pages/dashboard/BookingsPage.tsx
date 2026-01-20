@@ -452,8 +452,8 @@ export default function BookingsPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <p className="font-semibold text-foreground">${booking.totalAmount}</p>
-                              <p className="text-xs text-muted-foreground">Paid: ${booking.paidAmount}</p>
+                              <p className="font-semibold text-foreground">₦{booking.totalAmount?.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">Paid: ₦{booking.paidAmount?.toLocaleString()}</p>
                             </td>
                             <td className="py-4 px-4">
                               <Badge variant={statusColors[booking.status]}>{booking.status}</Badge>
@@ -542,7 +542,7 @@ export default function BookingsPage() {
               <SelectContent>
                 {availableRooms.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
+                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ₦{r.price?.toLocaleString()}/night
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -608,7 +608,7 @@ export default function BookingsPage() {
               <SelectContent>
                 {availableRooms.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ${r.price}/night
+                    Room {r.doorNumber} - {r.categoryName || 'Unknown'} ({r.hotelName || 'Unknown'}) - ₦{r.price?.toLocaleString()}/night
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -660,9 +660,9 @@ export default function BookingsPage() {
             <DetailRow label="Hotel" value={viewBooking.hotelName || '-'} />
             <DetailRow label="Check-in" value={viewBooking.checkIn} />
             <DetailRow label="Check-out" value={viewBooking.checkOut} />
-            <DetailRow label="Total Amount" value={`$${viewBooking.totalAmount}`} />
-            <DetailRow label="Paid Amount" value={`$${viewBooking.paidAmount}`} />
-            <DetailRow label="Balance Due" value={`$${viewBooking.totalAmount - viewBooking.paidAmount}`} />
+            <DetailRow label="Total Amount" value={`₦${viewBooking.totalAmount?.toLocaleString()}`} />
+            <DetailRow label="Paid Amount" value={`₦${viewBooking.paidAmount?.toLocaleString()}`} />
+            <DetailRow label="Balance Due" value={`₦${(viewBooking.totalAmount - viewBooking.paidAmount)?.toLocaleString()}`} />
           </div>
         )}
       </ViewModal>
@@ -681,27 +681,27 @@ export default function BookingsPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Room Charges</span>
-                  <span className="font-medium">${checkoutBooking.totalAmount}</span>
+                  <span className="font-medium">₦{checkoutBooking.totalAmount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Restaurant Charges</span>
-                  <span className="font-medium">$0.00</span>
+                  <span className="font-medium">₦0</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Laundry Charges</span>
-                  <span className="font-medium">$0.00</span>
+                  <span className="font-medium">₦0</span>
                 </div>
                 <div className="flex justify-between border-t border-border pt-2 mt-2">
                   <span className="font-semibold">Total</span>
-                  <span className="font-bold text-primary">${checkoutBooking.totalAmount}</span>
+                  <span className="font-bold text-primary">₦{checkoutBooking.totalAmount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Already Paid</span>
-                  <span className="font-medium">-${checkoutBooking.paidAmount}</span>
+                  <span className="font-medium">-₦{checkoutBooking.paidAmount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-lg border-t border-border pt-2 mt-2">
                   <span className="font-bold">Balance Due</span>
-                  <span className="font-bold text-warning">${checkoutBooking.totalAmount - checkoutBooking.paidAmount}</span>
+                  <span className="font-bold text-warning">₦{(checkoutBooking.totalAmount - checkoutBooking.paidAmount)?.toLocaleString()}</span>
                 </div>
               </div>
             </Card>

@@ -183,7 +183,7 @@ export default function RestaurantOrderPage() {
                         </p>
                         <div className="flex items-center justify-between mt-2">
                           <span className="text-primary font-semibold">
-                            ${item.price}
+                            ₦{item.price?.toLocaleString()}
                           </span>
                           {!item.inStock && (
                             <Badge variant="secondary" className="text-xs">
@@ -242,7 +242,7 @@ export default function RestaurantOrderPage() {
                                 {item.name}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                ${item.price} each
+                                ₦{item.price?.toLocaleString()} each
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -283,15 +283,15 @@ export default function RestaurantOrderPage() {
                     <div className="border-t border-border pt-4 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span className="text-foreground">${subtotal.toFixed(2)}</span>
+                        <span className="text-foreground">₦{subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Tax (10%)</span>
-                        <span className="text-foreground">${tax.toFixed(2)}</span>
+                        <span className="text-foreground">₦{tax.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                       </div>
                       <div className="flex justify-between text-lg font-bold">
                         <span className="text-foreground">Total</span>
-                        <span className="text-primary">${total.toFixed(2)}</span>
+                        <span className="text-primary">₦{total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                       </div>
                     </div>
 
@@ -329,7 +329,7 @@ export default function RestaurantOrderPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total</span>
-              <span className="text-primary font-bold text-lg">${total.toFixed(2)}</span>
+              <span className="text-primary font-bold text-lg">₦{total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
             </div>
           </div>
 

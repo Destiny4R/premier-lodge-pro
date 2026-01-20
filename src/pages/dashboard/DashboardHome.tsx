@@ -37,6 +37,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/currency";
 
 // Chart colors
 const COLORS = ["hsl(var(--primary))", "hsl(var(--info))", "hsl(var(--success))", "hsl(var(--warning))"];
@@ -144,7 +145,7 @@ export default function DashboardHome() {
         },
         {
           label: "Total Revenue",
-          value: `$${data.stats.totalRevenue.toLocaleString()}`,
+          value: formatCurrency(data.stats.totalRevenue),
           icon: DollarSign,
           change: "+12.3%",
           trend: "up" as const,
@@ -277,7 +278,7 @@ export default function DashboardHome() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v / 1000}k`} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => formatCurrencyCompact(v)} />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(var(--popover))",
@@ -285,7 +286,7 @@ export default function DashboardHome() {
                           borderRadius: "8px",
                           color: "hsl(var(--popover-foreground))",
                         }}
-                        formatter={(value: number) => [`$${value.toLocaleString()}`, "Revenue"]}
+                        formatter={(value: number) => [formatCurrency(value), "Revenue"]}
                       />
                       <Area
                         type="monotone"

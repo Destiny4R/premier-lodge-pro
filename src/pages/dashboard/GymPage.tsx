@@ -292,7 +292,7 @@ export default function GymPage() {
                           </DropdownMenu>
                           <div className="text-center mb-4">
                             <Badge variant={plan.name === "VIP" ? "default" : "secondary"} className="mb-2">{plan.name}</Badge>
-                            <p className="text-3xl font-bold text-primary">${plan.price}</p>
+                            <p className="text-3xl font-bold text-primary">₦{plan.price?.toLocaleString()}</p>
                             <p className="text-sm text-muted-foreground">{plan.duration}</p>
                           </div>
                           <ul className="space-y-2">
@@ -519,7 +519,7 @@ export default function GymPage() {
               </SelectTrigger>
               <SelectContent>
                 {plans.map((p) => (
-                  <SelectItem key={p.id} value={p.name.toLowerCase()}>{p.name} - ${p.price}/{p.duration}</SelectItem>
+                  <SelectItem key={p.id} value={p.name.toLowerCase()}>{p.name} - ₦{p.price?.toLocaleString()}/{p.duration}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
