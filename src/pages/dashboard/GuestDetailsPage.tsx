@@ -54,6 +54,7 @@ import {
 } from "@/services/bookingService";
 import { getRooms, getRoomCategoriesWithAvailableRooms } from "@/services/roomService";
 import { Guest, Booking, RestaurantOrder, RoomCategoryWithRooms, LaundryOrder, Room, PaginatedResponse } from "@/types/api";
+import { b } from "node_modules/framer-motion/dist/types.d-DagZKalS";
 
 const statusColors: Record<string, "success" | "info" | "warning" | "secondary"> = {
   "checked-in": "success",
@@ -291,15 +292,18 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
       paidAmount: parseFloat(bookingForm.paidAmount) || 0,
       paymentMethod: bookingForm.paymentMethod, // <-- Added
       paymentStatus: bookingForm.paymentStatus, // <-- Added
-      totalAmount: totalAmountPayable       // <-- Added
+      totalAmount: totalAmountPayable,       // <-- Added
+      bookingtype:bookingType === "check-in" ? "Checked In" : "Reservation",
     };
+
+    //console.log(payload);
 
     const response = bookingType === "check-in"
       ? await createBooking(payload)
       : await createReservation(payload);
 
     if (response.success) {
-      await updateGuest(id, { accommodation: bookingType === "check-in" ? "checked_in" : "reservation" });
+      await updateGuest(id, { accommodation: bookingType === "check-in" ? "Checked In" : "Reservation" });
       toast.success(bookingType === "check-in" ? "Check in successful" : "Reservation created");
       setBookingModalOpen(false);
       resetBookingForm();
@@ -345,7 +349,7 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
     try {
       const response = await checkIn(bookingId);
       if (response.success) {
-        if (id) await updateGuest(id, { accommodation: "checked_in" });
+        if (id) await updateGuest(id, { accommodation: "Checked In" });
         toast.success("Guest checked in successfully");
         fetchData();
       } else {
@@ -518,8 +522,8 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
                         {guestName}
                       </h2>
                       {guest.accommodation && (
-                        <Badge variant={guest.accommodation === 'checked_in' ? 'success' : 'info'}>
-                          {guest.accommodation === 'checked_in' ? 'Checked In' : 'Reservation'}
+                        <Badge variant={guest.accommodation === 'Checked In' ? 'success' : 'info'}>
+                          {guest.accommodation === 'Checked In' ? 'Checked In' : 'Reservation'}
                         </Badge>
                       )}
                       <p className="text-sm text-muted-foreground mt-1">
@@ -1041,36 +1045,54 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
   </div>
 
   {/* 2. Dates Row */}
-  <div className="grid grid-cols-2 gap-4">
-    <FormField label="Check-in Date" required>
+{/* 2. Refactored Dates Row with Internal Overrides */}
+<div className="grid grid-cols-2 gap-4">
+  <FormField label="Check-in Date" required>
+    {/* This wrapper finds the button inside DatePicker and forces width/alignment */}
+    <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
       <DatePicker
         value={bookingForm.checkIn}
         onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
       />
-    </FormField>
-    <FormField label="Check-out Date" required>
+    </div>
+  </FormField>
+
+  <FormField label="Check-out Date" required>
+    <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
       <DatePicker
         value={bookingForm.checkOut}
         onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
         minDate={bookingForm.checkIn || undefined}
       />
-    </FormField>
-  </div>
+    </div>
+  </FormField>
+</div>
 
-  {/* 3. NEW: Divided Payment Row (Label + Textbox) */}
-<div className="grid grid-cols-2 gap-4 items-end bg-secondary/10 p-4 rounded-lg border">
-  <div className="space-y-1.5">
-    <label className="text-xs font-bold text-muted-foreground uppercase">Amount Payable</label>
-    <div className="h-10 flex items-center px-3 rounded-md border bg-background font-bold text-primary">
+{/* 3. Refactored Divided Payment Row (Improved Alignment) */}
+<div className="grid grid-cols-2 gap-4 items-start bg-secondary/20 p-4 rounded-lg border border-border/50">
+  <div className="space-y-2">
+    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+      Total Amount Payable
+    </label>
+    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-background font-mono font-bold text-primary shadow-sm">
       ₦ {totalAmountPayable.toLocaleString()}
     </div>
   </div>
-  <FormField label="Amount Paid Now">
-    <Input 
-      type="number" 
-      value={bookingForm.paidAmount} 
-      onChange={(e) => setBookingForm(p => ({ ...p, paidAmount: e.target.value }))}
-    />
+  
+  <FormField label="Amount Paying Now" hint="Numerical values only">
+    <div className="relative">
+      {/* We add a small Naira symbol inside the input for better UX */}
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
+        ₦
+      </span>
+      <Input
+        type="number"
+        value={bookingForm.paidAmount}
+        onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+        placeholder="0.00"
+        className="h-10 pl-7" // pl-7 creates space for the Naira icon
+      />
+    </div>
   </FormField>
 </div>
 
