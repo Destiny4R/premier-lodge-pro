@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Search, MapPin, Calendar, Users, Star, Wifi, Car, Coffee, Dumbbell, Waves, Utensils, Sparkles, Loader2, Phone, Mail, MessageSquare, Send, CheckCircle } from "lucide-react";
@@ -86,6 +86,30 @@ export default function LandingPage() {
     fetchRooms();
   }, []);
 
+  // Inside LandingPage component
+// This recalculates automatically whenever checkInDate or checkOutDate changes
+const bookingSummary = useMemo(() => {
+  // If either date or the room is missing, we show 0
+  if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
+    return { nights: 0, total: 0 };
+  }
+
+  const start = new Date(bookingForm.checkInDate);
+  const end = new Date(bookingForm.checkOutDate);
+
+  // Difference in milliseconds
+  const diffTime = end.getTime() - start.getTime();
+  
+  // Convert to days (rounding up)
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // If the user picks a checkout date BEFORE checkin, we return 0
+  const nights = diffDays > 0 ? diffDays : 0;
+  const total = nights * Number(selectedRoom.price);
+
+  return { nights, total };
+}, [selectedRoom, bookingForm.checkInDate, bookingForm.checkOutDate]);
+
   /**
    * GET /api/public/rooms
    * Fetch available rooms for public display
@@ -145,6 +169,7 @@ export default function LandingPage() {
         checkOutDate: bookingForm.checkOutDate,
         numberOfGuests: bookingForm.numberOfGuests,
         specialRequests: bookingForm.specialRequests || undefined,
+        paymentMethod: 1, // Default to Credit Card for now
       })
     );
     
@@ -221,52 +246,125 @@ export default function LandingPage() {
               transition={{ delay: 0.4 }}
               className="max-w-4xl mx-auto"
             >
-              <Card variant="glass" className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      placeholder="City or Hotel"
-                      value={searchParams.city}
-                      onChange={(e) => setSearchParams({ ...searchParams, city: e.target.value })}
-                      className="pl-10 h-12 bg-secondary border-border"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="date"
-                      value={searchParams.checkIn}
-                      onChange={(e) => setSearchParams({ ...searchParams, checkIn: e.target.value })}
-                      className="pl-10 h-12 bg-secondary border-border"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="date"
-                      value={searchParams.checkOut}
-                      onChange={(e) => setSearchParams({ ...searchParams, checkOut: e.target.value })}
-                      className="pl-10 h-12 bg-secondary border-border"
-                    />
-                  </div>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={searchParams.guests}
-                      onChange={(e) => setSearchParams({ ...searchParams, guests: parseInt(e.target.value) || 1 })}
-                      className="pl-10 h-12 bg-secondary border-border"
-                    />
-                  </div>
-                  <Button variant="hero" size="lg" className="h-12" onClick={handleSearch}>
-                    <Search className="w-5 h-5 mr-2" />
-                    Search
-                  </Button>
-                </div>
-              </Card>
+              {/* Search Form inside Hero Section */}
+<Card variant="glass" className="p-6">
+  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div className="relative">
+      <Label className="text-[10px] uppercase font-bold text-primary mb-1 block">Location</Label>
+      <div className="relative">
+        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+        <Input
+          placeholder="City"
+          value={searchParams.city}
+          onChange={(e) => setSearchParams({ ...searchParams, city: e.target.value })}
+          className="pl-10 h-12 bg-background/50 border-none focus-visible:ring-1 ring-primary"
+        />
+      </div>
+    </div>
+    
+    <div className="relative group date-input-wrapper">
+  <Label className="text-[10px] uppercase font-bold text-primary mb-1 block">Check In</Label>
+  <div className="relative">
+    {/* pointer-events-none is key: it makes the icon "ghost-like" so clicks pass through it */}
+    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary z-10 pointer-events-none" />
+    <Input
+      type="date"
+      value={searchParams.checkIn}
+      onChange={(e) => setSearchParams({ ...searchParams, checkIn: e.target.value })}
+      className="pl-10 h-12 bg-background/50 border-none focus-visible:ring-1 ring-primary cursor-pointer appearance-none"
+    />
+  </div>
+</div>
+
+    <div className="relative">
+      <Label className="text-[10px] uppercase font-bold text-primary mb-1 block">Check Out</Label>
+      <div className="relative">
+        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+        <Input
+          type="date"
+          value={searchParams.checkOut}
+          onChange={(e) => setSearchParams({ ...searchParams, checkOut: e.target.value })}
+          className="pl-10 h-12 bg-background/50 border-none focus-visible:ring-1 ring-primary"
+        />
+      </div>
+    </div>
+
+    {/* --- DYNAMIC PRICING SUMMARY --- */}
+{selectedRoom && bookingForm.checkInDate && bookingForm.checkOutDate && (
+  <motion.div 
+    initial={{ opacity: 0, height: 0 }}
+    animate={{ opacity: 1, height: 'auto' }}
+    className="overflow-hidden"
+  >
+    <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3 my-2">
+      <div className="flex justify-between items-center text-sm">
+        <span className="text-muted-foreground">
+          {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
+        </span>
+        <span className="font-semibold text-foreground">
+          {formatCurrency(Number(selectedRoom.price) * bookingSummary.nights)}
+        </span>
+      </div>
+
+      <div className="flex justify-between items-center text-xs text-muted-foreground pb-2 border-b border-dashed border-border">
+        <span>Taxes, VAT & Service Charge</span>
+        <span className="italic text-[10px]">Included in total</span>
+      </div>
+
+      <div className="flex justify-between items-end pt-1">
+        <div>
+          <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tight">Total Amount Due</p>
+          <p className="text-3xl font-bold text-primary">
+            {formatCurrency(bookingSummary.total)}
+          </p>
+        </div>
+        
+        {/* Validation Warning */}
+        {bookingSummary.nights === 0 && (
+          <div className="flex flex-col items-end">
+            <Badge variant="destructive" className="mb-1">Invalid Range</Badge>
+            <span className="text-[9px] text-destructive italic">Check-out must be after check-in</span>
+          </div>
+        )}
+      </div>
+    </div>
+  </motion.div>
+)}
+
+    <div className="relative">
+      <Label className="text-[10px] uppercase font-bold text-primary mb-1 block">Guests</Label>
+      <div className="relative">
+        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
+        <Input
+          type="number"
+          min={1}
+          value={searchParams.guests}
+          onChange={(e) => setSearchParams({ ...searchParams, guests: parseInt(e.target.value) || 1 })}
+          className="pl-10 h-12 bg-background/50 border-none focus-visible:ring-1 ring-primary"
+        />
+      </div>
+    </div>
+
+    <div className="flex items-end">
+      <Button 
+        variant="hero" 
+        size="lg" 
+        className="w-full h-12 shadow-lg shadow-primary/20" 
+        onClick={handleSearch}
+        disabled={roomsApi.isLoading}
+      >
+        {roomsApi.isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <>
+            <Search className="w-5 h-5 mr-2" />
+            Find Rooms
+          </>
+        )}
+      </Button>
+    </div>
+  </div>
+</Card>
             </motion.div>
           </motion.div>
         </div>
@@ -663,106 +761,191 @@ export default function LandingPage() {
 
       {/* Booking Modal */}
       <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Book Room</DialogTitle>
-            <DialogDescription>
-              {selectedRoom && `${selectedRoom.categoryName} - Room ${selectedRoom.doorNumber}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="guestName">Full Name *</Label>
-              <Input
-                id="guestName"
-                value={bookingForm.guestName}
-                onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="guestEmail">Email *</Label>
+  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="font-heading text-2xl">Book Your Stay</DialogTitle>
+      <DialogDescription>
+        {selectedRoom && (
+          <span className="flex items-center gap-2 mt-1">
+            <Badge variant="outline" className="font-semibold">
+              {selectedRoom.categoryName}
+            </Badge>
+            <span className="text-muted-foreground">Room {selectedRoom.doorNumber}</span>
+          </span>
+        )}
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-6 py-4">
+      {/* SECTION 1: GUEST INFORMATION */}
+      <div className="space-y-4">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Guest Information</h4>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="guestName">Full Name *</Label>
+            <Input
+              id="guestName"
+              value={bookingForm.guestName}
+              onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
+              placeholder="e.g. John Doe"
+              className="bg-secondary/20"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="guestEmail">Email Address *</Label>
               <Input
                 id="guestEmail"
                 type="email"
                 value={bookingForm.guestEmail}
                 onChange={(e) => setBookingForm({ ...bookingForm, guestEmail: e.target.value })}
                 placeholder="john@example.com"
+                className="bg-secondary/20"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="guestPhone">Phone</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="guestPhone">Phone Number</Label>
               <Input
                 id="guestPhone"
                 value={bookingForm.guestPhone}
                 onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })}
-                placeholder="+1 555-0123"
+                placeholder="+234 ..."
+                className="bg-secondary/20"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="checkInDate">Check-in Date *</Label>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 2: BOOKING DETAILS */}
+      <div className="space-y-4">
+        <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Stay Details</h4>
+        <div className="space-y-3">
+          {/* Date Picker Row with the Icon Fix */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5 date-input-wrapper">
+              <Label htmlFor="checkInDate">Check-in Date *</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
                 <Input
                   id="checkInDate"
                   type="date"
                   value={bookingForm.checkInDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, checkInDate: e.target.value })}
+                  className="pl-10 cursor-pointer bg-secondary/20"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="checkOutDate">Check-out Date *</Label>
+            </div>
+            <div className="space-y-1.5 date-input-wrapper">
+              <Label htmlFor="checkOutDate">Check-out Date *</Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
                 <Input
                   id="checkOutDate"
                   type="date"
                   value={bookingForm.checkOutDate}
                   onChange={(e) => setBookingForm({ ...bookingForm, checkOutDate: e.target.value })}
+                  className="pl-10 cursor-pointer bg-secondary/20"
                 />
               </div>
             </div>
-            <div className="space-y-2">
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
               <Label htmlFor="numberOfGuests">Number of Guests</Label>
-              <Input
-                id="numberOfGuests"
-                type="number"
-                min={1}
-                max={10}
-                value={bookingForm.numberOfGuests}
-                onChange={(e) => setBookingForm({ ...bookingForm, numberOfGuests: parseInt(e.target.value) || 1 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="specialRequests">Special Requests</Label>
-              <Input
-                id="specialRequests"
-                value={bookingForm.specialRequests}
-                onChange={(e) => setBookingForm({ ...bookingForm, specialRequests: e.target.value })}
-                placeholder="Any special requests..."
-              />
-            </div>
-            {selectedRoom && (
-              <div className="p-4 bg-secondary/50 rounded-lg">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Price per night</span>
-                  <span className="font-semibold">{formatCurrency(selectedRoom.price)}</span>
-                </div>
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="numberOfGuests"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={bookingForm.numberOfGuests}
+                  onChange={(e) => setBookingForm({ ...bookingForm, numberOfGuests: parseInt(e.target.value) || 1 })}
+                  className="pl-10 bg-secondary/20"
+                />
               </div>
-            )}
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setBookingModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                variant="hero" 
-                className="flex-1" 
-                onClick={handleBookingSubmit}
-                disabled={bookingApi.isLoading}
-              >
-                {bookingApi.isLoading ? "Booking..." : "Confirm Booking"}
-              </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
+
+      {/* SECTION 3: PRICING SUMMARY (The Innovation) */}
+      {selectedRoom && (
+        <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">
+              {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
+            </span>
+            <span className="font-medium">
+              {formatCurrency(Number(selectedRoom.price) * (bookingSummary.nights || 0))}
+            </span>
+          </div>
+
+          <div className="flex justify-between items-center text-xs text-muted-foreground pb-2 border-b border-dashed border-border">
+            <span>Taxes & Fees</span>
+            <span>Included</span>
+          </div>
+
+          <div className="flex justify-between items-end pt-1">
+            <div>
+              <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-0.5">Total Amount</span>
+              <span className="text-3xl font-bold text-primary">
+                {formatCurrency(bookingSummary.total)}
+              </span>
+            </div>
+            {bookingSummary.nights === 0 && bookingForm.checkInDate && (
+              <Badge variant="destructive" className="mb-2 animate-pulse">
+                Invalid Dates
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 4: EXTRA REQUESTS */}
+      <div className="space-y-1.5">
+        <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
+        <Textarea
+          id="specialRequests"
+          value={bookingForm.specialRequests}
+          onChange={(e) => setBookingForm({ ...bookingForm, specialRequests: e.target.value })}
+          placeholder="e.g. Late check-in, dietary requirements, airport pickup..."
+          className="bg-secondary/20 resize-none"
+          rows={3}
+        />
+      </div>
+
+      {/* ACTIONS */}
+      <div className="flex gap-3 pt-2">
+        <Button 
+          variant="outline" 
+          className="flex-1 h-12" 
+          onClick={() => setBookingModalOpen(false)}
+        >
+          Discard
+        </Button>
+        <Button 
+          variant="hero" 
+          className="flex-1 h-12 shadow-lg shadow-primary/20" 
+          onClick={handleBookingSubmit}
+          disabled={bookingApi.isLoading || bookingSummary.nights <= 0}
+        >
+          {bookingApi.isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            "Confirm Booking"
+          )}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Booking Confirmation Modal */}
       <Dialog open={!!bookingConfirmation} onOpenChange={() => setBookingConfirmation(null)}>

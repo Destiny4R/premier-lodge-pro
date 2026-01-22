@@ -113,6 +113,11 @@ const formatPhoneNumberDisplay = (phone: string | undefined): string => {
   return formatted;
 };
 
+interface PaymentOption {
+  id: number;
+  name: string;
+}
+
 export default function GuestDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -164,8 +169,8 @@ export default function GuestDetailsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [filteredRooms, setFilteredRooms] = useState<{ id: string; roomnumber: string; floor: number }[]>([]);
 
-  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
-const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentOption[]>([]);
+  const [paymentStatuses, setPaymentStatuses] = useState<PaymentOption[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -180,13 +185,16 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
         getRooms({ status: 'available' }),
         getRoomCategoriesWithAvailableRooms(),
         getPaymentMethods(), 
-      getPaymentStatuses()
+        getPaymentStatuses()
       ]);
+
+      let defaultStatus = "";
+      let defaultMethod = "";
 
       // Handle guest data
       if (guestRes.success) {
         const rawGuest = guestRes.data;
-        console.log(guestRes.data);
+        //console.log(guestRes.data);
         const normalizedGuest: Guest = {
           ...rawGuest,
           name: rawGuest.name || `${rawGuest.firstname || ''} ${rawGuest.lastname || ''}`.trim() || 'Guest',
@@ -205,8 +213,38 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
           accommodation: rawGuest.accommodation || '',
         };
         setGuest(normalizedGuest);
-        if (methodsRes.success) setPaymentMethods(methodsRes.data);
-    if (statusesRes.success) setPaymentStatuses(statusesRes.data);
+        if (methodsRes.success) {
+          const methods = methodsRes.data as PaymentOption[];
+          setPaymentMethods(methods);
+          if (methods.length > 0) {
+            defaultMethod = methods[0].id.toString();
+    setBookingForm(prev => ({
+      ...prev,
+      paymentStatus: prev.paymentStatus || defaultStatus,
+  paymentMethod: prev.paymentMethod || defaultMethod,
+    }));
+  }
+        }
+    if (statusesRes.success) {
+      const statuses = statusesRes.data as PaymentOption[];
+      setPaymentStatuses(statuses);
+      if (statuses.length > 0) {
+         defaultStatus = statuses[0].id.toString();
+    setBookingForm(prev => ({
+      ...prev,
+      paymentStatus: prev.paymentStatus || statuses[0].id.toString()
+    }));
+  }
+    }
+
+
+
+    setBookingForm(prev => ({
+        ...prev,
+        paymentStatus: prev.paymentStatus || defaultStatus,
+        paymentMethod: prev.paymentMethod || defaultMethod,
+      }));
+
       } else {
         setError(guestRes.message);
       }
@@ -255,8 +293,10 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
     fetchData();
   }, [fetchData]);
 
+
   const resetBookingForm = () => {
-    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: "Cash", paymentStatus: "Pending" });
+    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: paymentMethods[0]?.id.toString() || "", 
+    paymentStatus: paymentStatuses[0]?.id.toString() || "" });
   };
 
   const totalAmountPayable = useMemo(() => {
@@ -287,8 +327,8 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
     const payload = {
       guestId: id,
       roomId: bookingForm.roomId,
-      checkIn: bookingForm.checkIn.toISOString().split('T')[0],
-      checkOut: bookingForm.checkOut.toISOString().split('T')[0],
+      checkIn: formatDateForAPI(bookingForm.checkIn),
+      checkOut: formatDateForAPI(bookingForm.checkOut),
       paidAmount: parseFloat(bookingForm.paidAmount) || 0,
       paymentMethod: bookingForm.paymentMethod, // <-- Added
       paymentStatus: bookingForm.paymentStatus, // <-- Added
@@ -316,6 +356,15 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
   } finally {
     setIsSubmitting(false);
   }
+};
+
+const formatDateForAPI = (date: Date | null) => {
+  if (!date) return "";
+  const year = date.getFullYear();
+  // Months are 0-indexed, so we add 1 and pad with a leading zero
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
   const handleExtendSubmit = async () => {
@@ -396,7 +445,8 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
     setBookingType(type);
     setSelectedCategory(null);
     setFilteredRooms([]);
-    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: "Cash", paymentStatus: "Pending" });
+    setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: paymentMethods[0]?.id.toString() || "", 
+    paymentStatus: paymentStatuses[0]?.id.toString() || ""  });
     setBookingModalOpen(true);
   };
 
@@ -485,6 +535,10 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
   }
 
   const guestName = guest.name || `${guest.firstname || ''} ${guest.lastname || ''}`.trim() || 'Guest';
+  //const [value, setValue] = useState(paymentStatuses?.[0]?.id?.toString());
+
+  //console.log("Current Form Status ID:", bookingForm.paymentStatus);
+//console.log("Available Statuses:", paymentStatuses);
 
   return (
     <div className="min-h-screen bg-background">
@@ -1100,68 +1154,48 @@ const [paymentStatuses, setPaymentStatuses] = useState<string[]>([]);
   {/* 4. NEW: Payment Metadata Dropdowns */}
   <div className="grid grid-cols-2 gap-4">
     <FormField label="Payment Method" required>
-    <Select
-      value={bookingForm.paymentMethod}
-      onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select Method" />
-      </SelectTrigger>
-      <SelectContent>
-        {paymentMethods && paymentMethods.length > 0 ? (
-  paymentMethods
-    .filter((m): m is any => m !== null && m !== undefined) // The ": m is any" tells TS it's safe
-    .map((method, index) => {
-      const val = typeof method === "object" ? (method.value || method.name) : method;
-      const stringVal = String(val || "");
-      return (
-        <SelectItem key={`method-${index}`} value={stringVal}>
-          {stringVal}
-        </SelectItem>
-      );
-    })
-) : (
-  <SelectItem value="none" disabled>No methods available</SelectItem>
-)}
-      </SelectContent>
-    </Select>
-  </FormField>
+      <Select
+        value={bookingForm.paymentMethod}
+        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select Method" />
+        </SelectTrigger>
+        <SelectContent>
+          {paymentMethods.length > 0 ? (
+            paymentMethods.map((method) => (
+              <SelectItem key={method.id} value={method.id.toString()}>
+                {method.name}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem value="none" disabled>No methods available</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    </FormField>
 
-  <FormField label="Payment Status" required>
-    <Select
-      value={bookingForm.paymentStatus}
-      onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentStatus: value }))}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select Status" />
-      </SelectTrigger>
-      <SelectContent>
-        {paymentStatuses && paymentStatuses.length > 0 ? (
-  paymentStatuses
-    .filter((s): s is any => s !== null && s !== undefined)
-    .map((status, index) => {
-      // 1. Determine if it's an object or a primitive
-      // 2. Safely extract the value using bracket notation to bypass strict property checks
-      const val = (typeof status === "object" && status !== null) 
-        ? (status["value"] || status["name"] || "") 
-        : status;
-      
-      const stringVal = String(val || "");
-      
-      if (!stringVal) return null;
-
-      return (
-        <SelectItem key={`status-${index}`} value={stringVal}>
-          {stringVal}
-        </SelectItem>
-      );
-    })
-) : (
-  <SelectItem value="none" disabled>No statuses available</SelectItem>
-)}
-      </SelectContent>
-    </Select>
-  </FormField>
+    <FormField label="Payment Status" required>
+      <Select
+        value={bookingForm.paymentStatus}
+        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentStatus: value }))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select Status" />
+        </SelectTrigger>
+        <SelectContent>
+          {paymentStatuses.length > 0 ? (
+            paymentStatuses.map((status) => (
+              <SelectItem key={status.id} value={status.id.toString()}>
+                {status.name}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem value="none" disabled>No statuses available</SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+    </FormField>
   </div>
 </div>
       </FormModal>

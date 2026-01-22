@@ -77,58 +77,36 @@ const ACCOMMODATION_OPTIONS = [
 
 // === PHONE FORMATTER ===
 const formatPhoneNumberDisplay = (phone: string | undefined): string => {
-  if (!phone) return '—';
-  
-  // Extract only digits
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 0) return '—';
+  // 1. Remove all non-digit characters
+  let digits = phone.replace(/\D/g, "");
 
-  // Detect country code (assume 1-3 digits)
-  let countryCode = '';
-  let nationalNumber = digits;
+  // 2. Handle the leading '0' or '234'
+  if (digits.startsWith("0")) {
+    digits = "234" + digits.substring(1);
+  } else if (digits.length > 0 && !digits.startsWith("234")) {
+    // If user starts typing 803... directly, prepend 234
+    digits = "234" + digits;
+  }
 
-  // Common country codes (extend as needed)
-  if (digits.startsWith('234')) {
-    countryCode = '234';
-    nationalNumber = digits.slice(3);
-  } else if (digits.startsWith('1')) {
-    countryCode = '1';
-    nationalNumber = digits.slice(1);
-  } else if (digits.startsWith('44')) {
-    countryCode = '44';
-    nationalNumber = digits.slice(2);
-  } else if (digits.startsWith('233')) {
-    countryCode = '233';
-    nationalNumber = digits.slice(3);
-  } else {
-    // Fallback: assume first 1-3 digits are country code
-    if (digits.length >= 4) {
-      // Try 3-digit, then 2-digit, then 1-digit
-      if (['234', '233', '254', '256', '250'].some(cc => digits.startsWith(cc))) {
-        countryCode = digits.slice(0, 3);
-        nationalNumber = digits.slice(3);
-      } else if (['44', '33', '49'].some(cc => digits.startsWith(cc))) {
-        countryCode = digits.slice(0, 2);
-        nationalNumber = digits.slice(2);
-      } else {
-        countryCode = digits.slice(0, 1);
-        nationalNumber = digits.slice(1);
-      }
-    } else {
-      // No clear country code — treat as national
-      return `+(${digits})`;
+  // 3. Limit to standard Nigerian length (234 + 10 digits)
+  digits = digits.substring(0, 13);
+
+  // 4. Apply visual grouping: +234 XXX XXX XXXX
+  let formatted = "";
+  if (digits.length > 0) {
+    formatted += "+" + digits.substring(0, 3); // +234
+    if (digits.length > 3) {
+      formatted += " " + digits.substring(3, 6); // Area/Provider
+    }
+    if (digits.length > 6) {
+      formatted += " " + digits.substring(6, 9); // First 3
+    }
+    if (digits.length > 9) {
+      formatted += " " + digits.substring(9, 13); // Last 4
     }
   }
 
-  // Format national number in groups of 3-3-4 (or as available)
-  let formattedNational = nationalNumber;
-  if (nationalNumber.length > 6) {
-    formattedNational = `${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3, 6)} ${nationalNumber.slice(6, 10)}`;
-  } else if (nationalNumber.length > 3) {
-    formattedNational = `${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3)}`;
-  }
-
-  return `+(${countryCode}) ${formattedNational}`.trim();
+  return formatted;
 };
 
 interface GuestStats {

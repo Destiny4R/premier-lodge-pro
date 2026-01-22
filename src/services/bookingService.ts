@@ -189,18 +189,21 @@ export async function getBookingByReference(reference: string): Promise<ApiRespo
 }
 
 /**
- * POST /api/v3/bookings/addbooking
+ * POST /api/v3/bookings/placebooking
  * Create new booking (direct check-in)
  * 
  * Request payload:
  * {
- *   guestId: string,
- *   roomId: string,
- *   checkIn: string (YYYY-MM-DD),
- *   checkOut: string (YYYY-MM-DD),
- *   paidAmount: number,
- *   bookingType: 'check-in'
- * }
+    "guestId": "17", integer
+    "roomId": "4", integer
+    "checkIn": "2026-01-20", date
+    "checkOut": "2026-01-23", date
+    "paidAmount": 100000, currency
+    "paymentMethod": 2, integer
+    "paymentStatus": 1, integer
+    "totalAmount": 135000, currency
+    "bookingtype": "Checked In" string
+}
  * 
  * Response:
  * {
@@ -228,7 +231,7 @@ export async function getBookingByReference(reference: string): Promise<ApiRespo
  */
 export async function createBooking(data: CreateBookingRequest): Promise<ApiResponse<Booking>> {
   try {
-    return await apiPost<Booking>('v3/bookings/addbooking', { ...data, bookingType: 'check-in' });
+    return await apiPost<Booking>('v3/bookings/placebooking', { ...data, bookingType: 'check-in' });
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -653,11 +656,21 @@ export async function getGuestBookings(guestId: string): Promise<ApiResponse<Pag
   }
 }
 
-// In src/services/bookingService.ts
-export async function getPaymentMethods(): Promise<ApiResponse<string[]>> {
-  return await apiGet<string[]>('v3/bookings/paymentmethods');
+export interface PaymentOption {
+  id: number;
+  name: string;
 }
 
-export async function getPaymentStatuses(): Promise<ApiResponse<string[]>> {
-  return await apiGet<string[]>('v3/bookings/paymentstatus');
+/**
+ * Updated to return PaymentOption[] instead of string[]
+ * This matches the actual JSON structure: [{ "id": 1, "name": "..." }]
+ */
+export async function getPaymentMethods(): Promise<ApiResponse<PaymentOption[]>> {
+  // Pass the interface to the generic apiGet call
+  return await apiGet<PaymentOption[]>('v3/bookings/paymentmethods');
+}
+
+export async function getPaymentStatuses(): Promise<ApiResponse<PaymentOption[]>> {
+  // Pass the interface to the generic apiGet call
+  return await apiGet<PaymentOption[]>('v3/bookings/paymentstatus');
 }

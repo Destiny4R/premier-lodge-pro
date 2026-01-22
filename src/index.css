@@ -161,6 +161,27 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+
+  /* Hide the native date/time icons but keep the functionality */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-inner-spin-button {
+  background: transparent;
+  bottom: 0;
+  color: transparent;
+  cursor: pointer;
+  height: auto;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+}
+
+/* Ensure the input is relative so the invisible picker can fill it */
+.date-input-wrapper input[type="date"] {
+  position: relative;
+}
+
 }
 
 @layer components {
