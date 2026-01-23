@@ -333,7 +333,7 @@ export default function BookingsPage() {
           {[
             { label: "Today's Check-ins", value: stats.todayCheckIns, icon: ArrowRight, color: "text-success" },
             { label: "Today's Check-outs", value: stats.todayCheckOuts, icon: LogOut, color: "text-info" },
-            { label: "Pending Payments", value: `$${stats.pendingPayments.toLocaleString()}`, icon: DollarSign, color: "text-warning" },
+            { label: "Pending Payments", value: `${stats.pendingPayments.toLocaleString()}`, icon: DollarSign, color: "text-warning" },
             { label: "Active Bookings", value: stats.activeBookings, icon: Calendar, color: "text-primary" },
           ].map((stat) => (
             <Card key={stat.label} variant="glass">

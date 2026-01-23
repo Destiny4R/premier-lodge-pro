@@ -299,23 +299,46 @@ export default function GuestDetailsPage() {
     paymentStatus: paymentStatuses[0]?.id.toString() || "" });
   };
 
-  const totalAmountPayable = useMemo(() => {
-  if (!bookingForm.checkIn || !bookingForm.checkOut || !selectedCategory) return 0;
-  
+  // 1. First, find the category object for other logic (like room filtering)
+const selectedCatObj = roomCategories.find(c => c.id.toString() === selectedCategory);
+
+// 2. The consolidated Memo for all pricing logic
+const bookingSummary = useMemo(() => {
+  if (!bookingForm.checkIn || !bookingForm.checkOut || !selectedCategory) {
+    return { nights: 0, price: 0, total: 0 };
+  }
+
   const category = roomCategories.find(c => c.id.toString() === selectedCategory);
-  if (!category) return 0;
+  if (!category) return { nights: 0, price: 0, total: 0 };
 
   const start = new Date(bookingForm.checkIn);
   const end = new Date(bookingForm.checkOut);
   
-  // Calculate difference in nights
+  // Normalize to avoid time-of-day discrepancies
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
   const diffTime = end.getTime() - start.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  // Hotel logic: same-day or 0 diff defaults to 1 night
-  const nights = diffDays > 0 ? diffDays : 1;
-  return nights * category.price;
+
+  const nightsCount = diffDays > 0 ? diffDays : 1;
+  const price = category.price;
+
+  return { 
+    nights: nightsCount, 
+    price: price, 
+    total: nightsCount * price 
+  };
 }, [bookingForm.checkIn, bookingForm.checkOut, selectedCategory, roomCategories]);
+
+// 3. Destructure with unique names to avoid conflicts
+const { 
+  nights: displayNights, 
+  price: currentPrice, 
+  total: totalAmountPayable 
+} = bookingSummary;
+
+const remainingBalance = totalAmountPayable - (Number(bookingForm.paidAmount) || 0);
 
   const handleBookingSubmit = async () => {
   if (!id || !bookingForm.checkIn || !bookingForm.checkOut || !bookingForm.roomId || !bookingForm.paymentMethod || !bookingForm.paymentStatus) {
@@ -1037,168 +1060,195 @@ const formatDateForAPI = (date: Date | null) => {
 
       {/* Booking Modal */}
       <FormModal
-        open={bookingModalOpen}
-        onOpenChange={setBookingModalOpen}
-        title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
-        description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
-        onSubmit={handleBookingSubmit}
-        submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
-        size="lg"
-        isLoading={isSubmitting}
-      >
-        {/* Replace the content inside <FormModal ...> <div className="space-y-4"> ... </div> </FormModal> */}
-
-<div className="space-y-4">
-  {/* 1. Room Selection Row (Category then Room) */}
-  <div className="grid grid-cols-2 gap-4">
-    <FormField label="Room Category" required>
-      <Select
-        value={selectedCategory || ""}
-        onValueChange={(value) => {
-          setSelectedCategory(value);
-          const category = roomCategories.find(c => c.id.toString() === value);
-          setFilteredRooms(
-            category?.rooms.map(r => ({
-              id: r.id.toString(),
-              roomnumber: r.roomnumber,
-              floor: r.floor
-            })) || []
-          );
-          setBookingForm(prev => ({ ...prev, roomId: "" }));
-        }}
-      >
-        <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
-        <SelectContent>
-          {roomCategories.map((category) => (
-            <SelectItem key={category.id} value={category.id.toString()}>
-              {category.name} — {formatCurrency(category.price)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FormField>
-
-    <FormField label="Room Number" required>
-      <Select
-        value={bookingForm.roomId}
-        onValueChange={(value) => setBookingForm(prev => ({ ...prev, roomId: value }))}
-        disabled={!selectedCategory}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={selectedCategory ? "Select a room" : "Select category first"} />
-        </SelectTrigger>
-        <SelectContent>
-          {filteredRooms.map((room) => (
-            <SelectItem key={room.id} value={room.id}>
-              Room {room.roomnumber} (Floor {room.floor})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FormField>
-  </div>
-
-  {/* 2. Dates Row */}
-{/* 2. Refactored Dates Row with Internal Overrides */}
-<div className="grid grid-cols-2 gap-4">
-  <FormField label="Check-in Date" required>
-    {/* This wrapper finds the button inside DatePicker and forces width/alignment */}
-    <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
-      <DatePicker
-        value={bookingForm.checkIn}
-        onChange={(date) => setBookingForm(prev => ({ ...prev, checkIn: date }))}
-      />
-    </div>
-  </FormField>
-
-  <FormField label="Check-out Date" required>
-    <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
-      <DatePicker
-        value={bookingForm.checkOut}
-        onChange={(date) => setBookingForm(prev => ({ ...prev, checkOut: date }))}
-        minDate={bookingForm.checkIn || undefined}
-      />
-    </div>
-  </FormField>
-</div>
-
-{/* 3. Refactored Divided Payment Row (Improved Alignment) */}
-<div className="grid grid-cols-2 gap-4 items-start bg-secondary/20 p-4 rounded-lg border border-border/50">
-  <div className="space-y-2">
-    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-      Total Amount Payable
-    </label>
-    <div className="h-10 flex items-center px-3 rounded-md border border-input bg-background font-mono font-bold text-primary shadow-sm">
-      ₦ {totalAmountPayable.toLocaleString()}
-    </div>
-  </div>
-  
-  <FormField label="Amount Paying Now" hint="Numerical values only">
-    <div className="relative">
-      {/* We add a small Naira symbol inside the input for better UX */}
-      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
-        ₦
-      </span>
-      <Input
-        type="number"
-        value={bookingForm.paidAmount}
-        onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
-        placeholder="0.00"
-        className="h-10 pl-7" // pl-7 creates space for the Naira icon
-      />
-    </div>
-  </FormField>
-</div>
-
-
-  {/* 4. NEW: Payment Metadata Dropdowns */}
-  <div className="grid grid-cols-2 gap-4">
-    <FormField label="Payment Method" required>
-      <Select
-        value={bookingForm.paymentMethod}
-        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentMethod: value }))}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Select Method" />
-        </SelectTrigger>
-        <SelectContent>
-          {paymentMethods.length > 0 ? (
-            paymentMethods.map((method) => (
-              <SelectItem key={method.id} value={method.id.toString()}>
-                {method.name}
+  open={bookingModalOpen}
+  onOpenChange={setBookingModalOpen}
+  title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
+  description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
+  onSubmit={handleBookingSubmit}
+  submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
+  size="lg"
+  isLoading={isSubmitting}
+>
+  <div className="space-y-4">
+    {/* 1. Room Selection Row */}
+    <div className="grid grid-cols-2 gap-4">
+      <FormField label="Room Category" required>
+        <Select
+          value={selectedCategory || ""}
+          onValueChange={(value) => {
+            setSelectedCategory(value);
+            const category = roomCategories.find((c) => c.id.toString() === value);
+            setFilteredRooms(
+              category?.rooms.map((r) => ({
+                id: r.id.toString(),
+                roomnumber: r.roomnumber,
+                floor: r.floor,
+              })) || []
+            );
+            setBookingForm((prev) => ({ ...prev, roomId: "" }));
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {roomCategories.map((category) => (
+              <SelectItem key={category.id} value={category.id.toString()}>
+                {category.name} — {formatCurrency(category.price)}
               </SelectItem>
-            ))
-          ) : (
-            <SelectItem value="none" disabled>No methods available</SelectItem>
-          )}
-        </SelectContent>
-      </Select>
-    </FormField>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
 
-    <FormField label="Payment Status" required>
-      <Select
-        value={bookingForm.paymentStatus}
-        onValueChange={(value) => setBookingForm(prev => ({ ...prev, paymentStatus: value }))}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Select Status" />
-        </SelectTrigger>
-        <SelectContent>
-          {paymentStatuses.length > 0 ? (
-            paymentStatuses.map((status) => (
-              <SelectItem key={status.id} value={status.id.toString()}>
-                {status.name}
+      <FormField label="Room Number" required>
+        <Select
+          value={bookingForm.roomId}
+          onValueChange={(value) => setBookingForm((prev) => ({ ...prev, roomId: value }))}
+          disabled={!selectedCategory}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={selectedCategory ? "Select a room" : "Select category first"} />
+          </SelectTrigger>
+          <SelectContent>
+            {filteredRooms.map((room) => (
+              <SelectItem key={room.id} value={room.id}>
+                Room {room.roomnumber} (Floor {room.floor})
               </SelectItem>
-            ))
-          ) : (
-            <SelectItem value="none" disabled>No statuses available</SelectItem>
-          )}
-        </SelectContent>
-      </Select>
-    </FormField>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+    </div>
+
+    {/* 2. Dates Row */}
+    <div className="grid grid-cols-2 gap-4">
+      <FormField label="Check-in Date" required>
+        <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
+          <DatePicker
+            value={bookingForm.checkIn}
+            onChange={(date) => setBookingForm((prev) => ({ ...prev, checkIn: date }))}
+          />
+        </div>
+      </FormField>
+
+      <FormField label="Check-out Date" required>
+        <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
+          <DatePicker
+            value={bookingForm.checkOut}
+            onChange={(date) => setBookingForm((prev) => ({ ...prev, checkOut: date }))}
+            minDate={bookingForm.checkIn || undefined}
+          />
+        </div>
+      </FormField>
+    </div>
+
+    {/* 3. Payment Calculation Section (Consolidated UI Card) */}
+    <div className="rounded-lg border border-primary/20 overflow-hidden shadow-sm">
+      {/* Header Summary */}
+      <div className="bg-primary/5 p-4 border-b border-primary/10">
+        <div className="flex justify-between items-end">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              Pricing Breakdown
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              {displayNights} {displayNights === 1 ? "Night" : "Nights"} × {formatCurrency(currentPrice)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
+              Total Amount Payable
+            </p>
+            <p className="text-2xl font-mono font-bold text-primary">
+              ₦ {totalAmountPayable.toLocaleString()}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Inputs */}
+      <div className="p-4 bg-background grid grid-cols-2 gap-4 items-center">
+        <FormField label="Amount Paying Now" hint="Numerical values only">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
+              ₦
+            </span>
+            <Input
+              type="number"
+              value={bookingForm.paidAmount}
+              onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+              placeholder="0.00"
+              className="h-10 pl-7 font-mono"
+            />
+          </div>
+        </FormField>
+
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+            Remaining Balance
+          </label>
+          <div
+            className={`h-10 flex items-center px-3 rounded-md border font-mono font-bold transition-colors ${
+              remainingBalance > 0
+                ? "bg-orange-50 text-orange-700 border-orange-200"
+                : "bg-green-50 text-green-700 border-green-200"
+            }`}
+          >
+            ₦ {remainingBalance.toLocaleString()}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* 4. Payment Metadata Row */}
+    <div className="grid grid-cols-2 gap-4">
+      <FormField label="Payment Method" required>
+        <Select
+          value={bookingForm.paymentMethod}
+          onValueChange={(value) => setBookingForm((prev) => ({ ...prev, paymentMethod: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Method" />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentMethods.length > 0 ? (
+              paymentMethods.map((method) => (
+                <SelectItem key={method.id} value={method.id.toString()}>
+                  {method.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="none" disabled>No methods available</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField label="Payment Status" required>
+        <Select
+          value={bookingForm.paymentStatus}
+          onValueChange={(value) => setBookingForm((prev) => ({ ...prev, paymentStatus: value }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Status" />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentStatuses.length > 0 ? (
+              paymentStatuses.map((status) => (
+                <SelectItem key={status.id} value={status.id.toString()}>
+                  {status.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="none" disabled>No statuses available</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </FormField>
+    </div>
   </div>
-</div>
-      </FormModal>
+</FormModal>
 
       {/* Extend Stay Modal */}
       <FormModal
