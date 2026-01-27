@@ -92,9 +92,12 @@
     ├── hooks
     │   ├── use-mobile.tsx
     │   ├── use-toast.ts
-    │   └── useApi.ts
+    │   ├── useApi.ts
+    │   └── useBookingFlow.ts
     ├── lib
     │   ├── api.ts
+    │   ├── currency.ts
+    │   ├── reference.ts
     │   └── utils.ts
     ├── pages
     │   ├── auth
@@ -121,6 +124,10 @@
     │   │   ├── RoomsPage.tsx
     │   │   ├── SettingsPage.tsx
     │   │   └── SuperAdminPage.tsx
+    │   ├── public
+    │   │   ├── AmenitiesPage.tsx
+    │   │   ├── ContactPage.tsx
+    │   │   └── RoomsPage.tsx
     │   ├── Index.tsx
     │   ├── LandingPage.tsx
     │   └── NotFound.tsx
@@ -136,6 +143,7 @@
     │   ├── hotelService.ts
     │   ├── index.ts
     │   ├── laundryService.ts
+    │   ├── paymentService.ts
     │   ├── poolService.ts
     │   ├── publicService.ts
     │   ├── restaurantService.ts
@@ -153,7 +161,6 @@
 ├── DATABASE_SCHEMA.sql
 ├── DOCTREE.md
 ├── eslint.config.js
-├── fs-full.md
 ├── index.html
 ├── mock-server.js
 ├── package-lock.json

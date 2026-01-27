@@ -54,7 +54,7 @@ export type BookingFilterPeriod = 'today' | 'this_week' | 'this_month' | 'all';
  */
 export async function getBookings(params?: PaginationParams & { 
   status?: string; 
-  bookingType?: BookingType;
+  bookingtype?: BookingType;
   period?: BookingFilterPeriod;
   dateFrom?: string; 
   dateTo?: string;
@@ -73,7 +73,7 @@ export async function getBookings(params?: PaginationParams & {
         hotelId: 'h1', 
         checkIn: '2024-01-15', 
         checkOut: '2024-01-18', 
-        bookingType: 'check-in',
+        bookingtype: 'check-in',
         status: 'checked-in', 
         totalAmount: 450, 
         paidAmount: 450, 
@@ -95,7 +95,7 @@ export async function getBookings(params?: PaginationParams & {
         hotelId: 'h1', 
         checkIn: '2024-01-20', 
         checkOut: '2024-01-25', 
-        bookingType: 'reservation',
+        bookingtype: 'reservation',
         status: 'confirmed', 
         totalAmount: 1400, 
         paidAmount: 700, 
@@ -117,7 +117,7 @@ export async function getBookings(params?: PaginationParams & {
         hotelId: 'h1', 
         checkIn: '2024-01-22', 
         checkOut: '2024-01-24', 
-        bookingType: 'reservation',
+        bookingtype: 'reservation',
         status: 'confirmed', 
         totalAmount: 900, 
         paidAmount: 900, 
@@ -216,7 +216,7 @@ export async function getBookingByReference(reference: string): Promise<ApiRespo
  *     hotelId: string,
  *     checkIn: string,
  *     checkOut: string,
- *     bookingType: 'check-in',
+ *     bookingtype: 'check-in',
  *     status: 'checked-in',
  *     totalAmount: number,
  *     paidAmount: number,
@@ -231,7 +231,7 @@ export async function getBookingByReference(reference: string): Promise<ApiRespo
  */
 export async function createBooking(data: CreateBookingRequest): Promise<ApiResponse<Booking>> {
   try {
-    return await apiPost<Booking>('v3/bookings/placebooking', { ...data, bookingType: 'check-in' });
+    return await apiPost<Booking>('v3/bookings/placebooking', { ...data, bookingtype: 'check-in' });
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -242,7 +242,7 @@ export async function createBooking(data: CreateBookingRequest): Promise<ApiResp
         id: `b${Date.now()}`, 
         bookingReference: `BK-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
         hotelId: 'h1', 
-        bookingType: 'check-in',
+        bookingtype: 'check-in',
         status: 'checked-in', 
         totalAmount: 0, 
         createdAt: new Date().toISOString(), 
@@ -264,7 +264,7 @@ export async function createBooking(data: CreateBookingRequest): Promise<ApiResp
  *   roomId: string,
  *   checkIn: string (YYYY-MM-DD),
  *   checkOut: string (YYYY-MM-DD),
- *   bookingType: 'reservation'
+ *   bookingtype: 'reservation'
  * }
  * 
  * Response:
@@ -278,7 +278,7 @@ export async function createBooking(data: CreateBookingRequest): Promise<ApiResp
  *     hotelId: string,
  *     checkIn: string,
  *     checkOut: string,
- *     bookingType: 'reservation',
+ *     bookingtype: 'reservation',
  *     status: 'confirmed',
  *     totalAmount: number,
  *     paidAmount: 0,
@@ -291,7 +291,7 @@ export async function createBooking(data: CreateBookingRequest): Promise<ApiResp
  */
 export async function createReservation(data: CreateReservationRequest): Promise<ApiResponse<Booking>> {
   try {
-    return await apiPost<Booking>('v3/bookings/addreservation', { ...data, bookingType: 'reservation' });
+    return await apiPost<Booking>('v3/bookings/addreservation', { ...data, bookingtype: 'reservation' });
   } catch (error) {
     // Mock response for demo
     console.warn('API not available, using mock response');
@@ -302,7 +302,7 @@ export async function createReservation(data: CreateReservationRequest): Promise
         id: `b${Date.now()}`, 
         bookingReference: `BK-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
         hotelId: 'h1', 
-        bookingType: 'reservation',
+        bookingtype: 'reservation',
         status: 'confirmed', 
         paidAmount: 0, 
         totalAmount: 0, 
@@ -673,4 +673,20 @@ export async function getPaymentMethods(): Promise<ApiResponse<PaymentOption[]>>
 export async function getPaymentStatuses(): Promise<ApiResponse<PaymentOption[]>> {
   // Pass the interface to the generic apiGet call
   return await apiGet<PaymentOption[]>('v3/bookings/paymentstatus');
+}
+
+/**
+ * POST /api/v3/bookings/verify-payment
+ * Verifies a transaction with the payment gateway and updates booking status
+ */
+export async function verifyBookingPayment(reference: string): Promise<ApiResponse<any>> {
+  return await apiPost('v3/bookings/confirm-payment', { reference });
+}
+
+/**
+ * POST /api/v3/bookings/generate-retry-reference
+ * Takes an existing reference and returns a NEW one for a fresh Credo attempt
+ */
+export async function getRetryPaymentReference(bookingReference: string): Promise<ApiResponse<{ bookingReference: string }>> {
+  return await apiPost('v3/bookings/generate-retry-reference', { bookingReference });
 }

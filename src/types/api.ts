@@ -180,7 +180,7 @@ export interface Booking {
   hotelId: string;
   checkIn: string;
   checkOut: string;
-  bookingType: BookingType;
+  bookingtype: BookingType;
   status: BookingStatus;
   totalAmount: number;
   paidAmount: number;
@@ -194,6 +194,7 @@ export interface Booking {
   roomNumber?: string;
   roomCategory?: string;
   hotelName?: string;
+  paymentReference?: string;
   // Additional charges
   restaurantCharges?: number;
   laundryCharges?: number;

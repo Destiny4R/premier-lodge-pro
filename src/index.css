@@ -177,6 +177,32 @@ input[type="date"]::-webkit-inner-spin-button {
   width: auto;
 }
 
+/* 1. Target the container Credo creates */
+#credo-checkout-iframe-container, 
+.credo-payment-widget-container {
+    z-index: 999999 !important;
+    display: flex !important;
+    pointer-events: all !important; /* Re-enable clicking */
+}
+
+/* 2. Target the actual Iframe inside that container */
+#credo-checkout-iframe-container iframe,
+.credo-payment-widget-container iframe {
+    z-index: 999999 !important;
+    display: block !important;
+    visibility: visible !important;
+}
+
+/* 3. Ensure the body doesn't block pointer events while Credo is up */
+body[style*="pointer-events: none"] #credo-checkout-iframe-container {
+    pointer-events: all !important;
+}
+
+/* If Credo uses an iframe, this ensures it isn't blocked by Radix focus trap */
+[data-radix-focus-guard] {
+    z-index: 8888 !important;
+}
+
 /* Ensure the input is relative so the invisible picker can fill it */
 .date-input-wrapper input[type="date"] {
   position: relative;

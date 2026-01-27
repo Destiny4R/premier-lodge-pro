@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { useBookingFlow } from "@/hooks/useBookingFlow";
+import { getRetryPaymentReference } from "@/services/bookingService";
 import {
   ArrowLeft,
   Mail,
@@ -54,8 +56,8 @@ import {
 } from "@/services/bookingService";
 import { getRooms, getRoomCategoriesWithAvailableRooms } from "@/services/roomService";
 import { Guest, Booking, RestaurantOrder, RoomCategoryWithRooms, LaundryOrder, Room, PaginatedResponse } from "@/types/api";
-import { b } from "node_modules/framer-motion/dist/types.d-DagZKalS";
 
+// === STATUS COLOR MAPPING ===
 const statusColors: Record<string, "success" | "info" | "warning" | "secondary"> = {
   "checked-in": "success",
   confirmed: "info",
@@ -159,6 +161,8 @@ export default function GuestDetailsPage() {
   paymentStatus: "", // <-- Add this
   });
 
+  // Inside GuestDetailsPage...
+
   const [extendForm, setExtendForm] = useState({
     newCheckOut: null as Date | null,
     additionalPayment: "",
@@ -171,6 +175,7 @@ export default function GuestDetailsPage() {
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentOption[]>([]);
   const [paymentStatuses, setPaymentStatuses] = useState<PaymentOption[]>([]);
+  const [currentTransRef, setCurrentTransRef] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -340,46 +345,42 @@ const {
 
 const remainingBalance = totalAmountPayable - (Number(bookingForm.paidAmount) || 0);
 
-  const handleBookingSubmit = async () => {
-  if (!id || !bookingForm.checkIn || !bookingForm.checkOut || !bookingForm.roomId || !bookingForm.paymentMethod || !bookingForm.paymentStatus) {
-    toast.error("Please fill all required fields");
-    return;
-  }
+
+const handleRetryPayment = async (booking: Booking) => {
   setIsSubmitting(true);
   try {
-    const payload = {
-      guestId: id,
-      roomId: bookingForm.roomId,
-      checkIn: formatDateForAPI(bookingForm.checkIn),
-      checkOut: formatDateForAPI(bookingForm.checkOut),
-      paidAmount: parseFloat(bookingForm.paidAmount) || 0,
-      paymentMethod: bookingForm.paymentMethod, // <-- Added
-      paymentStatus: bookingForm.paymentStatus, // <-- Added
-      totalAmount: totalAmountPayable,       // <-- Added
-      bookingtype:bookingType === "check-in" ? "Checked In" : "Reservation",
-    };
-
-    //console.log(payload);
-
-    const response = bookingType === "check-in"
-      ? await createBooking(payload)
-      : await createReservation(payload);
-
+    // 1. Get a fresh reference from the server
+    const response = await getRetryPaymentReference(booking.bookingReference);
+    
     if (response.success) {
-      await updateGuest(id, { accommodation: bookingType === "check-in" ? "Checked In" : "Reservation" });
-      toast.success(bookingType === "check-in" ? "Check in successful" : "Reservation created");
-      setBookingModalOpen(false);
-      resetBookingForm();
-      fetchData();
+      const newRef = response.data.bookingReference;
+      
+      // 2. Open Credo with the NEW reference
+      // We can use the same logic from the hook
+      setCurrentTransRef(newRef);
+      // initializeCredo() will trigger via the useEffect in your hook
     } else {
-      toast.error(response.message);
+      toast.error("Could not generate retry reference: " + response.message);
     }
   } catch (err) {
-    toast.error("An error occurred");
+    toast.error("Connection error during retry initiation.");
   } finally {
     setIsSubmitting(false);
   }
 };
+
+const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
+  guest,
+  bookingForm,
+  bookingType,
+  totalBill: totalAmountPayable,
+  paymentMethods,
+  onSuccess: () => {
+    setBookingModalOpen(false);
+    resetBookingForm();
+    fetchData(); // Refresh list to show new booking
+  }
+});
 
 const formatDateForAPI = (date: Date | null) => {
   if (!date) return "";
@@ -788,8 +789,8 @@ const formatDateForAPI = (date: Date | null) => {
                                 <p className="text-xs text-muted-foreground">Paid: {formatCurrency(booking.paidAmount)}</p>
                               </td>
                               <td className="py-4 px-4">
-                                <Badge variant={booking.bookingType === 'reservation' ? 'info' : 'success'}>
-                                  {booking.bookingType || 'check-in'}
+                                <Badge variant={booking.bookingtype === 'reservation' ? 'info' : 'success'}>
+                                  {booking.bookingtype || 'check-in'}
                                 </Badge>
                               </td>
                               <td className="py-4 px-4">
@@ -806,7 +807,7 @@ const formatDateForAPI = (date: Date | null) => {
                                     <DropdownMenuItem onClick={() => setViewBooking(booking)}>
                                       <Eye className="w-4 h-4 mr-2" /> View Details
                                     </DropdownMenuItem>
-                                    {booking.bookingType === 'reservation' && booking.status === 'confirmed' && (
+                                    {booking.bookingtype === 'reservation' && booking.status === 'confirmed' && (
                                       <DropdownMenuItem onClick={() => handleCheckIn(booking.id)}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Check In
                                       </DropdownMenuItem>
@@ -1063,11 +1064,11 @@ const formatDateForAPI = (date: Date | null) => {
   open={bookingModalOpen}
   onOpenChange={setBookingModalOpen}
   title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
-  description={bookingType === "check-in" ? "Book a room with immediate check-in" : "Reserve a room for future check-in"}
-  onSubmit={handleBookingSubmit}
+  description="..."
+  onSubmit={startBookingProcess} // CHANGE THIS to startBookingProcess
   submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
   size="lg"
-  isLoading={isSubmitting}
+  isLoading={isBookingLoading} // CHANGE THIS to isBookingLoading
 >
   <div className="space-y-4">
     {/* 1. Room Selection Row */}
