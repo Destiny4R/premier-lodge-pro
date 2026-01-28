@@ -177,7 +177,7 @@ export default function GuestDetailsPage() {
   const [paymentStatuses, setPaymentStatuses] = useState<PaymentOption[]>([]);
   const [currentTransRef, setCurrentTransRef] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isRefresh = false) => {
     if (!id) return;
     setIsLoading(true);
     setError(null);
@@ -298,6 +298,42 @@ export default function GuestDetailsPage() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+  // Inject the "Black Box" Stylesheet into the head
+  const style = document.createElement('style');
+  style.innerHTML = `
+    /* 1. Force the container to 100% width */
+    .date-force-width [role="combobox"], 
+    .date-force-width .relative,
+    .date-force-width div {
+      width: 100% !important;
+      display: block !important;
+    }
+
+    /* 2. Force the Button: Width, Padding, and Colors */
+    .date-force-width button {
+      width: 100% !important;
+      max-width: none !important;
+      height: 44px !important;
+      padding-left: 48px !important; /* THE PADDING FIX */
+      background-color: rgba(120, 120, 120, 0.1) !important;
+      border: 1px solid rgba(0, 0, 0, 0.1) !important;
+      border-radius: 8px !important;
+      text-align: left !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+    }
+
+    /* 3. Nuke the internal icons 'gone gone gone' */
+    .date-force-width button svg {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  return () => { document.head.removeChild(style); }; // Cleanup on unmount
+}, []);
 
   const resetBookingForm = () => {
     setBookingForm({ roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: paymentMethods[0]?.id.toString() || "", 
@@ -378,7 +414,7 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
   onSuccess: () => {
     setBookingModalOpen(false);
     resetBookingForm();
-    fetchData(); // Refresh list to show new booking
+    fetchData(true); // Refresh list to show new booking
   }
 });
 
@@ -1065,7 +1101,11 @@ const formatDateForAPI = (date: Date | null) => {
   onOpenChange={setBookingModalOpen}
   title={bookingType === "check-in" ? "Check In Guest" : "Create Reservation"}
   description="..."
-  onSubmit={startBookingProcess} // CHANGE THIS to startBookingProcess
+  onSubmit={(e) => {
+  if (e && e.preventDefault) e.preventDefault();
+  if (e && e.stopPropagation) e.stopPropagation();
+  startBookingProcess(e);
+}}
   submitLabel={bookingType === "check-in" ? "Check In" : "Create Reservation"}
   size="lg"
   isLoading={isBookingLoading} // CHANGE THIS to isBookingLoading
@@ -1123,26 +1163,28 @@ const formatDateForAPI = (date: Date | null) => {
     </div>
 
     {/* 2. Dates Row */}
-    <div className="grid grid-cols-2 gap-4">
-      <FormField label="Check-in Date" required>
-        <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
-          <DatePicker
-            value={bookingForm.checkIn}
-            onChange={(date) => setBookingForm((prev) => ({ ...prev, checkIn: date }))}
-          />
-        </div>
-      </FormField>
-
-      <FormField label="Check-out Date" required>
-        <div className="[&_button]:w-full [&_button]:justify-between [&_button]:flex [&_button]:px-3">
-          <DatePicker
-            value={bookingForm.checkOut}
-            onChange={(date) => setBookingForm((prev) => ({ ...prev, checkOut: date }))}
-            minDate={bookingForm.checkIn || undefined}
-          />
-        </div>
-      </FormField>
+<div className="grid grid-cols-2 gap-4 w-full">
+  
+  <FormField label="Check-in Date" required>
+    <div className="date-force-width">
+      <DatePicker
+        value={bookingForm.checkIn}
+        onChange={(date) => setBookingForm((prev) => ({ ...prev, checkIn: date }))}
+      />
     </div>
+  </FormField>
+
+  <FormField label="Check-out Date" required>
+    <div className="date-force-width">
+      <DatePicker
+        value={bookingForm.checkOut}
+        onChange={(date) => setBookingForm((prev) => ({ ...prev, checkOut: date }))}
+        minDate={bookingForm.checkIn || undefined}
+      />
+    </div>
+  </FormField>
+
+</div>
 
     {/* 3. Payment Calculation Section (Consolidated UI Card) */}
     <div className="rounded-lg border border-primary/20 overflow-hidden shadow-sm">
@@ -1170,7 +1212,7 @@ const formatDateForAPI = (date: Date | null) => {
 
       {/* Payment Inputs */}
       <div className="p-4 bg-background grid grid-cols-2 gap-4 items-center">
-        <FormField label="Amount Paying Now" hint="Numerical values only">
+        <FormField label="Amount Paying Now">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
               ₦

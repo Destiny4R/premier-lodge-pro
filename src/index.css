@@ -266,3 +266,42 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
     background-position: 200% 0;
   }
 }
+
+/* Custom styling for the DatePicker fields in Modals */
+.booking-date-container {
+  width: 100% !important;
+}
+
+/* 1. Force the Radix Trigger (the wrapper div) to expand */
+.booking-date-container > div, 
+.booking-date-container [role="combobox"],
+.booking-date-container button {
+  width: 100% !important;
+  max-width: none !important;
+  display: flex !important;
+}
+
+/* 2. Style the internal button */
+.booking-date-container button {
+  background-color: rgba(var(--secondary), 0.2) !important; /* Matches your bg-secondary/20 */
+  height: 2.75rem !important; /* Matches h-11 */
+  border: 1px solid rgba(var(--border), 0.5) !important;
+  border-radius: 0.5rem !important;
+  padding-left: 3rem !important; /* THE PADDING FIX: Pushes text 48px from left */
+  text-align: left !important;
+  justify-content: flex-start !important;
+  font-weight: 400 !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  position: relative !important;
+}
+
+/* 3. Nuke the internal icons GONE GONE GONE */
+.booking-date-container button svg {
+  display: none !important;
+}
+
+/* 4. Ensure the hover effect works */
+.booking-date-container button:hover {
+  background-color: rgba(var(--secondary), 0.3) !important;
+}
