@@ -72,6 +72,7 @@ export default function LandingPage() {
     checkInDate: "",
     checkOutDate: "",
     numberOfGuests: 1,
+    paidAmount: "",
     specialRequests: "",
   });
   
@@ -169,6 +170,7 @@ const bookingSummary = useMemo(() => {
         checkOutDate: bookingForm.checkOutDate,
         numberOfGuests: bookingForm.numberOfGuests,
         specialRequests: bookingForm.specialRequests || undefined,
+        paidAmount: parseFloat(bookingForm.paidAmount) || 0,
         paymentMethod: 1, // Default to Credit Card for now
       })
     );
@@ -184,6 +186,7 @@ const bookingSummary = useMemo(() => {
         checkInDate: "",
         checkOutDate: "",
         numberOfGuests: 1,
+        paidAmount: "",
         specialRequests: "",
       });
     }
@@ -872,38 +875,80 @@ const bookingSummary = useMemo(() => {
         </div>
       </div>
 
-      {/* SECTION 3: PRICING SUMMARY (The Innovation) */}
-      {selectedRoom && (
-        <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">
-              {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
-            </span>
-            <span className="font-medium">
-              {formatCurrency(Number(selectedRoom.price) * (bookingSummary.nights || 0))}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center text-xs text-muted-foreground pb-2 border-b border-dashed border-border">
-            <span>Taxes & Fees</span>
-            <span>Included</span>
-          </div>
-
-          <div className="flex justify-between items-end pt-1">
-            <div>
-              <span className="text-[10px] font-bold uppercase text-muted-foreground block mb-0.5">Total Amount</span>
-              <span className="text-3xl font-bold text-primary">
-                {formatCurrency(bookingSummary.total)}
-              </span>
-            </div>
-            {bookingSummary.nights === 0 && bookingForm.checkInDate && (
-              <Badge variant="destructive" className="mb-2 animate-pulse">
-                Invalid Dates
-              </Badge>
-            )}
-          </div>
+      {/* SECTION 3: CONSOLIDATED PAYMENT SUMMARY */}
+{selectedRoom && (
+  <div className="rounded-xl border border-primary/20 overflow-hidden shadow-sm bg-background">
+    {/* Top Summary Bar */}
+    <div className="bg-primary/5 p-4 border-b border-primary/10">
+      <div className="flex justify-between items-end">
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+            Stay Duration
+          </p>
+          <p className="text-sm font-medium text-foreground">
+            {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
+          </p>
         </div>
-      )}
+        <div className="text-right">
+          <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
+            Total Amount Due
+          </p>
+          <p className="text-3xl font-mono font-bold text-primary leading-none">
+            {formatCurrency(bookingSummary.total)}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Payment Inputs Row */}
+    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+      <div className="space-y-1.5">
+        <Label htmlFor="paidAmount" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+          Amount Paying Now
+        </Label>
+        <div className="relative">
+          <Input
+            id="paidAmount"
+            type="number"
+            value={bookingForm.paidAmount}
+            onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+            placeholder="0.00"
+            className="h-10 pl-3 font-mono bg-secondary/10 border-primary/10 focus-visible:ring-primary"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+          Remaining Balance
+        </label>
+        {(() => {
+          const balance = bookingSummary.total - (Number(bookingForm.paidAmount) || 0);
+          return (
+            <div
+              className={`h-10 flex items-center px-3 rounded-md border font-mono font-bold transition-colors ${
+                balance > 0
+                  ? "bg-orange-500/10 text-orange-600 border-orange-500/20"
+                  : "bg-green-500/10 text-green-600 border-green-500/20"
+              }`}
+            >
+              {formatCurrency(balance)}
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+
+    {/* Validation Warning */}
+    {bookingSummary.nights === 0 && bookingForm.checkInDate && (
+      <div className="px-4 pb-4">
+        <Badge variant="destructive" className="w-full justify-center py-1 animate-pulse">
+          Check-out date must be after check-in date
+        </Badge>
+      </div>
+    )}
+  </div>
+)}
 
       {/* SECTION 4: EXTRA REQUESTS */}
       <div className="space-y-1.5">
@@ -931,7 +976,11 @@ const bookingSummary = useMemo(() => {
           variant="hero" 
           className="flex-1 h-12 shadow-lg shadow-primary/20" 
           onClick={handleBookingSubmit}
-          disabled={bookingApi.isLoading || bookingSummary.nights <= 0}
+          disabled={
+  bookingApi.isLoading || 
+  bookingSummary.nights <= 0 || 
+  Number(bookingForm.paidAmount) > bookingSummary.total
+}
         >
           {bookingApi.isLoading ? (
             <>

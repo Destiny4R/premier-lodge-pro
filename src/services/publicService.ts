@@ -37,6 +37,7 @@ export interface PublicBookingRequest {
   checkOutDate: string;
   numberOfGuests: number;
   specialRequests?: string;
+  paidAmount: number;
   paymentMethod: 1 | 2 | 3 | 4 | 5; // 1: Credit Card, 2: Debit Card, 3: PayPal, 4: Bank Transfer, 5: Cash
 }
 
