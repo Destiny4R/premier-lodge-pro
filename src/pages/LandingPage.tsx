@@ -16,6 +16,7 @@ import { useApi } from "@/hooks/useApi";
 import { getPublicRooms, getPublicAmenities, submitContactForm, createPublicBooking, PublicRoom, PublicBookingResponse, Amenity, ContactRequest } from "@/services/publicService";
 import { formatCurrency } from "@/lib/currency";
 import heroImage from "@/assets/hero-hotel.jpg";
+import { useBookingFlow } from "@/hooks/useBookingFlow";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -90,27 +91,15 @@ export default function LandingPage() {
   // Inside LandingPage component
 // This recalculates automatically whenever checkInDate or checkOutDate changes
 const bookingSummary = useMemo(() => {
-  // If either date or the room is missing, we show 0
-  if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
-    return { nights: 0, total: 0 };
-  }
-
-  const start = new Date(bookingForm.checkInDate);
-  const end = new Date(bookingForm.checkOutDate);
-
-  // Difference in milliseconds
-  const diffTime = end.getTime() - start.getTime();
-  
-  // Convert to days (rounding up)
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  // If the user picks a checkout date BEFORE checkin, we return 0
-  const nights = diffDays > 0 ? diffDays : 0;
-  const total = nights * Number(selectedRoom.price);
-
-  return { nights, total };
-}, [selectedRoom, bookingForm.checkInDate, bookingForm.checkOutDate]);
-
+    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
+      return { nights: 0, total: 0 };
+    }
+    const start = new Date(bookingForm.checkInDate);
+    const end = new Date(bookingForm.checkOutDate);
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const nights = diffDays > 0 ? diffDays : 0;
+    return { nights, total: nights * Number(selectedRoom.price) };
+  }, [selectedRoom, bookingForm.checkInDate, bookingForm.checkOutDate]);
   /**
    * GET /api/public/rooms
    * Fetch available rooms for public display
@@ -148,49 +137,25 @@ const bookingSummary = useMemo(() => {
     setRoomDetailsOpen(true);
   };
 
-  /**
-   * POST /api/public/bookings
-   * Create a new booking
-   */
-  const handleBookingSubmit = async () => {
-    if (!selectedRoom) return;
-    
-    if (!bookingForm.guestName || !bookingForm.guestEmail || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
-      toast.error("Please fill in all required fields");
-      return;
+
+  // Inside LandingPage component, after states
+const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
+    bookingForm,
+    selectedRoom,
+    totalBill: bookingSummary.total,
+    isPublic: true, // EXPLICITLY set for LandingPage
+    onSuccess: (data: any, isInitiatingPayment: boolean) => {
+      if (isInitiatingPayment) {
+        // Step A: We close the modal to prevent focus trapping while Credo Iframe is active
+        setBookingModalOpen(false);
+      } else {
+        // Step B: Payment is either Verified OR user chose Offline. Show receipt.
+        setBookingConfirmation(data);
+        setBookingModalOpen(false);
+      }
     }
-    
-    const response = await bookingApi.execute(() => 
-      createPublicBooking({
-        roomId: selectedRoom.id || '',
-        guestName: bookingForm.guestName,
-        guestEmail: bookingForm.guestEmail,
-        guestPhone: bookingForm.guestPhone,
-        checkInDate: bookingForm.checkInDate,
-        checkOutDate: bookingForm.checkOutDate,
-        numberOfGuests: bookingForm.numberOfGuests,
-        specialRequests: bookingForm.specialRequests || undefined,
-        paidAmount: parseFloat(bookingForm.paidAmount) || 0,
-        paymentMethod: 1, // Default to Credit Card for now
-      })
-    );
-    
-    if (response.success && response.data) {
-      setBookingConfirmation(response.data);
-      setBookingModalOpen(false);
-      // Reset form
-      setBookingForm({
-        guestName: "",
-        guestEmail: "",
-        guestPhone: "",
-        checkInDate: "",
-        checkOutDate: "",
-        numberOfGuests: 1,
-        paidAmount: "",
-        specialRequests: "",
-      });
-    }
-  };
+  });
+
 
   // Get available rooms sorted by promotion status
   const availableRooms = rooms
@@ -877,78 +842,44 @@ const bookingSummary = useMemo(() => {
 
       {/* SECTION 3: CONSOLIDATED PAYMENT SUMMARY */}
 {selectedRoom && (
-  <div className="rounded-xl border border-primary/20 overflow-hidden shadow-sm bg-background">
-    {/* Top Summary Bar */}
-    <div className="bg-primary/5 p-4 border-b border-primary/10">
-      <div className="flex justify-between items-end">
-        <div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-            Stay Duration
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
-            Total Amount Due
-          </p>
-          <p className="text-3xl font-mono font-bold text-primary leading-none">
-            {formatCurrency(bookingSummary.total)}
-          </p>
-        </div>
-      </div>
-    </div>
+            <div className="rounded-xl border border-primary/20 overflow-hidden shadow-sm bg-background">
+              <div className="bg-primary/5 p-4 border-b border-primary/10">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Stay Duration</p>
+                    <p className="text-sm font-medium">
+                      {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Total Due</p>
+                    <p className="text-3xl font-mono font-bold text-primary leading-none">
+                      {formatCurrency(bookingSummary.total)}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-    {/* Payment Inputs Row */}
-    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-      <div className="space-y-1.5">
-        <Label htmlFor="paidAmount" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-          Amount Paying Now
-        </Label>
-        <div className="relative">
-          <Input
-            id="paidAmount"
-            type="number"
-            value={bookingForm.paidAmount}
-            onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
-            placeholder="0.00"
-            className="h-10 pl-3 font-mono bg-secondary/10 border-primary/10 focus-visible:ring-primary"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-          Remaining Balance
-        </label>
-        {(() => {
-          const balance = bookingSummary.total - (Number(bookingForm.paidAmount) || 0);
-          return (
-            <div
-              className={`h-10 flex items-center px-3 rounded-md border font-mono font-bold transition-colors ${
-                balance > 0
-                  ? "bg-orange-500/10 text-orange-600 border-orange-500/20"
-                  : "bg-green-500/10 text-green-600 border-green-500/20"
-              }`}
-            >
-              {formatCurrency(balance)}
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground uppercase">Amount Paying Now</Label>
+                  <Input
+                    type="number"
+                    value={bookingForm.paidAmount}
+                    onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+                    placeholder="0.00"
+                    className="font-mono bg-secondary/10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] font-bold text-muted-foreground uppercase">Balance</Label>
+                  <div className="h-10 flex items-center px-3 rounded-md border font-mono font-bold bg-secondary/5">
+                    {formatCurrency(bookingSummary.total - (Number(bookingForm.paidAmount) || 0))}
+                  </div>
+                </div>
+              </div>
             </div>
-          );
-        })()}
-      </div>
-    </div>
-
-    {/* Validation Warning */}
-    {bookingSummary.nights === 0 && bookingForm.checkInDate && (
-      <div className="px-4 pb-4">
-        <Badge variant="destructive" className="w-full justify-center py-1 animate-pulse">
-          Check-out date must be after check-in date
-        </Badge>
-      </div>
-    )}
-  </div>
-)}
+          )}
 
       {/* SECTION 4: EXTRA REQUESTS */}
       <div className="space-y-1.5">
@@ -965,36 +896,28 @@ const bookingSummary = useMemo(() => {
 
       {/* ACTIONS */}
       <div className="flex gap-3 pt-2">
-        <Button 
-          variant="outline" 
-          className="flex-1 h-12" 
-          onClick={() => setBookingModalOpen(false)}
-        >
-          Discard
-        </Button>
-        <Button 
-          variant="hero" 
-          className="flex-1 h-12 shadow-lg shadow-primary/20" 
-          onClick={handleBookingSubmit}
-          disabled={
-  bookingApi.isLoading || 
-  bookingSummary.nights <= 0 || 
-  Number(bookingForm.paidAmount) > bookingSummary.total
-}
-        >
-          {bookingApi.isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            "Confirm Booking"
-          )}
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+            <Button variant="outline" className="flex-1 h-12" onClick={() => setBookingModalOpen(false)}>
+              Discard
+            </Button>
+            <Button 
+              variant="hero" 
+              className="flex-1 h-12 shadow-lg" 
+              onClick={startBookingProcess} // This triggers the refactored hook logic
+              disabled={isBookingLoading || bookingSummary.nights <= 0}
+            >
+              {isBookingLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {parseFloat(bookingForm.paidAmount) > 0 ? "Redirecting to Payment..." : "Securing Room..."}
+                </>
+              ) : (
+                "Confirm Booking"
+              )}
+            </Button>
+          </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Confirmation Modal */}
       <Dialog open={!!bookingConfirmation} onOpenChange={() => setBookingConfirmation(null)}>

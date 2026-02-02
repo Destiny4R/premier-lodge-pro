@@ -156,11 +156,20 @@ export async function getPublicRooms(params?: RoomSearchFilters): Promise<ApiRes
 }
 
 /**
- * POST /api/public/bookings
+ * POST /api/v3/public/bookings
  * Self-service guest booking from the Landing Page modal.
  */
 export async function createPublicBooking(data: PublicBookingRequest): Promise<ApiResponse<PublicBookingResponse>> {
-  return await apiPost<PublicBookingResponse>('/public/bookings', data);
+  return await apiPost<PublicBookingResponse>('/v3/public/bookings', data);
+}
+
+
+/**
+ * POST /api/v3/public/bookings/confirm-payment
+ * Verifies a transaction with the payment gateway and updates booking status
+ */
+export async function verifyPublicBookingPayment(reference: string): Promise<ApiResponse<any>> {
+  return await apiPost('v3/public/confirm-payment', { reference });
 }
 
 /**

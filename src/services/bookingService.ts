@@ -683,6 +683,7 @@ export async function verifyBookingPayment(reference: string): Promise<ApiRespon
   return await apiPost('v3/bookings/confirm-payment', { reference });
 }
 
+
 /**
  * POST /api/v3/bookings/generate-retry-reference
  * Takes an existing reference and returns a NEW one for a fresh Credo attempt

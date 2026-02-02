@@ -1,173 +1,133 @@
-// src/hooks/useBookingFlow.ts
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { createBooking, createReservation, verifyBookingPayment } from "@/services/bookingService";
-import { updateGuest } from "@/services/guestService";
+import { 
+  verifyBookingPayment, 
+  createBooking, 
+  createReservation 
+} from "@/services/bookingService";
+import { 
+  createPublicBooking, 
+  verifyPublicBookingPayment 
+} from "@/services/publicService";
 
-export const useBookingFlow = ({ guest, bookingForm, bookingType, totalBill, paymentMethods, onSuccess }: any) => {
+interface BookingFlowOptions {
+  guest?: any;
+  bookingForm: any;
+  selectedRoom?: any;
+  totalBill: number;
+  onSuccess: (data: any, isInitiatingPayment: boolean) => void;
+  isPublic?: boolean;
+  bookingType?: "check-in" | "reservation";
+  paymentMethods?: any[]; // <--- Add this back to the interface
+}
+
+export const useBookingFlow = ({
+  guest,
+  bookingForm,
+  selectedRoom,
+  totalBill,
+  onSuccess,
+  isPublic = true,
+  bookingType = "check-in",
+  paymentMethods = [] // <--- Default to empty array
+}: BookingFlowOptions) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // We add 'e' here to capture the form event
   const startBookingProcess = useCallback(async (e?: React.FormEvent) => {
-    // CRITICAL: Stop the browser from refreshing the page
-    if (e && e.preventDefault) {
-      e.preventDefault();
-    }
-
-    if (e) {
-    e.preventDefault?.();
-    e.stopPropagation?.();
-  }
-
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     if (isSubmitting) return;
+
     setIsSubmitting(true);
+    const amountToPayNow = parseFloat(bookingForm.paidAmount) || 0;
+    const isOnlinePayment = amountToPayNow > 0;
 
-    console.log("--- STARTING HANDSHAKE ---");
-  console.log("Payload Guest ID:", guest?.id);
-  console.log("Amount:", bookingForm.paidAmount);
-
-    const selectedMethod = paymentMethods.find((m: any) => m.id.toString() === bookingForm.paymentMethod);
-    const isOnlinePayment = !selectedMethod?.name?.toLowerCase().includes("cash") && (parseFloat(bookingForm.paidAmount) || 0) > 0;
-
+    // DYNAMIC CHECK: Is the selected method the Online Gateway?
+    // We check if the selected method name contains "credo" or "online"
+    const selectedMethodObj = paymentMethods.find(
+      (m) => m.id.toString() === bookingForm.paymentMethod
+    );
+    const isCredoSelected = isPublic || 
+      selectedMethodObj?.name.toLowerCase().includes("credo") || 
+      selectedMethodObj?.name.toLowerCase().includes("online");
 
     try {
-      const payload = {
-        guestId: guest.id,
-        roomId: bookingForm.roomId,
-        checkIn: bookingForm.checkIn?.toISOString().split('T')[0],
-        checkOut: bookingForm.checkOut?.toISOString().split('T')[0],
-        paidAmount: parseFloat(bookingForm.paidAmount) || 0,
-        paymentMethod: bookingForm.paymentMethod,
-        paymentStatus: bookingForm.paymentStatus, 
-        totalAmount: totalBill,
-        bookingtype: bookingType === "check-in" ? "Checked In" : "Reservation",
-      };
-
-      // THE HANDSHAKE
-      const response = bookingType === "check-in" 
-        ? await createBooking(payload as any) 
-        : await createReservation(payload as any);
-
-        console.log("SERVER RESPONSE:", response);
-
-
-      if (!response.success) {
-        toast.error(response.message || "Server Handshake Failed");
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Handshake successful - update local records
-      await updateGuest(guest.id, { accommodation: payload.bookingtype });
-
-
-      if (isOnlinePayment) {
-        const serverRef = response.data?.bookingReference;
-        const publicKey = import.meta.env.VITE_CREDO_PUBLIC_KEY;
-
-        console.log("Online Payment Detected. Ref:", serverRef);
-
-
-        if (!serverRef) throw new Error("Server failed to provide a Transaction Reference.");
-
-        // 1. Close the React Modal first
-        onSuccess(); 
-
-        setTimeout(() => {
-  const CredoClass = (window as any).CredoWidget;
-
-  if (!CredoClass) {
-    toast.error("Payment SDK not found.");
-    setIsSubmitting(false);
-    return;
-  }
-
-  // 1. Force Clean Page State
-  document.body.style.pointerEvents = 'auto';
-  document.body.style.overflow = 'auto';
-
-  try {
-    const cleanAmount = Math.round(Number(bookingForm.paidAmount) * 100);
-    const publicKey = import.meta.env.VITE_CREDO_PUBLIC_KEY;
-
-    // 2. Instantiate the SDK
-    const instance = new CredoClass({
-      key: publicKey,
-      customerFirstName: guest?.firstname || '',
-      customerLastName: guest?.lastname || '',
-      email: guest?.email || '',
-      amount: cleanAmount,
-      currency: 'NGN',
-      reference: serverRef,
-      customerPhoneNumber: guest?.phone || '',
-      onClose: () => {
-        setIsSubmitting(false);
-        toast.info("Payment cancelled.");
-      },
-      callback: (res: any) => {
-        setIsSubmitting(false);
-        toast.success("Payment successful!");
-        onSuccess();
-      },
-    });
-
-    // 3. THE MAGIC SEQUENCE (Based on your discovered methods)
-    console.log("Step 1: Initialising Transaction...");
-    if (typeof instance.initialiseTransaction === 'function') {
-      instance.initialiseTransaction();
-    }
-
-    console.log("Step 2: Opening Iframe...");
-    if (typeof instance.openIframe === 'function') {
-      instance.openIframe();
-    }
-
-    // 4. EMERGENCY VISIBILITY OVERRIDE
-    // If the iframe exists but is invisible or has 0 height/width
-    const findAndFixIframe = () => {
-      const iframes = document.getElementsByTagName('iframe');
-      for (let i = 0; i < iframes.length; i++) {
-        // Look for any iframe related to credo
-        if (iframes[i].src.includes('credo') || iframes[i].id.includes('credo')) {
-          console.log("Credo Iframe detected. Enforcing visibility...");
-          iframes[i].style.display = "block";
-          iframes[i].style.visibility = "visible";
-          iframes[i].style.opacity = "1";
-          iframes[i].style.zIndex = "999999";
-          iframes[i].style.position = "fixed";
-          iframes[i].style.top = "0";
-          iframes[i].style.left = "0";
-          iframes[i].style.width = "100vw";
-          iframes[i].style.height = "100vh";
-        }
-      }
-    };
-
-    // Run the fix immediately and again after 500ms
-    findAndFixIframe();
-    setTimeout(findAndFixIframe, 500);
-
-    console.log("Credo Process Fully Triggered.");
-
-  } catch (err) {
-    console.error("CRITICAL Launch Error:", err);
-    setIsSubmitting(false);
-  }
-}, 800);
-
-
+      let response;
+      if (isPublic) {
+        response = await createPublicBooking({
+          roomId: selectedRoom?.id || bookingForm.roomId,
+          guestName: bookingForm.guestName,
+          guestEmail: bookingForm.guestEmail,
+          guestPhone: bookingForm.guestPhone,
+          checkInDate: bookingForm.checkIn,
+          checkOutDate: bookingForm.checkOut,
+          numberOfGuests: bookingForm.numberOfGuests || 1,
+          paidAmount: amountToPayNow,
+          paymentMethod: 1, 
+        });
       } else {
-        toast.success("Booking saved!");
-        console.log("Offline Payment - Success");
-        onSuccess();
+        const payload = {
+          guestId: guest.id,
+          roomId: bookingForm.roomId,
+          checkIn: bookingForm.checkIn,
+          checkOut: bookingForm.checkOut,
+          paidAmount: amountToPayNow,
+          paymentMethodId: parseInt(bookingForm.paymentMethod),
+          paymentStatusId: parseInt(bookingForm.paymentStatus),
+        };
+        response = bookingType === "check-in" ? await createBooking(payload) : await createReservation(payload);
+      }
+
+      if (!response.success) throw new Error(response.message);
+
+      const bookingData = response.data;
+
+      // TRIGGER CREDO only if there's an amount AND it's the right method
+      if (isOnlinePayment && isCredoSelected) {
+        onSuccess(bookingData, true); 
+        
+        setTimeout(() => {
+          const SDK = (window as any).CredoWidget;
+          if (!SDK) { setIsSubmitting(false); return; }
+
+          document.body.style.pointerEvents = "auto";
+          document.body.style.overflow = "auto";
+
+          const handleVerification = async (payRes: any) => {
+            const tid = toast.loading("Verifying payment...");
+            const verifyService = isPublic ? verifyPublicBookingPayment : verifyBookingPayment;
+            const v = await verifyService(payRes.reference || bookingData.bookingReference);
+            
+            if (v.success) toast.success("Verified!", { id: tid });
+            else toast.error(v.message, { id: tid });
+            
+            setIsSubmitting(false);
+            onSuccess(bookingData, false);
+          };
+
+          new SDK({
+            key: import.meta.env.VITE_CREDO_PUBLIC_KEY,
+            customerFirstName: isPublic ? bookingForm.guestName.split(" ")[0] : guest.firstname,
+            customerLastName: isPublic ? (bookingForm.guestName.split(" ")[1] || "") : guest.lastname,
+            email: isPublic ? bookingForm.guestEmail : guest.email,
+            amount: Math.round(amountToPayNow * 100),
+            currency: "NGN",
+            reference: bookingData.bookingReference,
+            customerPhoneNumber: isPublic ? bookingForm.guestPhone : guest.phone,
+            onClose: () => { setIsSubmitting(false); onSuccess(bookingData, false); },
+            callback: handleVerification,
+            callBack: handleVerification,
+          }).initialiseTransaction();
+        }, 800);
+      } else {
+        toast.success("Processed successfully");
         setIsSubmitting(false);
+        onSuccess(bookingData, false);
       }
     } catch (err: any) {
-      console.error("FLOW ERROR:", err);
-      toast.error(err.message || "Connection lost during handshake.");
+      toast.error(err.message || "Error");
       setIsSubmitting(false);
     }
-  }, [guest, bookingForm, bookingType, totalBill, paymentMethods, onSuccess, isSubmitting]);
+  }, [bookingForm, selectedRoom, totalBill, onSuccess, isSubmitting, isPublic, bookingType, guest, paymentMethods]);
 
   return { startBookingProcess, isSubmitting };
 };

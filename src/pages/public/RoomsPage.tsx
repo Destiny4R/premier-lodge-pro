@@ -15,6 +15,7 @@ import { useApi } from "@/hooks/useApi";
 import { getPublicRooms, createPublicBooking, PublicRoom, PublicBookingResponse } from "@/services/publicService";
 import { formatCurrency } from "@/lib/currency";
 import { Textarea } from "@/components/ui/textarea";
+import { useBookingFlow } from "@/hooks/useBookingFlow";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -158,44 +159,29 @@ const formatPhoneNumberDisplay = (phone: string | undefined): string => {
     setBookingModalOpen(true);
   };
 
-  const handleBookingSubmit = async () => {
-    if (!selectedRoom) return;
-    
-    if (!bookingForm.guestName || !bookingForm.guestEmail || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-    
-    const response = await bookingApi.execute(() => 
-      createPublicBooking({
-        roomId: selectedRoom.id || '',
-        guestName: bookingForm.guestName,
-        guestEmail: bookingForm.guestEmail,
-        guestPhone: bookingForm.guestPhone,
-        checkInDate: bookingForm.checkInDate,
-        checkOutDate: bookingForm.checkOutDate,
-        numberOfGuests: bookingForm.numberOfGuests,
-        specialRequests: bookingForm.specialRequests || undefined,
-        paidAmount: parseFloat(bookingForm.paidAmount) || 0,
-        paymentMethod: 1
-      })
-    );
-    
-    if (response.success && response.data) {
-      setBookingConfirmation(response.data);
+  // 1. Initialize the Booking Flow Hook
+const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
+  bookingForm,
+  selectedRoom,
+  totalBill: bookingSummary.total,
+  onSuccess: (data: any, isStartingPayment: boolean) => {
+    if (isStartingPayment) {
+      // Step A: Close the entry modal so Credo can gain focus
       setBookingModalOpen(false);
+    } else {
+      // Step B: Payment verified or Cash booking - Show the final receipt
+      setBookingConfirmation(data);
+      setBookingModalOpen(false);
+      
+      // Reset form for next time
       setBookingForm({
-        guestName: "",
-        guestEmail: "",
-        guestPhone: "",
-        checkInDate: "",
-        checkOutDate: "",
-        numberOfGuests: 1,
-        paidAmount: "",
-        specialRequests: "",
+        guestName: "", guestEmail: "", guestPhone: "",
+        checkInDate: "", checkOutDate: "", numberOfGuests: 1,
+        paidAmount: "", specialRequests: "",
       });
     }
-  };
+  }
+});
 
   const availableRooms = rooms.filter((room) => room.status === "Available");
   const categories = [...new Set(rooms.map(r => r.categoryName))];
@@ -710,24 +696,20 @@ const formatPhoneNumberDisplay = (phone: string | undefined): string => {
           Discard
         </Button>
         <Button 
-          variant="hero" 
-          className="flex-1 h-12 shadow-lg shadow-primary/20" 
-          onClick={handleBookingSubmit}
-          disabled={
-  bookingApi.isLoading || 
-  bookingSummary.nights <= 0 || 
-  Number(bookingForm.paidAmount) > bookingSummary.total
-}
-        >
-          {bookingApi.isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            "Confirm Booking"
-          )}
-        </Button>
+  variant="hero" 
+  className="flex-1 h-12 shadow-lg shadow-primary/20" 
+  onClick={startBookingProcess} // Connected to Hook
+  disabled={isBookingLoading || bookingSummary.nights <= 0}
+>
+  {isBookingLoading ? (
+    <>
+      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+      {bookingForm.paidAmount ? "Opening Payment..." : "Processing..."}
+    </>
+  ) : (
+    "Confirm Booking"
+  )}
+</Button>
       </div>
     </div>
   </DialogContent>
