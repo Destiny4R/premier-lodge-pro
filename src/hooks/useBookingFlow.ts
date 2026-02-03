@@ -1,25 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { 
-  verifyBookingPayment, 
-  createBooking, 
-  createReservation 
-} from "@/services/bookingService";
-import { 
-  createPublicBooking, 
-  verifyPublicBookingPayment 
-} from "@/services/publicService";
-
-interface BookingFlowOptions {
-  guest?: any;
-  bookingForm: any;
-  selectedRoom?: any;
-  totalBill: number;
-  onSuccess: (data: any, isInitiatingPayment: boolean) => void;
-  isPublic?: boolean;
-  bookingType?: "check-in" | "reservation";
-  paymentMethods?: any[]; // <--- Add this back to the interface
-}
+import { verifyBookingPayment, createBooking, createReservation } from "@/services/bookingService";
+import { createPublicBooking, verifyPublicBookingPayment } from "@/services/publicService";
 
 export const useBookingFlow = ({
   guest,
@@ -29,8 +11,7 @@ export const useBookingFlow = ({
   onSuccess,
   isPublic = true,
   bookingType = "check-in",
-  paymentMethods = [] // <--- Default to empty array
-}: BookingFlowOptions) => {
+}: any) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const startBookingProcess = useCallback(async (e?: React.FormEvent) => {
@@ -38,17 +19,15 @@ export const useBookingFlow = ({
     if (isSubmitting) return;
 
     setIsSubmitting(true);
-    const amountToPayNow = parseFloat(bookingForm.paidAmount) || 0;
-    const isOnlinePayment = amountToPayNow > 0;
 
-    // DYNAMIC CHECK: Is the selected method the Online Gateway?
-    // We check if the selected method name contains "credo" or "online"
-    const selectedMethodObj = paymentMethods.find(
-      (m) => m.id.toString() === bookingForm.paymentMethod
-    );
-    const isCredoSelected = isPublic || 
-      selectedMethodObj?.name.toLowerCase().includes("credo") || 
-      selectedMethodObj?.name.toLowerCase().includes("online");
+    // 1. DATE & AMOUNT PREP
+    const checkIn = bookingForm.checkIn || bookingForm.checkInDate;
+    const checkOut = bookingForm.checkOut || bookingForm.checkOutDate;
+    const formattedIn = checkIn instanceof Date ? checkIn.toISOString().split('T')[0] : checkIn;
+    const formattedOut = checkOut instanceof Date ? checkOut.toISOString().split('T')[0] : checkOut;
+
+    let amountToPay = parseFloat(bookingForm.paidAmount?.toString().replace(/[^0-9.]/g, '') || "0");
+    if (isPublic && amountToPay === 0) amountToPay = totalBill;
 
     try {
       let response;
@@ -58,68 +37,87 @@ export const useBookingFlow = ({
           guestName: bookingForm.guestName,
           guestEmail: bookingForm.guestEmail,
           guestPhone: bookingForm.guestPhone,
-          checkInDate: bookingForm.checkIn,
-          checkOutDate: bookingForm.checkOut,
+          checkInDate: formattedIn,
+          checkOutDate: formattedOut,
           numberOfGuests: bookingForm.numberOfGuests || 1,
-          paidAmount: amountToPayNow,
-          paymentMethod: 1, 
+          paidAmount: amountToPay,
+          paymentMethod: 1 as 1, 
+          specialRequests: bookingForm.specialRequests,
         });
       } else {
-        const payload = {
-          guestId: guest.id,
-          roomId: bookingForm.roomId,
-          checkIn: bookingForm.checkIn,
-          checkOut: bookingForm.checkOut,
-          paidAmount: amountToPayNow,
-          paymentMethodId: parseInt(bookingForm.paymentMethod),
-          paymentStatusId: parseInt(bookingForm.paymentStatus),
-        };
-        response = bookingType === "check-in" ? await createBooking(payload) : await createReservation(payload);
+        response = bookingType === "check-in" 
+          ? await createBooking({ guestId: guest.id, roomId: bookingForm.roomId, checkIn: formattedIn, checkOut: formattedOut, paidAmount: amountToPay, paymentMethod: parseInt(bookingForm.paymentMethod), paymentStatus: parseInt(bookingForm.paymentStatus) })
+          : await createReservation({ guestId: guest.id, roomId: bookingForm.roomId, checkIn: formattedIn, checkOut: formattedOut, paidAmount: amountToPay, paymentMethod: parseInt(bookingForm.paymentMethod), paymentStatus: parseInt(bookingForm.paymentStatus) });
       }
 
       if (!response.success) throw new Error(response.message);
 
-      const bookingData = response.data;
+      const bookingData = response.data; // This is the "Lean" data (Reference only)
+      const serverRef = bookingData.bookingReference;
 
-      // TRIGGER CREDO only if there's an amount AND it's the right method
-      if (isOnlinePayment && isCredoSelected) {
-        onSuccess(bookingData, true); 
-        
+      if (amountToPay > 0) {
+        onSuccess(bookingData, true); // Close Modal for Credo
+
         setTimeout(() => {
-          const SDK = (window as any).CredoWidget;
-          if (!SDK) { setIsSubmitting(false); return; }
+          const SDK = (window as any).CredoWidget || (window as any).Credo;
+          
+          if (!SDK) {
+            toast.error("Payment engine failed to load.");
+            setIsSubmitting(false);
+            return;
+          }
 
           document.body.style.pointerEvents = "auto";
           document.body.style.overflow = "auto";
 
-          const handleVerification = async (payRes: any) => {
+          // --- DEFINE VERIFICATION HANDLER ---
+          const handleVerification = async (res: any) => {
             const tid = toast.loading("Verifying payment...");
-            const verifyService = isPublic ? verifyPublicBookingPayment : verifyBookingPayment;
-            const v = await verifyService(payRes.reference || bookingData.bookingReference);
-            
-            if (v.success) toast.success("Verified!", { id: tid });
-            else toast.error(v.message, { id: tid });
-            
-            setIsSubmitting(false);
-            onSuccess(bookingData, false);
+            try {
+              const verifyService = isPublic ? verifyPublicBookingPayment : verifyBookingPayment;
+              const v = await verifyService(res.reference || serverRef);
+              
+              if (v.success) {
+                toast.success("Payment Verified!", { id: tid });
+                // SUCCESS: Pass the FULL object (v.data) from the server back to the UI
+                onSuccess(v.data, false); 
+              } else {
+                toast.error("Verification pending", { id: tid });
+                onSuccess(bookingData, false); // Fallback to lean data
+              }
+            } catch (err) {
+              toast.error("Network error during verification", { id: tid });
+              onSuccess(bookingData, false);
+            } finally {
+              setIsSubmitting(false);
+            }
           };
 
-          new SDK({
+          const names = (isPublic ? bookingForm.guestName : guest.name || "Guest").trim().split(" ");
+
+          const credo = new SDK({
             key: import.meta.env.VITE_CREDO_PUBLIC_KEY,
-            customerFirstName: isPublic ? bookingForm.guestName.split(" ")[0] : guest.firstname,
-            customerLastName: isPublic ? (bookingForm.guestName.split(" ")[1] || "") : guest.lastname,
+            customerFirstName: names[0] || "Guest",
+            customerLastName: names.slice(1).join(" ") || "User",
             email: isPublic ? bookingForm.guestEmail : guest.email,
-            amount: Math.round(amountToPayNow * 100),
+            amount: Math.round(amountToPay * 100),
             currency: "NGN",
-            reference: bookingData.bookingReference,
-            customerPhoneNumber: isPublic ? bookingForm.guestPhone : guest.phone,
-            onClose: () => { setIsSubmitting(false); onSuccess(bookingData, false); },
+            reference: serverRef,
+            customerPhoneNumber: (isPublic ? bookingForm.guestPhone : guest.phone) || "",
+            onClose: () => {
+              setIsSubmitting(false);
+              onSuccess(bookingData, false);
+            },
             callback: handleVerification,
-            callBack: handleVerification,
-          }).initialiseTransaction();
+            callBack: handleVerification 
+          });
+
+          if (typeof credo.initialiseTransaction === 'function') credo.initialiseTransaction();
+          if (typeof credo.openIframe === 'function') credo.openIframe();
         }, 800);
+
       } else {
-        toast.success("Processed successfully");
+        toast.success("Booking saved.");
         setIsSubmitting(false);
         onSuccess(bookingData, false);
       }
@@ -127,7 +125,7 @@ export const useBookingFlow = ({
       toast.error(err.message || "Error");
       setIsSubmitting(false);
     }
-  }, [bookingForm, selectedRoom, totalBill, onSuccess, isSubmitting, isPublic, bookingType, guest, paymentMethods]);
+  }, [bookingForm, selectedRoom, totalBill, onSuccess, isSubmitting, isPublic, bookingType, guest]);
 
   return { startBookingProcess, isSubmitting };
 };

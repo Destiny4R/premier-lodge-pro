@@ -31,6 +31,20 @@ const staggerContainer = {
   },
 };
 
+const formatDateFriendly = (dateStr: string) => {
+  if (!dateStr) return "N/A";
+  const date = new Date(dateStr);
+  
+  // Check if date is valid to avoid "Invalid Date" showing up
+  if (isNaN(date.getTime())) return dateStr;
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(date);
+};
+
 export default function PublicRoomsPage() {
   const roomsApi = useApi<{ items: PublicRoom[]; totalItems: number }>();
   const bookingApi = useApi<PublicBookingResponse>({ showSuccessToast: true });
@@ -72,26 +86,18 @@ export default function PublicRoomsPage() {
 
   // This recalculates automatically whenever checkInDate or checkOutDate changes
 const bookingSummary = useMemo(() => {
-  // If either date or the room is missing, we show 0
-  if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
-    return { nights: 0, total: 0 };
-  }
+    if (!selectedRoom || !bookingForm.checkInDate || !bookingForm.checkOutDate) {
+      return { nights: 0, total: 0 };
+    }
+    const start = new Date(bookingForm.checkInDate);
+    const end = new Date(bookingForm.checkOutDate);
+    const diffTime = end.getTime() - start.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const nights = diffDays > 0 ? diffDays : 0;
+    const total = nights * Number(selectedRoom.price);
+    return { nights, total };
+  }, [selectedRoom, bookingForm.checkInDate, bookingForm.checkOutDate]);
 
-  const start = new Date(bookingForm.checkInDate);
-  const end = new Date(bookingForm.checkOutDate);
-
-  // Difference in milliseconds
-  const diffTime = end.getTime() - start.getTime();
-  
-  // Convert to days (rounding up)
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  // If the user picks a checkout date BEFORE checkin, we return 0
-  const nights = diffDays > 0 ? diffDays : 0;
-  const total = nights * Number(selectedRoom.price);
-
-  return { nights, total };
-}, [selectedRoom, bookingForm.checkInDate, bookingForm.checkOutDate]);
 
   const fetchRooms = async () => {
     const params: Record<string, unknown> = { pageSize: 50 };
@@ -164,14 +170,43 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
   bookingForm,
   selectedRoom,
   totalBill: bookingSummary.total,
-  onSuccess: (data: any, isStartingPayment: boolean) => {
+  onSuccess: (serverData: any, isStartingPayment: boolean) => {
     if (isStartingPayment) {
       // Step A: Close the entry modal so Credo can gain focus
       setBookingModalOpen(false);
     } else {
       // Step B: Payment verified or Cash booking - Show the final receipt
-      setBookingConfirmation(data);
-      setBookingModalOpen(false);
+  
+     const confirmationData: PublicBookingResponse = {
+      // 1. Reference (Priority Server -> Fallback Local)
+      bookingReference: (serverData?.bookingReference || "").toUpperCase(),
+      
+      // 2. Room Info (Priority Server -> Fallback Local selectedRoom state)
+      categoryName: serverData?.categoryName || selectedRoom?.categoryName || "N/A",
+      roomNumber: serverData?.roomNumber || selectedRoom?.doorNumber || "N/A",
+      hotelName: serverData?.hotelName || selectedRoom?.hotelName || "Premier Lodge",
+      hotelAddress: serverData?.hotelAddress || selectedRoom?.hotelAddress || "",
+      
+      // 3. Dates (Priority Server -> Fallback Local bookingForm state)
+      // We wrap these in formatDateFriendly to handle ISO strings from server
+      checkInDate: formatDateFriendly(serverData?.checkInDate || bookingForm.checkInDate),
+      checkOutDate: formatDateFriendly(serverData?.checkOutDate || bookingForm.checkOutDate),
+      
+      // 4. Guest & Money
+      guestName: serverData?.guestName || bookingForm.guestName,
+      guestEmail: serverData?.guestEmail || bookingForm.guestEmail,
+      totalAmount: serverData?.totalAmount || bookingSummary.total,
+
+      // 5. Interface requirements
+      id: serverData?.id || serverData?.bookingReference || "0",
+      status: serverData?.status || 'confirmed',
+      createdAt: serverData?.createdAt || new Date().toISOString(),
+      paymentMethod: 1,
+      roomId: serverData?.roomId || selectedRoom?.id || "",
+    };
+
+    setBookingConfirmation(confirmationData);
+            setBookingModalOpen(false);
       
       // Reset form for next time
       setBookingForm({
@@ -487,233 +522,129 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
       {/* Booking Modal */}
       {/* Booking Modal */}
       <Dialog open={bookingModalOpen} onOpenChange={setBookingModalOpen}>
-  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="font-heading text-2xl">Book Your Stay</DialogTitle>
-      <DialogDescription>
-        {selectedRoom && (
-          <span className="flex items-center gap-2 mt-1">
-            <Badge variant="outline" className="font-semibold">
-              {selectedRoom.categoryName}
-            </Badge>
-            <span className="text-muted-foreground">Room {selectedRoom.doorNumber}</span>
-          </span>
-        )}
-      </DialogDescription>
-    </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-2xl">Book Your Stay</DialogTitle>
+            <DialogDescription>
+              {selectedRoom && (
+                <span className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="font-semibold">{selectedRoom.categoryName}</Badge>
+                  <span className="text-muted-foreground">Room {selectedRoom.doorNumber}</span>
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
 
-    <div className="space-y-6 py-4">
-      {/* SECTION 1: GUEST INFORMATION */}
-      <div className="space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Guest Information</h4>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="guestName">Full Name *</Label>
-            <Input
-              id="guestName"
-              value={bookingForm.guestName}
-              onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
-              placeholder="e.g. John Doe"
-              className="bg-secondary/20"
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="guestEmail">Email Address *</Label>
-              <Input
-                id="guestEmail"
-                type="email"
-                value={bookingForm.guestEmail}
-                onChange={(e) => setBookingForm({ ...bookingForm, guestEmail: e.target.value })}
-                placeholder="john@example.com"
-                className="bg-secondary/20"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="guestPhone">Phone Number</Label>
-              <Input
-                id="guestPhone"
-                value={bookingForm.guestPhone}
-                onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })}
-                placeholder="+234 ..."
-                className="bg-secondary/20"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 2: BOOKING DETAILS */}
-      <div className="space-y-4">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Stay Details</h4>
-        <div className="space-y-3">
-          {/* Date Picker Row with the Icon Fix */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5 date-input-wrapper">
-              <Label htmlFor="checkInDate">Check-in Date *</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
-                <Input
-                  id="checkInDate"
-                  type="date"
-                  value={bookingForm.checkInDate}
-                  onChange={(e) => setBookingForm({ ...bookingForm, checkInDate: e.target.value })}
-                  className="pl-10 cursor-pointer bg-secondary/20"
-                />
+          <div className="space-y-6 py-4">
+            {/* GUEST INFO SECTION */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Guest Information</h4>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="guestName">Full Name *</Label>
+                  <Input
+                    id="guestName"
+                    value={bookingForm.guestName}
+                    onChange={(e) => setBookingForm({ ...bookingForm, guestName: e.target.value })}
+                    placeholder="e.g. John Doe"
+                    className="bg-secondary/20"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="guestEmail">Email Address *</Label>
+                    <Input id="guestEmail" type="email" value={bookingForm.guestEmail} onChange={(e) => setBookingForm({ ...bookingForm, guestEmail: e.target.value })} className="bg-secondary/20" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="guestPhone">Phone Number</Label>
+                    <Input id="guestPhone" value={bookingForm.guestPhone} onChange={(e) => setBookingForm({ ...bookingForm, guestPhone: e.target.value })} className="bg-secondary/20" />
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="space-y-1.5 date-input-wrapper">
-              <Label htmlFor="checkOutDate">Check-out Date *</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
-                <Input
-                  id="checkOutDate"
-                  type="date"
-                  value={bookingForm.checkOutDate}
-                  onChange={(e) => setBookingForm({ ...bookingForm, checkOutDate: e.target.value })}
-                  className="pl-10 cursor-pointer bg-secondary/20"
-                />
+
+            {/* STAY DETAILS SECTION */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-primary/70">Stay Details</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Check-in Date *</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
+                    <Input type="date" value={bookingForm.checkInDate} onChange={(e) => setBookingForm({ ...bookingForm, checkInDate: e.target.value })} className="pl-10 bg-secondary/20" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Check-out Date *</Label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
+                    <Input type="date" value={bookingForm.checkOutDate} onChange={(e) => setBookingForm({ ...bookingForm, checkOutDate: e.target.value })} className="pl-10 bg-secondary/20" />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="numberOfGuests">Number of Guests</Label>
-              <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="numberOfGuests"
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={bookingForm.numberOfGuests}
-                  onChange={(e) => setBookingForm({ ...bookingForm, numberOfGuests: parseInt(e.target.value) || 1 })}
-                  className="pl-10 bg-secondary/20"
-                />
+            {/* PAYMENT SUMMARY SECTION */}
+            {selectedRoom && (
+              <div className="rounded-xl border border-primary/20 overflow-hidden shadow-sm bg-background">
+                <div className="bg-primary/5 p-4 border-b border-primary/10">
+                  <div className="flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Stay Duration</p>
+                      <p className="text-sm font-medium">
+                        {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} nights
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Total Due</p>
+                      <p className="text-3xl font-mono font-bold text-primary leading-none">
+                        {formatCurrency(bookingSummary.total)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">Amount Paying Now</Label>
+                    <Input
+                      type="number"
+                      value={bookingForm.paidAmount}
+                      onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
+                      placeholder="0.00"
+                      className="font-mono bg-secondary/10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">Balance</Label>
+                    <div className="h-10 flex items-center px-3 rounded-md border font-mono font-bold bg-secondary/5">
+                      {formatCurrency(bookingSummary.total - (Number(bookingForm.paidAmount) || 0))}
+                    </div>
+                  </div>
+                </div>
+                
+                {bookingSummary.nights === 0 && bookingForm.checkInDate && (
+                  <Badge variant="destructive" className="w-full justify-center rounded-none py-1">Check-out must be after check-in</Badge>
+                )}
               </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1 h-12" onClick={() => setBookingModalOpen(false)}>Discard</Button>
+              <Button 
+                variant="hero" 
+                className="flex-1 h-12 shadow-lg" 
+                onClick={startBookingProcess}
+                disabled={isBookingLoading || bookingSummary.nights <= 0}
+              >
+                {isBookingLoading ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {parseFloat(bookingForm.paidAmount) > 0 ? "Opening Payment..." : "Processing..."}</>
+                ) : ( "Confirm Booking" )}
+              </Button>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* SECTION 3: CONSOLIDATED PAYMENT SUMMARY */}
-{selectedRoom && (
-  <div className="rounded-xl border border-primary/20 overflow-hidden shadow-sm bg-background">
-    {/* Top Summary Bar */}
-    <div className="bg-primary/5 p-4 border-b border-primary/10">
-      <div className="flex justify-between items-end">
-        <div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-            Stay Duration
-          </p>
-          <p className="text-sm font-medium text-foreground">
-            {formatCurrency(selectedRoom.price)} × {bookingSummary.nights} {bookingSummary.nights === 1 ? 'night' : 'nights'}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">
-            Total Amount Due
-          </p>
-          <p className="text-3xl font-mono font-bold text-primary leading-none">
-            {formatCurrency(bookingSummary.total)}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    {/* Payment Inputs Row */}
-    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-      <div className="space-y-1.5">
-        <Label htmlFor="paidAmount" className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-          Amount Paying Now
-        </Label>
-        <div className="relative">
-          <Input
-            id="paidAmount"
-            type="number"
-            value={bookingForm.paidAmount}
-            onChange={(e) => setBookingForm({ ...bookingForm, paidAmount: e.target.value })}
-            placeholder="0.00"
-            className="h-10 pl-3 font-mono bg-secondary/10 border-primary/10 focus-visible:ring-primary"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-          Remaining Balance
-        </label>
-        {(() => {
-          const balance = bookingSummary.total - (Number(bookingForm.paidAmount) || 0);
-          return (
-            <div
-              className={`h-10 flex items-center px-3 rounded-md border font-mono font-bold transition-colors ${
-                balance > 0
-                  ? "bg-orange-500/10 text-orange-600 border-orange-500/20"
-                  : "bg-green-500/10 text-green-600 border-green-500/20"
-              }`}
-            >
-              {formatCurrency(balance)}
-            </div>
-          );
-        })()}
-      </div>
-    </div>
-
-    {/* Validation Warning */}
-    {bookingSummary.nights === 0 && bookingForm.checkInDate && (
-      <div className="px-4 pb-4">
-        <Badge variant="destructive" className="w-full justify-center py-1 animate-pulse">
-          Check-out date must be after check-in date
-        </Badge>
-      </div>
-    )}
-  </div>
-)}
-
-      {/* SECTION 4: EXTRA REQUESTS */}
-      <div className="space-y-1.5">
-        <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
-        <Textarea
-          id="specialRequests"
-          value={bookingForm.specialRequests}
-          onChange={(e) => setBookingForm({ ...bookingForm, specialRequests: e.target.value })}
-          placeholder="e.g. Late check-in, dietary requirements, airport pickup..."
-          className="bg-secondary/20 resize-none"
-          rows={3}
-        />
-      </div>
-
-      {/* ACTIONS */}
-      <div className="flex gap-3 pt-2">
-        <Button 
-          variant="outline" 
-          className="flex-1 h-12" 
-          onClick={() => setBookingModalOpen(false)}
-        >
-          Discard
-        </Button>
-        <Button 
-  variant="hero" 
-  className="flex-1 h-12 shadow-lg shadow-primary/20" 
-  onClick={startBookingProcess} // Connected to Hook
-  disabled={isBookingLoading || bookingSummary.nights <= 0}
->
-  {isBookingLoading ? (
-    <>
-      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-      {bookingForm.paidAmount ? "Opening Payment..." : "Processing..."}
-    </>
-  ) : (
-    "Confirm Booking"
-  )}
-</Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Booking Confirmation Modal */}
       <Dialog open={!!bookingConfirmation} onOpenChange={() => setBookingConfirmation(null)}>
@@ -727,41 +658,54 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
             </DialogDescription>
           </DialogHeader>
           {bookingConfirmation && (
-            <div className="space-y-4 py-4">
-              <div className="p-4 bg-primary/10 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
-                <p className="text-2xl font-bold text-primary">{bookingConfirmation.bookingReference}</p>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Room</span>
-                  <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Hotel</span>
-                  <span>{bookingConfirmation.hotelName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Check-in</span>
-                  <span>{bookingConfirmation.checkInDate}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Check-out</span>
-                  <span>{bookingConfirmation.checkOutDate}</span>
-                </div>
-                <div className="flex justify-between font-semibold pt-2 border-t border-border">
-                  <span>Total Amount</span>
-                  <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                A confirmation email has been sent to {bookingConfirmation.guestEmail}
-              </p>
-              <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
-                Done
-              </Button>
-            </div>
-          )}
+  <div className="space-y-4 py-4">
+    <div className="p-4 bg-primary/10 rounded-lg text-center">
+      <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
+      <p className="text-2xl font-bold text-primary">
+        {bookingConfirmation.bookingReference}
+      </p>
+    </div>
+    <div className="space-y-2 text-sm">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Room</span>
+        {/* Uses categoryName and roomNumber from server */}
+        <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Hotel</span>
+        <span>{bookingConfirmation.hotelName}</span>
+      </div>
+      {bookingConfirmation.hotelAddress && (
+    <div className="flex justify-between items-start border-b border-dashed border-border/50 pb-2">
+      <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+        <MapPin className="w-3 h-3" /> Location
+      </span>
+      <span className="text-right text-[12px] text-muted-foreground max-w-[200px]">
+        {bookingConfirmation.hotelAddress}
+      </span>
+    </div>
+  )}
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Check-in</span>
+        <span>{bookingConfirmation.checkInDate}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Check-out</span>
+        <span>{bookingConfirmation.checkOutDate}</span>
+      </div>
+      <div className="flex justify-between font-semibold pt-2 border-t border-border">
+        <span>Total Amount</span>
+        <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
+      </div>
+    </div>
+    <p className="text-xs text-muted-foreground text-center">
+      A confirmation email has been sent to {bookingConfirmation.guestEmail}
+    </p>
+    <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
+      Done
+    </Button>
+  </div>
+)}
         </DialogContent>
       </Dialog>
     </div>

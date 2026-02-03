@@ -23,6 +23,7 @@ export interface PublicRoom extends Omit<Room, 'status'> {
   categoryName: string;
   hotelName: string;
   hotelCity: string;
+  hotelAddress: string;
   amenities: string[];
   price: number; // Price per night in the smallest currency unit (e.g., kobo)
   status: 'Available' | 'Occupied' | 'Reserved' | 'maintenance';
@@ -48,6 +49,7 @@ export interface PublicBookingResponse {
   roomNumber: string;
   categoryName: string;
   hotelName: string;
+  hotelAddress: string;
   guestName: string;
   guestEmail: string;
   checkInDate: string;
@@ -106,6 +108,7 @@ export async function getPublicRooms(params?: RoomSearchFilters): Promise<ApiRes
         hotelId: 'h1',
         hotelName: 'Premier Lodge & Resort',
         hotelCity: 'Lagos',
+        hotelAddress: '123 Luxury St, Victoria Island, Lagos, Nigeria',
         amenities: ['High-Speed WiFi', 'Private Bar', 'Butler Service', '24/7 Dining'],
       },
       {
@@ -121,6 +124,7 @@ export async function getPublicRooms(params?: RoomSearchFilters): Promise<ApiRes
         hotelId: 'h1',
         hotelName: 'Premier Lodge & Resort',
         hotelCity: 'Abuja',
+        hotelAddress: '456 Executive Ave, Central Business District, Abuja, Nigeria',
         amenities: ['Workspace', 'High-Speed WiFi', 'Coffee Station'],
       },
       {
@@ -136,6 +140,7 @@ export async function getPublicRooms(params?: RoomSearchFilters): Promise<ApiRes
         hotelId: 'h1',
         hotelName: 'Premier Lodge & Resort',
         hotelCity: 'Lagos',
+        hotelAddress: '123 Luxury St, Victoria Island, Lagos, Nigeria',
         amenities: ['Infinity Pool access', 'Smart Home Integration', 'Private Jacuzzi', 'Luxury Concierge'],
       },
     ];

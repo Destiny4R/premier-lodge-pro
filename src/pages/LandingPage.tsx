@@ -50,6 +50,21 @@ const iconMap: Record<string, any> = {
   utensils: Utensils,
 };
 
+
+const formatDateFriendly = (dateStr: string) => {
+  if (!dateStr) return "N/A";
+  const date = new Date(dateStr);
+  
+  // Check if date is valid to avoid "Invalid Date" showing up
+  if (isNaN(date.getTime())) return dateStr;
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(date);
+};
+
 export default function LandingPage() {
   // API States
   const roomsApi = useApi<{ items: PublicRoom[]; totalItems: number }>();
@@ -144,13 +159,43 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
     selectedRoom,
     totalBill: bookingSummary.total,
     isPublic: true, // EXPLICITLY set for LandingPage
-    onSuccess: (data: any, isInitiatingPayment: boolean) => {
+    onSuccess: (serverData: any, isInitiatingPayment: boolean) => {
       if (isInitiatingPayment) {
         // Step A: We close the modal to prevent focus trapping while Credo Iframe is active
         setBookingModalOpen(false);
       } else {
         // Step B: Payment is either Verified OR user chose Offline. Show receipt.
-        setBookingConfirmation(data);
+
+            const confirmationData: PublicBookingResponse = {
+             // 1. Reference (Priority Server -> Fallback Local)
+             bookingReference: (serverData?.bookingReference || "").toUpperCase(),
+             
+             // 2. Room Info (Priority Server -> Fallback Local selectedRoom state)
+             categoryName: serverData?.categoryName || selectedRoom?.categoryName || "N/A",
+             roomNumber: serverData?.roomNumber || selectedRoom?.doorNumber || "N/A",
+             hotelName: serverData?.hotelName || selectedRoom?.hotelName || "Premier Lodge",
+             hotelAddress: serverData?.hotelAddress || selectedRoom?.hotelAddress || "",
+             
+             // 3. Dates (Priority Server -> Fallback Local bookingForm state)
+             // We wrap these in formatDateFriendly to handle ISO strings from server
+             checkInDate: formatDateFriendly(serverData?.checkInDate || bookingForm.checkInDate),
+             checkOutDate: formatDateFriendly(serverData?.checkOutDate || bookingForm.checkOutDate),
+             
+             // 4. Guest & Money
+             guestName: serverData?.guestName || bookingForm.guestName,
+             guestEmail: serverData?.guestEmail || bookingForm.guestEmail,
+             totalAmount: serverData?.totalAmount || bookingSummary.total,
+       
+             // 5. Interface requirements
+             id: serverData?.id || serverData?.bookingReference || "0",
+             status: serverData?.status || 'confirmed',
+             createdAt: serverData?.createdAt || new Date().toISOString(),
+             paymentMethod: 1,
+             roomId: serverData?.roomId || selectedRoom?.id || "",
+           };
+       
+           setBookingConfirmation(confirmationData);
+       
         setBookingModalOpen(false);
       }
     }
@@ -915,6 +960,21 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
               )}
             </Button>
           </div>
+          {/* --- ADD THIS FALLBACK --- */}
+{/* {isSubmitting && paymentUrl && (
+  <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg text-center">
+    <p className="text-xs text-muted-foreground mb-2">
+      If the payment window didn't open automatically, click below:
+    </p>
+    <Button 
+      variant="link" 
+      className="text-primary font-bold"
+      onClick={() => window.open(paymentUrl, "_blank")}
+    >
+      Open Payment Page Manually
+    </Button>
+  </div>
+)} */}
           </div>
         </DialogContent>
       </Dialog>
@@ -945,6 +1005,16 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
                   <span className="text-muted-foreground">Hotel</span>
                   <span>{bookingConfirmation.hotelName}</span>
                 </div>
+                {bookingConfirmation.hotelAddress && (
+                    <div className="flex justify-between items-start border-b border-dashed border-border/50 pb-2">
+                      <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3" /> Location
+                      </span>
+                      <span className="text-right text-[12px] text-muted-foreground max-w-[200px]">
+                        {bookingConfirmation.hotelAddress}
+                      </span>
+                    </div>
+                  )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Check-in</span>
                   <span>{bookingConfirmation.checkInDate}</span>

@@ -532,6 +532,8 @@ export interface CreateBookingRequest {
   checkIn: string;
   checkOut: string;
   paidAmount: number;
+  paymentMethod: number | string;
+  paymentStatus: number | string;
   bookingType?: BookingType;
 }
 
@@ -552,6 +554,9 @@ export interface CreateReservationRequest {
   roomId: string;
   checkIn: string;
   checkOut: string;
+  paidAmount: number;
+  paymentMethod: number | string;
+  paymentStatus: number | string;
   bookingType?: BookingType;
 }
 
