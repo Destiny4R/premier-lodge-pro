@@ -90,6 +90,8 @@ export default function BookingsPage() {
     checkIn: null as Date | null,
     checkOut: null as Date | null,
     paidAmount: "",
+    paymentMethod: "1",
+    paymentStatus: "1",
   });
 
   const [extendForm, setExtendForm] = useState({
@@ -193,7 +195,7 @@ export default function BookingsPage() {
   };
 
   const resetForm = () => {
-    setBookingForm({ guestId: "", roomId: "", checkIn: null, checkOut: null, paidAmount: "" });
+    setBookingForm({ guestId: "", roomId: "", checkIn: null, checkOut: null, paidAmount: "", paymentMethod: "1", paymentStatus: "1" });
   };
 
   const handleBookingSubmit = async () => {
@@ -213,6 +215,8 @@ export default function BookingsPage() {
         checkIn: bookingForm.checkIn!.toISOString().split('T')[0],
         checkOut: bookingForm.checkOut!.toISOString().split('T')[0],
         paidAmount: parseFloat(bookingForm.paidAmount) || 0,
+        paymentMethod: bookingForm.paymentMethod,
+        paymentStatus: bookingForm.paymentStatus,
       })
     );
     if (response.success) {
@@ -240,6 +244,9 @@ export default function BookingsPage() {
         roomId: bookingForm.roomId,
         checkIn: bookingForm.checkIn!.toISOString().split('T')[0],
         checkOut: bookingForm.checkOut!.toISOString().split('T')[0],
+        paidAmount: 0,
+        paymentMethod: "1",
+        paymentStatus: "1",
       })
     );
     if (response.success) {
@@ -466,8 +473,10 @@ export default function BookingsPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setViewBooking(booking)}>
-                                    <Eye className="w-4 h-4 mr-2" /> View Details
+                                  <DropdownMenuItem asChild>
+                                    <Link to={`/dashboard/bookings/${booking.id}`}>
+                                      <Eye className="w-4 h-4 mr-2" /> View Details
+                                    </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem>
                                     <Edit className="w-4 h-4 mr-2" /> Edit Booking

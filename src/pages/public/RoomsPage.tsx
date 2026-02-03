@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar } from "lucide-react";
+import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar, Printer, Download, Building2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -646,68 +646,184 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
         </DialogContent>
       </Dialog>
 
-      {/* Booking Confirmation Modal */}
+      {/* Booking Confirmation Modal with Printout */}
       <Dialog open={!!bookingConfirmation} onOpenChange={() => setBookingConfirmation(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+          <DialogHeader className="print:hidden">
             <DialogTitle className="flex items-center gap-2">
               <span className="text-success">✓</span> Booking Confirmed!
             </DialogTitle>
             <DialogDescription>
-              Your reservation has been successfully created.
+              Your reservation has been successfully created. Print or save this confirmation for your records.
             </DialogDescription>
           </DialogHeader>
           {bookingConfirmation && (
-  <div className="space-y-4 py-4">
-    <div className="p-4 bg-primary/10 rounded-lg text-center">
-      <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
-      <p className="text-2xl font-bold text-primary">
-        {bookingConfirmation.bookingReference}
-      </p>
-    </div>
-    <div className="space-y-2 text-sm">
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Room</span>
-        {/* Uses categoryName and roomNumber from server */}
-        <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Hotel</span>
-        <span>{bookingConfirmation.hotelName}</span>
-      </div>
-      {bookingConfirmation.hotelAddress && (
-    <div className="flex justify-between items-start border-b border-dashed border-border/50 pb-2">
-      <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
-        <MapPin className="w-3 h-3" /> Location
-      </span>
-      <span className="text-right text-[12px] text-muted-foreground max-w-[200px]">
-        {bookingConfirmation.hotelAddress}
-      </span>
-    </div>
-  )}
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Check-in</span>
-        <span>{bookingConfirmation.checkInDate}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Check-out</span>
-        <span>{bookingConfirmation.checkOutDate}</span>
-      </div>
-      <div className="flex justify-between font-semibold pt-2 border-t border-border">
-        <span>Total Amount</span>
-        <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
-      </div>
-    </div>
-    <p className="text-xs text-muted-foreground text-center">
-      A confirmation email has been sent to {bookingConfirmation.guestEmail}
-    </p>
-    <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
-      Done
-    </Button>
-  </div>
-)}
+            <div className="space-y-4">
+              {/* Printable Receipt */}
+              <div className="border border-border rounded-lg p-6 print:border-none print:p-0" id="booking-receipt">
+                {/* Hotel Header */}
+                <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center print:bg-gray-100">
+                      <Building2 className="w-8 h-8 text-primary print:text-gray-700" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-foreground print:text-black">{bookingConfirmation.hotelName}</h2>
+                      {bookingConfirmation.hotelAddress && (
+                        <p className="text-sm text-muted-foreground print:text-gray-600">{bookingConfirmation.hotelAddress}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground print:text-gray-600 flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        +234 800 123 4567
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Booking Confirmation</p>
+                    <p className="text-sm text-muted-foreground mt-1">{new Date().toLocaleDateString()}</p>
+                  </div>
+                </div>
+
+                {/* Booking Reference Banner */}
+                <div className="p-4 bg-primary/10 rounded-lg text-center mb-4 print:bg-gray-100 print:border print:border-gray-300">
+                  <p className="text-sm text-muted-foreground mb-1 print:text-gray-600">Booking Reference Number</p>
+                  <p className="text-3xl font-bold text-primary tracking-wider print:text-gray-900">
+                    {bookingConfirmation.bookingReference}
+                  </p>
+                </div>
+
+                {/* Two Column Layout */}
+                <div className="grid grid-cols-2 gap-6 mb-4">
+                  {/* Guest Information */}
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground border-b border-border pb-2 mb-3 print:text-black">
+                      Guest Information
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground print:text-gray-600">Name:</span>
+                        <span className="font-semibold print:text-black">{bookingConfirmation.guestName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground print:text-gray-600">Email:</span>
+                        <span className="font-semibold print:text-black">{bookingConfirmation.guestEmail}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Room Information */}
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground border-b border-border pb-2 mb-3 print:text-black">
+                      Room Information
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground print:text-gray-600">Room:</span>
+                        <span className="font-semibold print:text-black">{bookingConfirmation.roomNumber}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground print:text-gray-600">Category:</span>
+                        <span className="font-semibold print:text-black">{bookingConfirmation.categoryName}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stay Details */}
+                <div className="bg-secondary/30 p-4 rounded-lg mb-4 print:bg-gray-50 print:border print:border-gray-200">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-background rounded border border-border print:bg-white">
+                      <p className="text-xs text-muted-foreground print:text-gray-600">Check-in Date</p>
+                      <p className="text-lg font-bold text-success print:text-green-700">{bookingConfirmation.checkInDate}</p>
+                      <p className="text-xs text-muted-foreground print:text-gray-500">From 2:00 PM</p>
+                    </div>
+                    <div className="text-center p-3 bg-background rounded border border-border print:bg-white">
+                      <p className="text-xs text-muted-foreground print:text-gray-600">Check-out Date</p>
+                      <p className="text-lg font-bold text-warning print:text-orange-700">{bookingConfirmation.checkOutDate}</p>
+                      <p className="text-xs text-muted-foreground print:text-gray-500">By 12:00 PM</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Summary */}
+                <div className="border border-border rounded-lg overflow-hidden mb-4 print:border-gray-300">
+                  <div className="bg-secondary/30 px-4 py-2 print:bg-gray-100">
+                    <h3 className="text-sm font-bold text-foreground print:text-black">Payment Summary</h3>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex justify-between text-lg font-bold pt-2 border-t border-border">
+                      <span className="print:text-black">Total Amount</span>
+                      <span className="text-primary print:text-black">{formatCurrency(bookingConfirmation.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terms - Print Only */}
+                <div className="hidden print:block text-xs text-gray-500 border-t border-gray-200 pt-3 mb-4">
+                  <h4 className="font-bold text-gray-700 mb-1">Terms & Conditions:</h4>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>Check-in time is 2:00 PM and check-out time is 12:00 PM</li>
+                    <li>Please present this confirmation along with a valid ID at check-in</li>
+                    <li>Cancellation must be made 24 hours before check-in for full refund</li>
+                  </ul>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center border-t border-border pt-4 print:border-gray-300">
+                  <p className="text-sm text-muted-foreground print:text-gray-600">
+                    Thank you for choosing <span className="font-semibold">{bookingConfirmation.hotelName}</span>!
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 print:text-gray-500">
+                    A confirmation email has been sent to {bookingConfirmation.guestEmail}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2 hidden print:block">
+                    This is a computer-generated document. No signature required.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons - Hide on Print */}
+              <div className="flex gap-3 print:hidden">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => window.print()}
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Receipt
+                </Button>
+                <Button variant="hero" className="flex-1" onClick={() => setBookingConfirmation(null)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #booking-receipt, #booking-receipt * {
+            visibility: visible;
+          }
+          #booking-receipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20mm;
+          }
+          @page {
+            size: A4;
+            margin: 15mm;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+

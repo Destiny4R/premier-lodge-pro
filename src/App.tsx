@@ -26,6 +26,7 @@ import GymPage from "./pages/dashboard/GymPage";
 import PoolPage from "./pages/dashboard/PoolPage";
 import ReportsPage from "./pages/dashboard/ReportsPage";
 import CheckoutReportPage from "./pages/dashboard/CheckoutReportPage";
+import BookingDetailsPage from "./pages/dashboard/BookingDetailsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import EmployeesPage from "./pages/dashboard/EmployeesPage";
 import DepartmentsPage from "./pages/dashboard/DepartmentsPage";
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="guests" element={<GuestsPage />} />
                 <Route path="guests/:id" element={<GuestDetailsPage />} />
                 <Route path="bookings" element={<BookingsPage />} />
+                <Route path="bookings/:bookingId" element={<BookingDetailsPage />} />
                 <Route path="checkout/:bookingId" element={<CheckoutReportPage />} />
                 <Route path="restaurant" element={<RestaurantPage />} />
                 <Route path="restaurant/orders" element={<RestaurantOrderPage />} />
