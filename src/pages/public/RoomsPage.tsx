@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar, CheckCircle2} from "lucide-react";
+import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -701,106 +701,13 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
     <p className="text-xs text-muted-foreground text-center">
       A confirmation email has been sent to {bookingConfirmation.guestEmail}
     </p>
-    <div className="flex gap-2 no-print">
-              <Button 
-                variant="outline" 
-                className="flex-1" 
-                onClick={() => window.print()}
-              >
-                Print Receipt
-              </Button>
-              
-              <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
-                Done
-              </Button>
-            </div></div>
+    <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
+      Done
+    </Button>
+  </div>
 )}
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
-export const ReceiptPrint = ({ data }: { data: PublicBookingResponse }) => {
-  if (!data) return null;
-
-  return (
-    <div id="printable-receipt" className="hidden print:block font-sans bg-white text-black p-8 border-2 border-double border-gray-300">
-      {/* Header */}
-      <div className="flex justify-between items-start border-b-2 pb-6 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tighter text-blue-900">PREMIER LODGE</h1>
-          <p className="text-sm text-gray-500">{data.hotelName}</p>
-          <p className="text-xs text-gray-400 max-w-[200px]">{data.hotelAddress}</p>
-        </div>
-        <div className="text-right">
-          <div className="bg-gray-100 p-2 rounded mb-2">
-            <p className="text-[10px] font-bold uppercase text-gray-500">Booking Reference</p>
-            <p className="text-xl font-mono font-bold">{data.bookingReference}</p>
-          </div>
-          <p className="text-[10px] font-bold uppercase text-gray-500">Issued On</p>
-          <p className="text-sm">{new Date(data.createdAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</p>
-        </div>
-      </div>
-
-      {/* Guest Details */}
-      <div className="mb-8">
-        <h3 className="text-xs font-bold uppercase bg-gray-100 px-2 py-1 mb-3">Guest Information</h3>
-        <p className="text-lg font-bold">{data.guestName}</p>
-        <p className="text-sm text-gray-600">{data.guestEmail}</p>
-      </div>
-
-      {/* Stay Details (Prominent Dates) */}
-      <div className="grid grid-cols-2 gap-8 mb-8">
-        <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Check-In</p>
-          <p className="text-xl font-bold">{data.checkInDate}</p>
-          <p className="text-xs text-blue-500">After 2:00 PM</p>
-        </div>
-        <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-          <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Check-Out</p>
-          <p className="text-xl font-bold">{data.checkOutDate}</p>
-          <p className="text-xs text-blue-500">Before 11:00 AM</p>
-        </div>
-      </div>
-
-      {/* Booking Details Table */}
-      <table className="w-full text-left border-collapse mb-8">
-        <thead>
-          <tr className="border-b-2 border-gray-200">
-            <th className="py-2 text-xs uppercase font-bold text-gray-500">Description</th>
-            <th className="py-2 text-right text-xs uppercase font-bold text-gray-500">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-b border-gray-100">
-            <td className="py-4">
-              <p className="font-bold">{data.categoryName}</p>
-              <p className="text-xs text-gray-500">Room {data.roomNumber}</p>
-            </td>
-            <td className="py-4 text-right font-bold">
-              {formatCurrency(data.totalAmount)}
-            </td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td className="py-4 text-right font-bold uppercase text-gray-500">Total Paid</td>
-            <td className="py-4 text-right text-2xl font-bold text-blue-900">
-              {formatCurrency(data.totalAmount)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-
-      {/* Footer */}
-      <div className="text-center mt-12 pt-8 border-t border-gray-200">
-        <div className="flex justify-center mb-4">
-          <CheckCircle2 className="w-8 h-8 text-green-600" />
-        </div>
-        <p className="text-sm font-bold mb-1">Thank you for choosing Premier Lodge!</p>
-        <p className="text-xs text-gray-500">Please present this receipt or the Booking Reference upon arrival.</p>
-      </div>
-    </div>
-  );
-};
