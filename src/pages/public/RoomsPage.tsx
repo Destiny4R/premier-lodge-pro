@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar } from "lucide-react";
+import { Search, MapPin, Sparkles, Loader2, Filter, Users, Bed, Grid3X3, List, Calendar, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { getPublicRooms, createPublicBooking, PublicRoom, PublicBookingResponse 
 import { formatCurrency } from "@/lib/currency";
 import { Textarea } from "@/components/ui/textarea";
 import { useBookingFlow } from "@/hooks/useBookingFlow";
+import BookingConfirmationPrint from "@/components/booking/BookingConfirmationPrint";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -79,6 +80,38 @@ export default function PublicRoomsPage() {
   
   // Booking confirmation state
   const [bookingConfirmation, setBookingConfirmation] = useState<PublicBookingResponse | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+  
+  // Print handler
+  const handlePrint = () => {
+    if (printRef.current) {
+      const printContent = printRef.current.innerHTML;
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Booking Confirmation - ${bookingConfirmation?.bookingReference || ''}</title>
+              <style>
+                body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+                @media print {
+                  @page { size: A4; margin: 20mm; }
+                  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+              </style>
+            </head>
+            <body>${printContent}</body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+      }
+    }
+  };
 
   useEffect(() => {
     fetchRooms();
@@ -658,54 +691,109 @@ const { startBookingProcess, isSubmitting: isBookingLoading } = useBookingFlow({
             </DialogDescription>
           </DialogHeader>
           {bookingConfirmation && (
-  <div className="space-y-4 py-4">
-    <div className="p-4 bg-primary/10 rounded-lg text-center">
-      <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
-      <p className="text-2xl font-bold text-primary">
-        {bookingConfirmation.bookingReference}
-      </p>
-    </div>
-    <div className="space-y-2 text-sm">
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Room</span>
-        {/* Uses categoryName and roomNumber from server */}
-        <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Hotel</span>
-        <span>{bookingConfirmation.hotelName}</span>
-      </div>
-      {bookingConfirmation.hotelAddress && (
-    <div className="flex justify-between items-start border-b border-dashed border-border/50 pb-2">
-      <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
-        <MapPin className="w-3 h-3" /> Location
-      </span>
-      <span className="text-right text-[12px] text-muted-foreground max-w-[200px]">
-        {bookingConfirmation.hotelAddress}
-      </span>
-    </div>
-  )}
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Check-in</span>
-        <span>{bookingConfirmation.checkInDate}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Check-out</span>
-        <span>{bookingConfirmation.checkOutDate}</span>
-      </div>
-      <div className="flex justify-between font-semibold pt-2 border-t border-border">
-        <span>Total Amount</span>
-        <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
-      </div>
-    </div>
-    <p className="text-xs text-muted-foreground text-center">
-      A confirmation email has been sent to {bookingConfirmation.guestEmail}
-    </p>
-    <Button variant="hero" className="w-full" onClick={() => setBookingConfirmation(null)}>
-      Done
-    </Button>
-  </div>
-)}
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-primary/10 rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-1">Booking Reference</p>
+                <p className="text-2xl font-bold text-primary">
+                  {bookingConfirmation.bookingReference}
+                </p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Room</span>
+                  <span>{bookingConfirmation.categoryName} - {bookingConfirmation.roomNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Hotel</span>
+                  <span>{bookingConfirmation.hotelName}</span>
+                </div>
+                {bookingConfirmation.hotelAddress && (
+                  <div className="flex justify-between items-start border-b border-dashed border-border/50 pb-2">
+                    <span className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3" /> Location
+                    </span>
+                    <span className="text-right text-[12px] text-muted-foreground max-w-[200px]">
+                      {bookingConfirmation.hotelAddress}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Check-in</span>
+                  <span>{bookingConfirmation.checkInDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Check-out</span>
+                  <span>{bookingConfirmation.checkOutDate}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-2 border-t border-border">
+                  <span>Total Amount</span>
+                  <span>{formatCurrency(bookingConfirmation.totalAmount)}</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                A confirmation email has been sent to {bookingConfirmation.guestEmail}
+              </p>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => setShowPrintModal(true)}
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Receipt
+                </Button>
+                <Button variant="hero" className="flex-1" onClick={() => setBookingConfirmation(null)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Receipt Modal - Hidden, used for printing */}
+      <Dialog open={showPrintModal} onOpenChange={setShowPrintModal}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Booking Receipt</DialogTitle>
+            <DialogDescription>
+              Preview and print your booking confirmation
+            </DialogDescription>
+          </DialogHeader>
+          {bookingConfirmation && (
+            <>
+              <BookingConfirmationPrint
+                ref={printRef}
+                type="public"
+                data={{
+                  bookingReference: bookingConfirmation.bookingReference,
+                  guestName: bookingConfirmation.guestName,
+                  guestEmail: bookingConfirmation.guestEmail,
+                  roomNumber: bookingConfirmation.roomNumber,
+                  roomCategory: bookingConfirmation.categoryName,
+                  checkIn: bookingConfirmation.checkInDate,
+                  checkOut: bookingConfirmation.checkOutDate,
+                  nights: bookingSummary.nights || 1,
+                  totalAmount: bookingConfirmation.totalAmount,
+                  paidAmount: bookingConfirmation.totalAmount,
+                  balance: 0,
+                  hotelName: bookingConfirmation.hotelName,
+                  hotelAddress: bookingConfirmation.hotelAddress,
+                  hotelPhone: "+234 800 PREMIER",
+                  createdAt: bookingConfirmation.createdAt,
+                }}
+              />
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowPrintModal(false)}>
+                  Close
+                </Button>
+                <Button variant="hero" onClick={handlePrint}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
