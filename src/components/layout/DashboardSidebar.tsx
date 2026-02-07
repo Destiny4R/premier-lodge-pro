@@ -24,6 +24,9 @@ import {
   Building2,
   DollarSign,
   X,
+  FolderOpen,
+  Package,
+  ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,8 +57,9 @@ const menuItems: MenuItem[] = [
     path: "/dashboard/restaurant", 
     roles: ["sub-admin", "manager", "restaurant"],
     children: [
-      { icon: UtensilsCrossed, label: "Menu Items", path: "/dashboard/restaurant", roles: ["all"] },
-      { icon: ShoppingBag, label: "Take Order", path: "/dashboard/restaurant/orders", roles: ["all"] },
+      { icon: FolderOpen, label: "Food Categories", path: "/dashboard/restaurant/categories", roles: ["all"] },
+      { icon: Package, label: "Stock Management", path: "/dashboard/restaurant/stock", roles: ["all"] },
+      { icon: ShoppingCart, label: "Take Order", path: "/dashboard/restaurant/orders", roles: ["all"] },
     ]
   },
   { icon: Shirt, label: "Laundry", path: "/dashboard/laundry", roles: ["sub-admin", "manager", "dry cleaner"] },
