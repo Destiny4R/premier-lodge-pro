@@ -113,6 +113,21 @@ export async function getLowStockItems(): Promise<ApiResponse<StockItem[]>> {
   return await apiGet<StockItem[]>('/restaurant/stock/low');
 }
 
+/**
+ * DELETE /api/restaurant/stock/:id/image
+ * Delete stock item image only
+ * 
+ * Request: None (just the stock item ID in the URL)
+ * 
+ * Response: { success: boolean, data: StockItem, message: string }
+ * 
+ * Note: This endpoint removes only the image from the stock item,
+ * leaving all other fields intact. The image field will be set to null/empty.
+ */
+export async function deleteStockItemImage(id: string): Promise<ApiResponse<StockItem>> {
+  return await apiDelete<StockItem>(`/restaurant/stock/${id}/image`);
+}
+
 // Export as named object
 export const stockService = {
   getStockItems,
@@ -122,4 +137,5 @@ export const stockService = {
   updateStockQuantity,
   deleteStockItem,
   getLowStockItems,
+  deleteStockItemImage,
 };
