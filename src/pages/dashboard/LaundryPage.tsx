@@ -22,8 +22,7 @@ import {
   updateLaundryItem,
   deleteLaundryItem
 } from "@/services/laundryService";
-import { getGuests } from "@/services/guestService";
-import { LaundryOrder, LaundryItem, Guest, PaginatedResponse } from "@/types/api";
+import { LaundryOrder, LaundryItem, PaginatedResponse } from "@/types/api";
 
 const statusColors: Record<string, "info" | "warning" | "success" | "secondary"> = {
   received: "info",
@@ -36,13 +35,11 @@ export default function LaundryPage() {
   // API States
   const ordersApi = useApi<PaginatedResponse<LaundryOrder>>();
   const itemsApi = useApi<PaginatedResponse<LaundryItem>>();
-  const guestsApi = useApi<PaginatedResponse<Guest>>();
   const mutationApi = useApi<LaundryOrder | LaundryItem | null>({ showSuccessToast: true });
 
   // Local state
   const [orders, setOrders] = useState<LaundryOrder[]>([]);
   const [clothingCategories, setClothingCategories] = useState<LaundryItem[]>([]);
-  const [guests, setGuests] = useState<Guest[]>([]);
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [orderModalOpen, setOrderModalOpen] = useState(false);
@@ -51,18 +48,19 @@ export default function LaundryPage() {
 
   const [categoryForm, setCategoryForm] = useState({ name: "", price: "" });
   const [orderForm, setOrderForm] = useState({
-    customerType: "guest" as "guest" | "external",
-    guestId: "",
-    customerName: "",
+    fullName: "",
+    phone: "",
+    email: "",
+    address: "",
     items: [{ categoryId: "", quantity: "" }],
     paymentMethod: "cash" as "cash" | "card" | "room-charge",
+    bookingReference: "",
   });
 
   // Fetch data on mount
   useEffect(() => {
     fetchOrders();
     fetchItems();
-    fetchGuests();
   }, []);
 
   const fetchOrders = async () => {
@@ -79,13 +77,6 @@ export default function LaundryPage() {
     }
   };
 
-  const fetchGuests = async () => {
-    const response = await guestsApi.execute(() => getGuests());
-    if (response.success && response.data) {
-      setGuests(response.data.items);
-    }
-  };
-
   const openCategoryModal = (category?: LaundryItem) => {
     if (category) {
       setEditingCategory(category);
@@ -95,6 +86,18 @@ export default function LaundryPage() {
       setCategoryForm({ name: "", price: "" });
     }
     setCategoryModalOpen(true);
+  };
+
+  const resetOrderForm = () => {
+    setOrderForm({
+      fullName: "",
+      phone: "",
+      email: "",
+      address: "",
+      items: [{ categoryId: "", quantity: "" }],
+      paymentMethod: "cash",
+      bookingReference: "",
+    });
   };
 
   const handleCategorySubmit = async () => {
@@ -119,29 +122,46 @@ export default function LaundryPage() {
   };
 
   const handleOrderSubmit = async () => {
+    // Validate required fields
+    if (!orderForm.fullName.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    if (!orderForm.phone.trim()) {
+      toast.error("Phone number is required");
+      return;
+    }
+    if (!orderForm.email.trim()) {
+      toast.error("Email is required");
+      return;
+    }
+    if (!orderForm.address.trim()) {
+      toast.error("Address is required");
+      return;
+    }
+    if (orderForm.paymentMethod === "room-charge" && !orderForm.bookingReference.trim()) {
+      toast.error("Booking reference is required for room charge");
+      return;
+    }
+
     const orderData = {
-      guestId: orderForm.customerType === 'guest' ? orderForm.guestId : undefined,
-      customerName: orderForm.customerType === 'guest' 
-        ? guests.find(g => g.id === orderForm.guestId)?.name || ''
-        : orderForm.customerName,
+      fullName: orderForm.fullName,
+      phone: orderForm.phone,
+      email: orderForm.email,
+      address: orderForm.address,
       items: orderForm.items.map(item => ({
         laundryItemId: item.categoryId,
         quantity: parseInt(item.quantity) || 0,
       })),
       paymentMethod: orderForm.paymentMethod,
+      bookingReference: orderForm.paymentMethod === "room-charge" ? orderForm.bookingReference : undefined,
     };
 
     const response = await mutationApi.execute(() => createLaundryOrder(orderData));
     if (response.success) {
       fetchOrders();
       setOrderModalOpen(false);
-      setOrderForm({
-        customerType: "guest",
-        guestId: "",
-        customerName: "",
-        items: [{ categoryId: "", quantity: "" }],
-        paymentMethod: "cash",
-      });
+      resetOrderForm();
     }
   };
 
@@ -222,7 +242,7 @@ export default function LaundryPage() {
               <Plus className="w-4 h-4 mr-2" />
               Add Category
             </Button>
-            <Button variant="hero" onClick={() => setOrderModalOpen(true)}>
+            <Button variant="hero" onClick={() => { resetOrderForm(); setOrderModalOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />
               New Order
             </Button>
@@ -309,21 +329,26 @@ export default function LaundryPage() {
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <h3 className="font-semibold text-foreground">{order.customerName}</h3>
-                                  <Badge variant={order.guestId ? "default" : "secondary"}>
-                                    {order.guestId ? "Guest" : "External"}
-                                  </Badge>
+                                  <h3 className="font-semibold text-foreground">{order.fullName || order.customerName}</h3>
+                                  {order.bookingReference && (
+                                    <Badge variant="secondary">
+                                      {order.bookingReference}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
                                 </p>
+                                {order.phone && (
+                                  <p className="text-xs text-muted-foreground">{order.phone}</p>
+                                )}
                               </div>
                             </div>
 
                             <div className="flex items-center gap-4">
                               <div className="text-right">
                                 <p className="font-semibold text-foreground">₦{order.totalAmount?.toLocaleString()}</p>
-                                <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod}</p>
+                                <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod?.replace("-", " ")}</p>
                               </div>
                               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
                               <DropdownMenu>
@@ -456,44 +481,43 @@ export default function LaundryPage() {
         isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
-          <FormField label="Customer Type" required>
-            <Select 
-              value={orderForm.customerType} 
-              onValueChange={(v: "guest" | "external") => setOrderForm({ ...orderForm, customerType: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="guest">Hotel Guest</SelectItem>
-                <SelectItem value="external">External Customer</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          {orderForm.customerType === "guest" ? (
-            <FormField label="Select Guest" required>
-              <Select value={orderForm.guestId} onValueChange={(v) => setOrderForm({ ...orderForm, guestId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select guest" />
-                </SelectTrigger>
-                <SelectContent>
-                  {guests.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>{g.name} - {g.email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          ) : (
-            <FormField label="Customer Name" required>
+          {/* Customer Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Full Name" required>
               <Input
-                value={orderForm.customerName}
-                onChange={(e) => setOrderForm({ ...orderForm, customerName: e.target.value })}
-                placeholder="Customer full name"
+                value={orderForm.fullName}
+                onChange={(e) => setOrderForm({ ...orderForm, fullName: e.target.value })}
+                placeholder="Enter customer full name"
               />
             </FormField>
-          )}
+            <FormField label="Phone" required>
+              <Input
+                value={orderForm.phone}
+                onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
+                placeholder="Enter phone number"
+              />
+            </FormField>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Email" required>
+              <Input
+                type="email"
+                value={orderForm.email}
+                onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
+                placeholder="Enter email address"
+              />
+            </FormField>
+            <FormField label="Address" required>
+              <Input
+                value={orderForm.address}
+                onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
+                placeholder="Enter address"
+              />
+            </FormField>
+          </div>
+
+          {/* Clothing Items */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Clothing Items</label>
@@ -532,6 +556,7 @@ export default function LaundryPage() {
             ))}
           </div>
 
+          {/* Payment Method */}
           <FormField label="Payment Method" required>
             <Select 
               value={orderForm.paymentMethod} 
@@ -543,17 +568,26 @@ export default function LaundryPage() {
               <SelectContent>
                 <SelectItem value="cash">Cash</SelectItem>
                 <SelectItem value="card">Card</SelectItem>
-                {orderForm.customerType === "guest" && (
-                  <SelectItem value="room-charge">Charge to Room</SelectItem>
-                )}
+                <SelectItem value="room-charge">Charge to Room</SelectItem>
               </SelectContent>
             </Select>
           </FormField>
 
+          {/* Booking Reference - only shown when room-charge is selected */}
+          {orderForm.paymentMethod === "room-charge" && (
+            <FormField label="Room Booking Number" required>
+              <Input
+                value={orderForm.bookingReference}
+                onChange={(e) => setOrderForm({ ...orderForm, bookingReference: e.target.value })}
+                placeholder="Enter booking reference (e.g., BK-2024-001234)"
+              />
+            </FormField>
+          )}
+
           <Card variant="glass" className="p-4">
             <div className="flex justify-between items-center">
               <span className="font-semibold">Estimated Total</span>
-              <span className="text-xl font-bold text-primary">${calculateTotal()}</span>
+              <span className="text-xl font-bold text-primary">₦{calculateTotal().toLocaleString()}</span>
             </div>
           </Card>
         </div>

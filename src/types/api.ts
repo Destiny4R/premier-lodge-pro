@@ -241,8 +241,13 @@ export interface LaundryOrder {
   id: string;
   hotelId: string;
   guestId?: string;
-  customerName: string;
+  fullName: string;
+  customerName: string; // Legacy field for backward compatibility
+  phone: string;
+  email: string;
+  address: string;
   roomId?: string;
+  bookingReference?: string;
   items: { laundryItemId: string; name: string; quantity: number; price: number }[];
   status: 'received' | 'processing' | 'ready' | 'delivered';
   paymentMethod: 'cash' | 'card' | 'room-charge';
@@ -589,13 +594,34 @@ export interface CreateRestaurantOrderRequest {
 /**
  * POST /api/laundry/orders
  * Request payload for creating laundry order
+ * 
+ * Request: {
+ *   fullName: string,           // Customer full name
+ *   phone: string,              // Customer phone number
+ *   email: string,              // Customer email address
+ *   address: string,            // Customer address
+ *   items: [                    // List of clothing items
+ *     { laundryItemId: string, quantity: number }
+ *   ],
+ *   paymentMethod: 'cash' | 'card' | 'room-charge',
+ *   bookingReference?: string   // Required when paymentMethod is 'room-charge'
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: LaundryOrder,
+ *   message: string,
+ *   status: number
+ * }
  */
 export interface CreateLaundryOrderRequest {
-  guestId?: string;
-  customerName: string;
-  roomId?: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
   items: { laundryItemId: string; quantity: number }[];
   paymentMethod: 'cash' | 'card' | 'room-charge';
+  bookingReference?: string;
 }
 
 /**

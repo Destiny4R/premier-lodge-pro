@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/ui/data-table";
 import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
+import { ImageUpload, ExistingImage } from "@/components/forms/ImageUpload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Eye, Package, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -55,6 +56,10 @@ export default function StockManagementPage() {
     minimumStockLevel: 0,
   });
   
+  // Image upload state
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  
   // Quantity update state
   const [newQuantity, setNewQuantity] = useState(0);
 
@@ -99,6 +104,8 @@ export default function StockManagementPage() {
       description: "",
       minimumStockLevel: 0,
     });
+    setImageFiles([]);
+    setExistingImages([]);
     setSelectedItem(null);
     setIsEditing(false);
     setFormModalOpen(true);
@@ -114,6 +121,17 @@ export default function StockManagementPage() {
       description: item.description,
       minimumStockLevel: item.minimumStockLevel,
     });
+    setImageFiles([]);
+    // Set existing image if present
+    if (item.image) {
+      setExistingImages([{
+        id: item.id,
+        url: item.image,
+        name: "Current Image"
+      }]);
+    } else {
+      setExistingImages([]);
+    }
     setSelectedItem(item);
     setIsEditing(true);
     setFormModalOpen(true);
@@ -135,6 +153,32 @@ export default function StockManagementPage() {
     setQuantityModalOpen(true);
   };
 
+  const handleRemoveExistingImage = async (imageId: string) => {
+    // Call API to remove image
+    try {
+      const response = await stockService.deleteStockItemImage(imageId);
+      if (response.success) {
+        setExistingImages([]);
+        setFormData(prev => ({ ...prev, image: "" }));
+        toast.success("Image removed successfully");
+        // Update local state
+        setStockItems(prev => prev.map(s => 
+          s.id === imageId ? { ...s, image: "" } : s
+        ));
+      } else {
+        // Mock remove for demo
+        setExistingImages([]);
+        setFormData(prev => ({ ...prev, image: "" }));
+        toast.success("Image removed successfully");
+      }
+    } catch {
+      // Mock remove for demo
+      setExistingImages([]);
+      setFormData(prev => ({ ...prev, image: "" }));
+      toast.success("Image removed successfully");
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error("Item name is required");
@@ -146,8 +190,20 @@ export default function StockManagementPage() {
     }
 
     try {
+      // Prepare form data - in real implementation, would upload image first
+      // For now, we'll use a placeholder URL for new uploads
+      let imageUrl = formData.image;
+      if (imageFiles.length > 0) {
+        // In real implementation: upload file and get URL
+        // For demo, create object URL (this won't persist)
+        imageUrl = URL.createObjectURL(imageFiles[0]);
+        toast.info("Note: Image upload requires backend integration");
+      }
+
+      const submitData = { ...formData, image: imageUrl };
+
       if (isEditing && selectedItem) {
-        const response = await stockService.updateStockItem(selectedItem.id, formData);
+        const response = await stockService.updateStockItem(selectedItem.id, submitData);
         if (response.success) {
           toast.success("Stock item updated successfully");
           fetchData();
@@ -156,13 +212,13 @@ export default function StockManagementPage() {
           const categoryName = categories.find(c => c.id === formData.categoryId)?.name || "";
           setStockItems(prev => prev.map(s => 
             s.id === selectedItem.id 
-              ? { ...s, ...formData, image: formData.image || "", categoryName, updatedAt: new Date().toISOString() }
+              ? { ...s, ...submitData, image: submitData.image || "", categoryName, updatedAt: new Date().toISOString() }
               : s
           ));
           toast.success("Stock item updated successfully");
         }
       } else {
-        const response = await stockService.createStockItem(formData);
+        const response = await stockService.createStockItem(submitData);
         if (response.success) {
           toast.success("Stock item created successfully");
           fetchData();
@@ -172,8 +228,8 @@ export default function StockManagementPage() {
           const newItem: StockItem = {
             id: `s${Date.now()}`,
             hotelId: "h1",
-            ...formData,
-            image: formData.image || "",
+            ...submitData,
+            image: submitData.image || "",
             categoryName,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -183,6 +239,8 @@ export default function StockManagementPage() {
         }
       }
       setFormModalOpen(false);
+      setImageFiles([]);
+      setExistingImages([]);
     } catch {
       toast.error("An error occurred");
     }
@@ -376,13 +434,16 @@ export default function StockManagementPage() {
             />
           </FormField>
           
-          <FormField label="Image URL">
-            <Input
-              value={formData.image || ""}
-              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              placeholder="Enter image URL (optional)"
-            />
-          </FormField>
+          {/* Image Upload */}
+          <ImageUpload
+            label="Item Image"
+            multiple={false}
+            value={imageFiles}
+            existingImages={existingImages}
+            onFilesChange={setImageFiles}
+            onRemoveExisting={handleRemoveExistingImage}
+            hint="Upload an image for this stock item"
+          />
           
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Quantity" required>
@@ -491,7 +552,6 @@ export default function StockManagementPage() {
         title="Delete Stock Item"
         description={`Are you sure you want to delete "${selectedItem?.name}"? This action cannot be undone.`}
         onConfirm={handleDelete}
-        confirmLabel="Delete"
         variant="destructive"
       />
     </div>
