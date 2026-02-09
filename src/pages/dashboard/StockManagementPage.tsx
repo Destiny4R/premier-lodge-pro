@@ -190,35 +190,30 @@ export default function StockManagementPage() {
     }
 
     try {
-      // Prepare form data - in real implementation, would upload image first
-      // For now, we'll use a placeholder URL for new uploads
-      let imageUrl = formData.image;
-      if (imageFiles.length > 0) {
-        // In real implementation: upload file and get URL
-        // For demo, create object URL (this won't persist)
-        imageUrl = URL.createObjectURL(imageFiles[0]);
-        toast.info("Note: Image upload requires backend integration");
-      }
-
-      const submitData = { ...formData, image: imageUrl };
+      const submitData = { ...formData };
+      const imageFile = imageFiles.length > 0 ? imageFiles[0] : undefined;
 
       if (isEditing && selectedItem) {
-        const response = await stockService.updateStockItem(selectedItem.id, submitData);
+        const response = await stockService.updateStockItem(selectedItem.id, submitData, imageFile);
         if (response.success) {
           toast.success("Stock item updated successfully");
           fetchData();
         } else {
           // Mock update
           const categoryName = categories.find(c => c.id === formData.categoryId)?.name || "";
+          let imageUrl = selectedItem.image;
+          if (imageFile) {
+            imageUrl = URL.createObjectURL(imageFile);
+          }
           setStockItems(prev => prev.map(s => 
             s.id === selectedItem.id 
-              ? { ...s, ...submitData, image: submitData.image || "", categoryName, updatedAt: new Date().toISOString() }
+              ? { ...s, ...submitData, image: imageUrl, categoryName, updatedAt: new Date().toISOString() }
               : s
           ));
           toast.success("Stock item updated successfully");
         }
       } else {
-        const response = await stockService.createStockItem(submitData);
+        const response = await stockService.createStockItem(submitData, imageFile);
         if (response.success) {
           toast.success("Stock item created successfully");
           fetchData();
@@ -229,7 +224,7 @@ export default function StockManagementPage() {
             id: `s${Date.now()}`,
             hotelId: "h1",
             ...submitData,
-            image: submitData.image || "",
+            image: imageFile ? URL.createObjectURL(imageFile) : "",
             categoryName,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),

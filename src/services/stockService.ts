@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiDelete, apiPatch, apiUpload } from '@/lib/api';
 import { ApiResponse, PaginationParams, PaginatedResponse } from '@/types/api';
 import { StockItem, CreateStockItemRequest, UpdateStockQuantityRequest } from '@/types/restaurant';
 
@@ -48,34 +48,60 @@ export async function getStockItemById(id: string): Promise<ApiResponse<StockIte
 
 /**
  * POST /api/restaurant/stock
- * Create stock item
+ * Create stock item (multipart/form-data for image upload)
  * 
- * Request payload:
- * {
- *   categoryId: string,          // Food category ID
- *   name: string,                // Item name
- *   image?: string,              // Image URL
- *   quantity: number,            // Initial quantity
- *   price: number,               // Price per unit
- *   description: string,         // Item description
- *   minimumStockLevel: number    // Minimum stock alert threshold
- * }
+ * Request payload (FormData):
+ * - categoryId: string          // Food category ID
+ * - name: string                // Item name
+ * - image: File                 // Image file (JPEG, JPG, PNG)
+ * - quantity: number            // Initial quantity
+ * - price: number               // Price per unit
+ * - description: string         // Item description
+ * - minimumStockLevel: number   // Minimum stock alert threshold
  * 
  * Response: { success: boolean, data: StockItem, message: string }
  */
-export async function createStockItem(data: CreateStockItemRequest): Promise<ApiResponse<StockItem>> {
-  return await apiPost<StockItem>('/restaurant/stock', data);
+export async function createStockItem(data: CreateStockItemRequest, imageFile?: File): Promise<ApiResponse<StockItem>> {
+  const formData = new FormData();
+  formData.append('categoryId', data.categoryId);
+  formData.append('name', data.name);
+  formData.append('quantity', data.quantity.toString());
+  formData.append('price', data.price.toString());
+  formData.append('description', data.description);
+  formData.append('minimumStockLevel', data.minimumStockLevel.toString());
+  if (imageFile) {
+    formData.append('image', imageFile);
+  }
+  return await apiUpload<StockItem>('/restaurant/stock', formData);
 }
 
 /**
  * PUT /api/restaurant/stock/:id
- * Update stock item
+ * Update stock item (multipart/form-data for image upload)
  * 
- * Request payload: Partial<CreateStockItemRequest>
+ * Request payload (FormData):
+ * - categoryId?: string         // Food category ID
+ * - name?: string               // Item name
+ * - image?: File                // New image file (JPEG, JPG, PNG)
+ * - quantity?: number           // Updated quantity
+ * - price?: number              // Updated price
+ * - description?: string        // Updated description
+ * - minimumStockLevel?: number  // Updated minimum stock level
+ * 
  * Response: { success: boolean, data: StockItem, message: string }
  */
-export async function updateStockItem(id: string, data: Partial<CreateStockItemRequest>): Promise<ApiResponse<StockItem>> {
-  return await apiPut<StockItem>(`/restaurant/stock/${id}`, data);
+export async function updateStockItem(id: string, data: Partial<CreateStockItemRequest>, imageFile?: File): Promise<ApiResponse<StockItem>> {
+  const formData = new FormData();
+  if (data.categoryId) formData.append('categoryId', data.categoryId);
+  if (data.name) formData.append('name', data.name);
+  if (data.quantity !== undefined) formData.append('quantity', data.quantity.toString());
+  if (data.price !== undefined) formData.append('price', data.price.toString());
+  if (data.description) formData.append('description', data.description);
+  if (data.minimumStockLevel !== undefined) formData.append('minimumStockLevel', data.minimumStockLevel.toString());
+  if (imageFile) {
+    formData.append('image', imageFile);
+  }
+  return await apiUpload<StockItem>(`/restaurant/stock/${id}`, formData);
 }
 
 /**
