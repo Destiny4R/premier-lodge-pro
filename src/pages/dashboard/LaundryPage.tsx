@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical } from "lucide-react";
+import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical, Printer } from "lucide-react";
 import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
+import { generateTransactionRef } from "@/lib/reference";
 import { useApi } from "@/hooks/useApi";
 import { 
   getLaundryOrders, 
@@ -45,6 +46,20 @@ export default function LaundryPage() {
   const [orderModalOpen, setOrderModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LaundryItem | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: "category" | "order"; id: string }>({ open: false, type: "category", id: "" });
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<{
+    orderNumber: string;
+    customerName: string;
+    phone: string;
+    email: string;
+    address: string;
+    items: { name: string; quantity: number; price: number; subtotal: number }[];
+    total: number;
+    paymentMethod: string;
+    bookingReference?: string;
+    date: string;
+  } | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const [categoryForm, setCategoryForm] = useState({ name: "", price: "" });
   const [orderForm, setOrderForm] = useState({
@@ -161,8 +176,79 @@ export default function LaundryPage() {
     if (response.success) {
       fetchOrders();
       setOrderModalOpen(false);
+      
+      // Build receipt data
+      const receiptItems = orderForm.items.map(item => {
+        const category = clothingCategories.find(c => c.id === item.categoryId);
+        const qty = parseInt(item.quantity) || 0;
+        return {
+          name: category?.name || "Unknown",
+          quantity: qty,
+          price: category?.price || 0,
+          subtotal: (category?.price || 0) * qty,
+        };
+      });
+      const total = receiptItems.reduce((sum, i) => sum + i.subtotal, 0);
+      
+      setReceiptData({
+        orderNumber: generateTransactionRef("LDR"),
+        customerName: orderForm.fullName,
+        phone: orderForm.phone,
+        email: orderForm.email,
+        address: orderForm.address,
+        items: receiptItems,
+        total,
+        paymentMethod: orderForm.paymentMethod === "room-charge" 
+          ? `Room Charge (${orderForm.bookingReference})` 
+          : orderForm.paymentMethod === "card" ? "Card" : "Cash",
+        bookingReference: orderForm.paymentMethod === "room-charge" ? orderForm.bookingReference : undefined,
+        date: new Date().toLocaleString(),
+      });
+      setSuccessModalOpen(true);
       resetOrderForm();
     }
+  };
+
+  const handlePrintReceipt = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Please allow popups to print");
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Laundry Receipt - ${receiptData?.orderNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
+            .hotel-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+            .hotel-info { font-size: 11px; margin-bottom: 3px; }
+            .section-title { font-size: 13px; font-weight: bold; margin: 10px 0 5px; }
+            .info-row { display: flex; justify-content: space-between; font-size: 12px; margin: 3px 0; }
+            .items { margin: 15px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 10px 0; }
+            .item { display: flex; justify-content: space-between; font-size: 12px; margin: 5px 0; }
+            .item-name { flex: 1; }
+            .item-qty { width: 30px; text-align: center; }
+            .item-price { width: 80px; text-align: right; }
+            .grand-total { font-weight: bold; font-size: 14px; border-top: 2px solid #000; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; }
+            .footer { text-align: center; margin-top: 20px; font-size: 11px; border-top: 1px dashed #000; padding-top: 15px; }
+            @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>${printContent.innerHTML}</body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
   };
 
   const handleStatusUpdate = async (orderId: string, status: LaundryOrder['status']) => {
@@ -606,6 +692,86 @@ export default function LaundryPage() {
         variant="destructive"
         isLoading={mutationApi.isLoading}
       />
+
+      {/* Laundry Receipt Modal */}
+      <FormModal
+        open={successModalOpen}
+        onOpenChange={setSuccessModalOpen}
+        title="Order Created Successfully"
+        description="Laundry order has been recorded"
+        onSubmit={() => setSuccessModalOpen(false)}
+        submitLabel="Done"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-center py-4">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle className="w-10 h-10 text-green-500" />
+            </div>
+          </div>
+
+          {/* Printable Receipt */}
+          <div ref={printRef} className="p-4 bg-card rounded-lg border border-border">
+            <div className="header text-center pb-4 border-b border-border mb-4">
+              <div className="hotel-name text-lg font-bold text-foreground">LuxeStay Grand Palace</div>
+              <div className="hotel-info text-xs text-muted-foreground">123 Fifth Avenue, Manhattan</div>
+              <div className="hotel-info text-xs text-muted-foreground">Tel: +234 123 456 7890</div>
+              <div className="text-xs font-semibold text-muted-foreground mt-1">LAUNDRY RECEIPT</div>
+            </div>
+
+            <div className="text-sm space-y-1 mb-4">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Order #:</span>
+                <span className="font-medium text-foreground">{receiptData?.orderNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Date:</span>
+                <span className="text-foreground">{receiptData?.date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Customer:</span>
+                <span className="text-foreground">{receiptData?.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="text-foreground">{receiptData?.phone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Payment:</span>
+                <span className="text-foreground">{receiptData?.paymentMethod}</span>
+              </div>
+            </div>
+
+            <div className="items border-t border-b border-border py-3 my-3">
+              <div className="flex justify-between text-xs font-semibold text-muted-foreground mb-2">
+                <span className="flex-1">Item</span>
+                <span className="w-12 text-center">Qty</span>
+                <span className="w-20 text-right">Amount</span>
+              </div>
+              {receiptData?.items.map((item, idx) => (
+                <div key={idx} className="flex justify-between text-sm mb-1">
+                  <span className="flex-1 text-foreground">{item.name}</span>
+                  <span className="w-12 text-center text-muted-foreground">{item.quantity}</span>
+                  <span className="w-20 text-right text-foreground">₦{item.subtotal.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between font-bold text-base border-t border-border pt-2 mt-2">
+              <span className="text-foreground">Total:</span>
+              <span className="text-primary">₦{receiptData?.total.toLocaleString()}</span>
+            </div>
+
+            <div className="footer text-center pt-4 mt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground">Thank you for choosing our laundry service!</p>
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={handlePrintReceipt}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print Receipt
+          </Button>
+        </div>
+      </FormModal>
     </div>
   );
 }
