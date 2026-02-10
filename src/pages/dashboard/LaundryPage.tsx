@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical, Printer } from "lucide-react";
+import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical, Printer, BedDouble, UserPlus } from "lucide-react";
 import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -16,7 +16,8 @@ import { useApi } from "@/hooks/useApi";
 import { 
   getLaundryOrders, 
   getLaundryItems,
-  createLaundryOrder, 
+  createLaundryGuestOrder,
+  createLaundryVisitorOrder,
   updateLaundryOrderStatus, 
   deleteLaundryOrder,
   createLaundryItem,
@@ -43,16 +44,14 @@ export default function LaundryPage() {
   const [clothingCategories, setClothingCategories] = useState<LaundryItem[]>([]);
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [orderModalOpen, setOrderModalOpen] = useState(false);
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [visitorModalOpen, setVisitorModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<LaundryItem | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: "category" | "order"; id: string }>({ open: false, type: "category", id: "" });
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<{
     orderNumber: string;
     customerName: string;
-    phone: string;
-    email: string;
-    address: string;
     items: { name: string; quantity: number; price: number; subtotal: number }[];
     total: number;
     paymentMethod: string;
@@ -62,14 +61,20 @@ export default function LaundryPage() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const [categoryForm, setCategoryForm] = useState({ name: "", price: "" });
-  const [orderForm, setOrderForm] = useState({
+
+  // Guest order form (charge to room)
+  const [guestForm, setGuestForm] = useState({
+    bookingReference: "",
+    items: [{ categoryId: "", quantity: "" }],
+  });
+
+  // Visitor order form
+  const [visitorForm, setVisitorForm] = useState({
     fullName: "",
     phone: "",
     email: "",
     address: "",
     items: [{ categoryId: "", quantity: "" }],
-    paymentMethod: "cash" as "cash" | "card" | "room-charge",
-    bookingReference: "",
   });
 
   // Fetch data on mount
@@ -103,16 +108,12 @@ export default function LaundryPage() {
     setCategoryModalOpen(true);
   };
 
-  const resetOrderForm = () => {
-    setOrderForm({
-      fullName: "",
-      phone: "",
-      email: "",
-      address: "",
-      items: [{ categoryId: "", quantity: "" }],
-      paymentMethod: "cash",
-      bookingReference: "",
-    });
+  const resetGuestForm = () => {
+    setGuestForm({ bookingReference: "", items: [{ categoryId: "", quantity: "" }] });
+  };
+
+  const resetVisitorForm = () => {
+    setVisitorForm({ fullName: "", phone: "", email: "", address: "", items: [{ categoryId: "", quantity: "" }] });
   };
 
   const handleCategorySubmit = async () => {
@@ -136,76 +137,102 @@ export default function LaundryPage() {
     }
   };
 
-  const handleOrderSubmit = async () => {
-    // Validate required fields
-    if (!orderForm.fullName.trim()) {
-      toast.error("Full name is required");
+  const buildReceiptItems = (items: { categoryId: string; quantity: string }[]) => {
+    return items.map(item => {
+      const category = clothingCategories.find(c => c.id === item.categoryId);
+      const qty = parseInt(item.quantity) || 0;
+      return {
+        name: category?.name || "Unknown",
+        quantity: qty,
+        price: category?.price || 0,
+        subtotal: (category?.price || 0) * qty,
+      };
+    });
+  };
+
+  const calculateItemsTotal = (items: { categoryId: string; quantity: string }[]) => {
+    return items.reduce((total, item) => {
+      const category = clothingCategories.find(c => c.id === item.categoryId);
+      return total + (category?.price || 0) * (parseInt(item.quantity) || 0);
+    }, 0);
+  };
+
+  const handleGuestSubmit = async () => {
+    if (!guestForm.bookingReference.trim()) {
+      toast.error("Booking reference is required");
       return;
     }
-    if (!orderForm.phone.trim()) {
-      toast.error("Phone number is required");
-      return;
-    }
-    if (!orderForm.email.trim()) {
-      toast.error("Email is required");
-      return;
-    }
-    if (!orderForm.address.trim()) {
-      toast.error("Address is required");
-      return;
-    }
-    if (orderForm.paymentMethod === "room-charge" && !orderForm.bookingReference.trim()) {
-      toast.error("Booking reference is required for room charge");
+    if (guestForm.items.some(i => !i.categoryId || !i.quantity)) {
+      toast.error("Please fill all clothing items");
       return;
     }
 
-    const orderData = {
-      fullName: orderForm.fullName,
-      phone: orderForm.phone,
-      email: orderForm.email,
-      address: orderForm.address,
-      items: orderForm.items.map(item => ({
+    const estimatedAmount = calculateItemsTotal(guestForm.items);
+
+    const response = await mutationApi.execute(() => createLaundryGuestOrder({
+      bookingReference: guestForm.bookingReference,
+      estimatedAmount,
+      items: guestForm.items.map(item => ({
         laundryItemId: item.categoryId,
         quantity: parseInt(item.quantity) || 0,
       })),
-      paymentMethod: orderForm.paymentMethod,
-      bookingReference: orderForm.paymentMethod === "room-charge" ? orderForm.bookingReference : undefined,
-    };
+    }));
 
-    const response = await mutationApi.execute(() => createLaundryOrder(orderData));
     if (response.success) {
       fetchOrders();
-      setOrderModalOpen(false);
-      
-      // Build receipt data
-      const receiptItems = orderForm.items.map(item => {
-        const category = clothingCategories.find(c => c.id === item.categoryId);
-        const qty = parseInt(item.quantity) || 0;
-        return {
-          name: category?.name || "Unknown",
-          quantity: qty,
-          price: category?.price || 0,
-          subtotal: (category?.price || 0) * qty,
-        };
-      });
-      const total = receiptItems.reduce((sum, i) => sum + i.subtotal, 0);
-      
+      setGuestModalOpen(false);
+
+      const receiptItems = buildReceiptItems(guestForm.items);
       setReceiptData({
         orderNumber: generateTransactionRef("LDR"),
-        customerName: orderForm.fullName,
-        phone: orderForm.phone,
-        email: orderForm.email,
-        address: orderForm.address,
+        customerName: `Room Charge (${guestForm.bookingReference})`,
         items: receiptItems,
-        total,
-        paymentMethod: orderForm.paymentMethod === "room-charge" 
-          ? `Room Charge (${orderForm.bookingReference})` 
-          : orderForm.paymentMethod === "card" ? "Card" : "Cash",
-        bookingReference: orderForm.paymentMethod === "room-charge" ? orderForm.bookingReference : undefined,
+        total: receiptItems.reduce((sum, i) => sum + i.subtotal, 0),
+        paymentMethod: `Room Charge (${guestForm.bookingReference})`,
+        bookingReference: guestForm.bookingReference,
         date: new Date().toLocaleString(),
       });
       setSuccessModalOpen(true);
-      resetOrderForm();
+      resetGuestForm();
+    }
+  };
+
+  const handleVisitorSubmit = async () => {
+    if (!visitorForm.fullName.trim()) { toast.error("Full name is required"); return; }
+    if (!visitorForm.phone.trim()) { toast.error("Phone number is required"); return; }
+    if (!visitorForm.email.trim()) { toast.error("Email is required"); return; }
+    if (!visitorForm.address.trim()) { toast.error("Address is required"); return; }
+    if (visitorForm.items.some(i => !i.categoryId || !i.quantity)) {
+      toast.error("Please fill all clothing items");
+      return;
+    }
+
+    const response = await mutationApi.execute(() => createLaundryVisitorOrder({
+      fullName: visitorForm.fullName,
+      phone: visitorForm.phone,
+      email: visitorForm.email,
+      address: visitorForm.address,
+      items: visitorForm.items.map(item => ({
+        laundryItemId: item.categoryId,
+        quantity: parseInt(item.quantity) || 0,
+      })),
+    }));
+
+    if (response.success) {
+      fetchOrders();
+      setVisitorModalOpen(false);
+
+      const receiptItems = buildReceiptItems(visitorForm.items);
+      setReceiptData({
+        orderNumber: generateTransactionRef("LDR"),
+        customerName: visitorForm.fullName,
+        items: receiptItems,
+        total: receiptItems.reduce((sum, i) => sum + i.subtotal, 0),
+        paymentMethod: "Cash / Walk-in",
+        date: new Date().toLocaleString(),
+      });
+      setSuccessModalOpen(true);
+      resetVisitorForm();
     }
   };
 
@@ -273,31 +300,76 @@ export default function LaundryPage() {
     setDeleteDialog({ open: false, type: "category", id: "" });
   };
 
-  const addOrderItem = () => {
-    setOrderForm({
-      ...orderForm,
-      items: [...orderForm.items, { categoryId: "", quantity: "" }],
-    });
-  };
-
-  const updateOrderItem = (index: number, field: "categoryId" | "quantity", value: string) => {
-    const newItems = [...orderForm.items];
-    newItems[index][field] = value;
-    setOrderForm({ ...orderForm, items: newItems });
-  };
-
-  const removeOrderItem = (index: number) => {
-    if (orderForm.items.length > 1) {
-      const newItems = orderForm.items.filter((_, i) => i !== index);
-      setOrderForm({ ...orderForm, items: newItems });
+  // Shared clothing items helpers
+  const addItem = (formType: "guest" | "visitor") => {
+    if (formType === "guest") {
+      setGuestForm({ ...guestForm, items: [...guestForm.items, { categoryId: "", quantity: "" }] });
+    } else {
+      setVisitorForm({ ...visitorForm, items: [...visitorForm.items, { categoryId: "", quantity: "" }] });
     }
   };
 
-  const calculateTotal = () => {
-    return orderForm.items.reduce((total, item) => {
-      const category = clothingCategories.find(c => c.id === item.categoryId);
-      return total + (category?.price || 0) * (parseInt(item.quantity) || 0);
-    }, 0);
+  const updateItem = (formType: "guest" | "visitor", index: number, field: "categoryId" | "quantity", value: string) => {
+    if (formType === "guest") {
+      const newItems = [...guestForm.items];
+      newItems[index][field] = value;
+      setGuestForm({ ...guestForm, items: newItems });
+    } else {
+      const newItems = [...visitorForm.items];
+      newItems[index][field] = value;
+      setVisitorForm({ ...visitorForm, items: newItems });
+    }
+  };
+
+  const removeItem = (formType: "guest" | "visitor", index: number) => {
+    if (formType === "guest" && guestForm.items.length > 1) {
+      setGuestForm({ ...guestForm, items: guestForm.items.filter((_, i) => i !== index) });
+    } else if (formType === "visitor" && visitorForm.items.length > 1) {
+      setVisitorForm({ ...visitorForm, items: visitorForm.items.filter((_, i) => i !== index) });
+    }
+  };
+
+  const renderClothingItems = (formType: "guest" | "visitor") => {
+    const items = formType === "guest" ? guestForm.items : visitorForm.items;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Clothing Items</label>
+          <Button type="button" variant="outline" size="sm" onClick={() => addItem(formType)}>
+            <Plus className="w-3 h-3 mr-1" /> Add Item
+          </Button>
+        </div>
+        {items.map((item, index) => (
+          <div key={index} className="flex items-center gap-3">
+            <Select
+              value={item.categoryId}
+              onValueChange={(v) => updateItem(formType, index, "categoryId", v)}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Select clothing" />
+              </SelectTrigger>
+              <SelectContent>
+                {clothingCategories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name} - ₦{c.price?.toLocaleString()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="number"
+              value={item.quantity}
+              onChange={(e) => updateItem(formType, index, "quantity", e.target.value)}
+              placeholder="Qty"
+              className="w-20"
+            />
+            {items.length > 1 && (
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(formType, index)}>
+                <Trash className="w-4 h-4 text-destructive" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const isLoading = ordersApi.isLoading || itemsApi.isLoading;
@@ -328,9 +400,13 @@ export default function LaundryPage() {
               <Plus className="w-4 h-4 mr-2" />
               Add Category
             </Button>
-            <Button variant="hero" onClick={() => { resetOrderForm(); setOrderModalOpen(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Order
+            <Button variant="outline" onClick={() => { resetGuestForm(); setGuestModalOpen(true); }}>
+              <BedDouble className="w-4 h-4 mr-2" />
+              Charge to Room
+            </Button>
+            <Button variant="hero" onClick={() => { resetVisitorForm(); setVisitorModalOpen(true); }}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Visitor Order
             </Button>
           </div>
         </motion.div>
@@ -398,10 +474,16 @@ export default function LaundryPage() {
                       title="No laundry orders"
                       description="Create your first laundry order"
                       action={
-                        <Button onClick={() => setOrderModalOpen(true)}>
-                          <Plus className="w-4 h-4 mr-2" />
-                          New Order
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => { resetGuestForm(); setGuestModalOpen(true); }}>
+                            <BedDouble className="w-4 h-4 mr-2" />
+                            Charge to Room
+                          </Button>
+                          <Button onClick={() => { resetVisitorForm(); setVisitorModalOpen(true); }}>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Visitor Order
+                          </Button>
+                        </div>
                       }
                     />
                   ) : (
@@ -555,31 +637,61 @@ export default function LaundryPage() {
         </div>
       </FormModal>
 
-      {/* Laundry Order Modal */}
+      {/* Guest Order Modal (Charge to Room) */}
       <FormModal
-        open={orderModalOpen}
-        onOpenChange={setOrderModalOpen}
-        title="Create Laundry Order"
-        description="Record new laundry intake"
-        onSubmit={handleOrderSubmit}
+        open={guestModalOpen}
+        onOpenChange={setGuestModalOpen}
+        title="Laundry Order — Charge to Room"
+        description="Create a laundry order charged to a guest's room booking"
+        onSubmit={handleGuestSubmit}
         submitLabel="Create Order"
         size="lg"
         isLoading={mutationApi.isLoading}
       >
         <div className="space-y-4">
-          {/* Customer Information */}
+          <FormField label="Booking Reference Number" required>
+            <Input
+              value={guestForm.bookingReference}
+              onChange={(e) => setGuestForm({ ...guestForm, bookingReference: e.target.value })}
+              placeholder="Enter booking reference (e.g., BK-2024-001234)"
+            />
+          </FormField>
+
+          {renderClothingItems("guest")}
+
+          <Card variant="glass" className="p-4">
+            <div className="flex justify-between items-center">
+              <span className="font-semibold">Estimated Amount</span>
+              <span className="text-xl font-bold text-primary">₦{calculateItemsTotal(guestForm.items).toLocaleString()}</span>
+            </div>
+          </Card>
+        </div>
+      </FormModal>
+
+      {/* Visitor Order Modal */}
+      <FormModal
+        open={visitorModalOpen}
+        onOpenChange={setVisitorModalOpen}
+        title="Laundry Order — Walk-in Visitor"
+        description="Create a laundry order for a walk-in customer"
+        onSubmit={handleVisitorSubmit}
+        submitLabel="Create Order"
+        size="lg"
+        isLoading={mutationApi.isLoading}
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Full Name" required>
               <Input
-                value={orderForm.fullName}
-                onChange={(e) => setOrderForm({ ...orderForm, fullName: e.target.value })}
+                value={visitorForm.fullName}
+                onChange={(e) => setVisitorForm({ ...visitorForm, fullName: e.target.value })}
                 placeholder="Enter customer full name"
               />
             </FormField>
             <FormField label="Phone" required>
               <Input
-                value={orderForm.phone}
-                onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
+                value={visitorForm.phone}
+                onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
                 placeholder="Enter phone number"
               />
             </FormField>
@@ -589,91 +701,26 @@ export default function LaundryPage() {
             <FormField label="Email" required>
               <Input
                 type="email"
-                value={orderForm.email}
-                onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
+                value={visitorForm.email}
+                onChange={(e) => setVisitorForm({ ...visitorForm, email: e.target.value })}
                 placeholder="Enter email address"
               />
             </FormField>
             <FormField label="Address" required>
               <Input
-                value={orderForm.address}
-                onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
+                value={visitorForm.address}
+                onChange={(e) => setVisitorForm({ ...visitorForm, address: e.target.value })}
                 placeholder="Enter address"
               />
             </FormField>
           </div>
 
-          {/* Clothing Items */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Clothing Items</label>
-              <Button type="button" variant="outline" size="sm" onClick={addOrderItem}>
-                <Plus className="w-3 h-3 mr-1" /> Add Item
-              </Button>
-            </div>
-            {orderForm.items.map((item, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <Select 
-                  value={item.categoryId} 
-                  onValueChange={(v) => updateOrderItem(index, "categoryId", v)}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select clothing" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clothingCategories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} - ₦{c.price?.toLocaleString()}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => updateOrderItem(index, "quantity", e.target.value)}
-                  placeholder="Qty"
-                  className="w-20"
-                />
-                {orderForm.items.length > 1 && (
-                  <Button type="button" variant="ghost" size="icon" onClick={() => removeOrderItem(index)}>
-                    <Trash className="w-4 h-4 text-destructive" />
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Payment Method */}
-          <FormField label="Payment Method" required>
-            <Select 
-              value={orderForm.paymentMethod} 
-              onValueChange={(v: "cash" | "card" | "room-charge") => setOrderForm({ ...orderForm, paymentMethod: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="card">Card</SelectItem>
-                <SelectItem value="room-charge">Charge to Room</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          {/* Booking Reference - only shown when room-charge is selected */}
-          {orderForm.paymentMethod === "room-charge" && (
-            <FormField label="Room Booking Number" required>
-              <Input
-                value={orderForm.bookingReference}
-                onChange={(e) => setOrderForm({ ...orderForm, bookingReference: e.target.value })}
-                placeholder="Enter booking reference (e.g., BK-2024-001234)"
-              />
-            </FormField>
-          )}
+          {renderClothingItems("visitor")}
 
           <Card variant="glass" className="p-4">
             <div className="flex justify-between items-center">
               <span className="font-semibold">Estimated Total</span>
-              <span className="text-xl font-bold text-primary">₦{calculateTotal().toLocaleString()}</span>
+              <span className="text-xl font-bold text-primary">₦{calculateItemsTotal(visitorForm.items).toLocaleString()}</span>
             </div>
           </Card>
         </div>
@@ -730,10 +777,6 @@ export default function LaundryPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer:</span>
                 <span className="text-foreground">{receiptData?.customerName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phone:</span>
-                <span className="text-foreground">{receiptData?.phone}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Payment:</span>
