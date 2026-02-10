@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormField, FormModal } from "@/components/forms";
 import { OrderCartItem } from "@/types/restaurant";
-import { generateTransactionRef } from "@/lib/reference";
+import { checkoutCash, checkoutRoomCharge, CheckoutResponse } from "@/services/restaurantService";
 
 interface ReceiptData {
   orderNumber: string;
@@ -36,18 +36,17 @@ export default function RestaurantCheckoutPage() {
   const printRef = useRef<HTMLDivElement>(null);
   const [cart, setCart] = useState<OrderCartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "room-charge">("cash");
   const [bookingReference, setBookingReference] = useState("");
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   useEffect(() => {
-    // Load cart from sessionStorage
     const storedCart = sessionStorage.getItem("restaurantCart");
     if (storedCart) {
       try {
-        const parsedCart = JSON.parse(storedCart);
-        setCart(parsedCart);
+        setCart(JSON.parse(storedCart));
       } catch {
         toast.error("Failed to load cart");
         navigate("/dashboard/restaurant/orders");
@@ -79,30 +78,47 @@ export default function RestaurantCheckoutPage() {
       return;
     }
 
-    // Simulate API call
-    const orderNumber = generateTransactionRef("ORD");
-    
-    const receipt: ReceiptData = {
-      orderNumber,
-      items: cart.map(item => ({
-        name: item.stockItem.name,
-        quantity: item.quantity,
-        price: item.stockItem.price,
-        subtotal: item.stockItem.price * item.quantity,
-      })),
-      subtotal,
-      tax,
-      total,
-      paymentMethod: paymentMethod === "room-charge" ? `Room Charge (${bookingReference})` : "Cash",
-      bookingReference: paymentMethod === "room-charge" ? bookingReference : undefined,
-      date: new Date().toLocaleString(),
-    };
+    setSubmitting(true);
 
-    setReceiptData(receipt);
-    setSuccessModalOpen(true);
-    
-    // Clear cart
-    sessionStorage.removeItem("restaurantCart");
+    try {
+      const items = cart.map(item => ({
+        stockId: item.stockItemId,
+        quantity: item.quantity,
+      }));
+
+      let response;
+
+      if (paymentMethod === "cash") {
+        response = await checkoutCash({ items });
+      } else {
+        response = await checkoutRoomCharge({ items, bookingReference });
+      }
+
+      if (response.success && response.data) {
+        const data = response.data;
+        const receipt: ReceiptData = {
+          orderNumber: data.orderNumber,
+          items: data.items,
+          subtotal: data.subtotal,
+          tax: data.tax,
+          total: data.totalAmount,
+          paymentMethod: data.paymentMethod === "room-charge"
+            ? `Room Charge (${data.bookingReference})` : "Cash",
+          bookingReference: data.bookingReference,
+          date: data.date,
+        };
+
+        setReceiptData(receipt);
+        setSuccessModalOpen(true);
+        sessionStorage.removeItem("restaurantCart");
+      } else {
+        toast.error(response.message || "Checkout failed");
+      }
+    } catch {
+      toast.error("An error occurred during checkout");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handlePrint = () => {
@@ -305,9 +321,10 @@ export default function RestaurantCheckoutPage() {
                   className="w-full"
                   size="lg"
                   onClick={handleCompleteOrder}
+                  disabled={submitting}
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  Complete Order
+                  {submitting ? "Processing..." : "Complete Order"}
                 </Button>
               </CardContent>
             </Card>

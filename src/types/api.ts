@@ -592,19 +592,15 @@ export interface CreateRestaurantOrderRequest {
 }
 
 /**
- * POST /api/laundry/orders
- * Request payload for creating laundry order
+ * POST /api/laundry/orders/guest
+ * Create laundry order for a hotel guest (charge to room)
  * 
  * Request: {
- *   fullName: string,           // Customer full name
- *   phone: string,              // Customer phone number
- *   email: string,              // Customer email address
- *   address: string,            // Customer address
- *   items: [                    // List of clothing items
+ *   bookingReference: string,       // Room booking reference number
+ *   estimatedAmount: number,        // Estimated total amount
+ *   items: [                        // List of clothing items
  *     { laundryItemId: string, quantity: number }
- *   ],
- *   paymentMethod: 'cash' | 'card' | 'room-charge',
- *   bookingReference?: string   // Required when paymentMethod is 'room-charge'
+ *   ]
  * }
  * 
  * Response: {
@@ -614,6 +610,42 @@ export interface CreateRestaurantOrderRequest {
  *   status: number
  * }
  */
+export interface CreateLaundryGuestOrderRequest {
+  bookingReference: string;
+  estimatedAmount: number;
+  items: { laundryItemId: string; quantity: number }[];
+}
+
+/**
+ * POST /api/laundry/orders/visitor
+ * Create laundry order for a walk-in visitor
+ * 
+ * Request: {
+ *   fullName: string,           // Customer full name
+ *   phone: string,              // Customer phone number
+ *   email: string,              // Customer email address
+ *   address: string,            // Customer address
+ *   items: [                    // List of clothing items
+ *     { laundryItemId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: LaundryOrder,
+ *   message: string,
+ *   status: number
+ * }
+ */
+export interface CreateLaundryVisitorOrderRequest {
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
+  items: { laundryItemId: string; quantity: number }[];
+}
+
+// Keep backward compatibility
 export interface CreateLaundryOrderRequest {
   fullName: string;
   phone: string;
