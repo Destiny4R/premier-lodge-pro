@@ -18,18 +18,18 @@ import { foodCategoryService } from "@/services/foodCategoryService";
 
 // Mock data for fallback
 const mockCategories: FoodCategory[] = [
-  { id: "fc1", hotelId: "h1", name: "Appetizers", description: "Starters", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "fc2", hotelId: "h1", name: "Main Course", description: "Main dishes", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "fc3", hotelId: "h1", name: "Desserts", description: "Sweet treats", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "fc4", hotelId: "h1", name: "Beverages", description: "Drinks", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "fc1", hotelId: "h1", name: "Appetizers", description: "Starters", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "fc2", hotelId: "h1", name: "Main Course", description: "Main dishes", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "fc3", hotelId: "h1", name: "Desserts", description: "Sweet treats", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "fc4", hotelId: "h1", name: "Beverages", description: "Drinks", createdAt: "2024-01-01", updatedAt: "2024-01-01" },
 ];
 
 const mockStock: StockItem[] = [
-  { id: "s1", hotelId: "h1", categoryId: "fc1", categoryName: "Appetizers", name: "Spring Rolls", image: "", quantity: 50, price: 1500, description: "Crispy vegetable spring rolls", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "s2", hotelId: "h1", categoryId: "fc2", categoryName: "Main Course", name: "Grilled Chicken", image: "", quantity: 30, price: 4500, description: "Marinated grilled chicken breast", minimumStockLevel: 15, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "s3", hotelId: "h1", categoryId: "fc2", categoryName: "Main Course", name: "Jollof Rice", image: "", quantity: 100, price: 2500, description: "Nigerian style jollof rice", minimumStockLevel: 20, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "s4", hotelId: "h1", categoryId: "fc3", categoryName: "Desserts", name: "Chocolate Cake", image: "", quantity: 8, price: 3000, description: "Rich chocolate layer cake", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-  { id: "s5", hotelId: "h1", categoryId: "fc4", categoryName: "Beverages", name: "Fresh Orange Juice", image: "", quantity: 25, price: 1000, description: "Freshly squeezed orange juice", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "s1", hotelId: "h1", categoryId: "fc1", categoryName: "Appetizers", name: "Spring Rolls", image: "", quantity: 50, price: 1500, description: "Crispy vegetable spring rolls", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "s2", hotelId: "h1", categoryId: "fc2", categoryName: "Main Course", name: "Grilled Chicken", image: "", quantity: 30, price: 4500, description: "Marinated grilled chicken breast", minimumStockLevel: 15, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "s3", hotelId: "h1", categoryId: "fc2", categoryName: "Main Course", name: "Jollof Rice", image: "", quantity: 100, price: 2500, description: "Nigerian style jollof rice", minimumStockLevel: 20, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "s4", hotelId: "h1", categoryId: "fc3", categoryName: "Desserts", name: "Chocolate Cake", image: "", quantity: 8, price: 3000, description: "Rich chocolate layer cake", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+  // { id: "s5", hotelId: "h1", categoryId: "fc4", categoryName: "Beverages", name: "Fresh Orange Juice", image: "", quantity: 25, price: 1000, description: "Freshly squeezed orange juice", minimumStockLevel: 10, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
 ];
 
 export default function StockManagementPage() {

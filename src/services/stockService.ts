@@ -35,7 +35,7 @@ export interface StockParams extends PaginationParams {
  * Response: { success: boolean, data: PaginatedResponse<StockItem>, message: string }
  */
 export async function getStockItems(params?: StockParams): Promise<ApiResponse<PaginatedResponse<StockItem>>> {
-  return await apiGet<PaginatedResponse<StockItem>>('/restaurant/stock', params);
+  return await apiGet<PaginatedResponse<StockItem>>(`/v3/restaurant/stock`, params);
 }
 
 /**
@@ -43,7 +43,7 @@ export async function getStockItems(params?: StockParams): Promise<ApiResponse<P
  * Get single stock item
  */
 export async function getStockItemById(id: string): Promise<ApiResponse<StockItem>> {
-  return await apiGet<StockItem>(`/restaurant/stock/${id}`);
+  return await apiGet<StockItem>(`/v3/restaurant/stock/${id}`);
 }
 
 /**
@@ -70,9 +70,9 @@ export async function createStockItem(data: CreateStockItemRequest, imageFile?: 
   formData.append('description', data.description);
   formData.append('minimumStockLevel', data.minimumStockLevel.toString());
   if (imageFile) {
-    formData.append('image', imageFile);
+    formData.append('images', imageFile);
   }
-  return await apiUpload<StockItem>('/restaurant/stock', formData);
+  return await apiUpload<StockItem>('/v3/restaurant/stock', formData);
 }
 
 /**
@@ -101,7 +101,7 @@ export async function updateStockItem(id: string, data: Partial<CreateStockItemR
   if (imageFile) {
     formData.append('image', imageFile);
   }
-  return await apiUpload<StockItem>(`/restaurant/stock/${id}`, formData);
+  return await apiUpload<StockItem>(`/v3/restaurant/stock/${id}`, formData);
 }
 
 /**
@@ -116,7 +116,7 @@ export async function updateStockItem(id: string, data: Partial<CreateStockItemR
  * Response: { success: boolean, data: StockItem, message: string }
  */
 export async function updateStockQuantity(id: string, data: UpdateStockQuantityRequest): Promise<ApiResponse<StockItem>> {
-  return await apiPatch<StockItem>(`/restaurant/stock/${id}/quantity`, data);
+  return await apiPatch<StockItem>(`/v3/restaurant/stock/${id}/quantity`, data);
 }
 
 /**
@@ -126,7 +126,7 @@ export async function updateStockQuantity(id: string, data: UpdateStockQuantityR
  * Response: { success: boolean, data: null, message: string }
  */
 export async function deleteStockItem(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/restaurant/stock/${id}`);
+  return await apiDelete<null>(`/v3/restaurant/stock/${id}`);
 }
 
 /**
@@ -136,7 +136,7 @@ export async function deleteStockItem(id: string): Promise<ApiResponse<null>> {
  * Response: { success: boolean, data: StockItem[], message: string }
  */
 export async function getLowStockItems(): Promise<ApiResponse<StockItem[]>> {
-  return await apiGet<StockItem[]>('/restaurant/stock/low');
+  return await apiGet<StockItem[]>('/v3/restaurant/stock/low');
 }
 
 /**
@@ -151,7 +151,7 @@ export async function getLowStockItems(): Promise<ApiResponse<StockItem[]>> {
  * leaving all other fields intact. The image field will be set to null/empty.
  */
 export async function deleteStockItemImage(id: string): Promise<ApiResponse<StockItem>> {
-  return await apiDelete<StockItem>(`/restaurant/stock/${id}/image`);
+  return await apiDelete<StockItem>(`/v3/restaurant/stock/${id}/image`);
 }
 
 // Export as named object

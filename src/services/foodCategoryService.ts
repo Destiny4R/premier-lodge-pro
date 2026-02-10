@@ -21,7 +21,7 @@ import { FoodCategory, CreateFoodCategoryRequest } from '@/types/restaurant';
  * Response: { success: boolean, data: PaginatedResponse<FoodCategory>, message: string }
  */
 export async function getFoodCategories(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<FoodCategory>>> {
-  return await apiGet<PaginatedResponse<FoodCategory>>('/restaurant/food-categories', params);
+  return await apiGet<PaginatedResponse<FoodCategory>>('/v3/restaurant/food-categories', params);
 }
 
 /**
@@ -29,7 +29,7 @@ export async function getFoodCategories(params?: PaginationParams): Promise<ApiR
  * Get single food category
  */
 export async function getFoodCategoryById(id: string): Promise<ApiResponse<FoodCategory>> {
-  return await apiGet<FoodCategory>(`/restaurant/food-categories/${id}`);
+  return await apiGet<FoodCategory>(`/v3/restaurant/food-categories/${id}`);
 }
 
 /**
@@ -45,7 +45,7 @@ export async function getFoodCategoryById(id: string): Promise<ApiResponse<FoodC
  * Response: { success: boolean, data: FoodCategory, message: string }
  */
 export async function createFoodCategory(data: CreateFoodCategoryRequest): Promise<ApiResponse<FoodCategory>> {
-  return await apiPost<FoodCategory>('/restaurant/food-categories', data);
+  return await apiPost<FoodCategory>('/v3/restaurant/food-categories', data);
 }
 
 /**
@@ -56,7 +56,7 @@ export async function createFoodCategory(data: CreateFoodCategoryRequest): Promi
  * Response: { success: boolean, data: FoodCategory, message: string }
  */
 export async function updateFoodCategory(id: string, data: Partial<CreateFoodCategoryRequest>): Promise<ApiResponse<FoodCategory>> {
-  return await apiPut<FoodCategory>(`/restaurant/food-categories/${id}`, data);
+  return await apiPut<FoodCategory>(`/v3/restaurant/food-categories/${id}`, data);
 }
 
 /**
@@ -66,7 +66,7 @@ export async function updateFoodCategory(id: string, data: Partial<CreateFoodCat
  * Response: { success: boolean, data: null, message: string }
  */
 export async function deleteFoodCategory(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/restaurant/food-categories/${id}`);
+  return await apiDelete<null>(`/v3/restaurant/food-categories/${id}`);
 }
 
 // Export as named object
