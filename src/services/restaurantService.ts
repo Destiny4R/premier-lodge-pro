@@ -187,6 +187,95 @@ export async function getRestaurantStats(): Promise<ApiResponse<RestaurantStats>
   return await apiGet<RestaurantStats>('/restaurant/stats');
 }
 
+// =====================================================
+// Restaurant Checkout
+// =====================================================
+
+export interface CashCheckoutRequest {
+  items: { stockId: string; quantity: number }[];
+}
+
+export interface RoomChargeCheckoutRequest {
+  items: { stockId: string; quantity: number }[];
+  bookingReference: string;
+}
+
+export interface CheckoutResponse {
+  orderId: string;
+  orderNumber: string;
+  totalAmount: number;
+  tax: number;
+  subtotal: number;
+  paymentMethod: string;
+  bookingReference?: string;
+  items: { name: string; quantity: number; price: number; subtotal: number }[];
+  date: string;
+}
+
+/**
+ * POST /api/restaurant/orders/checkout/cash
+ * Checkout with cash payment
+ * 
+ * Request payload:
+ * {
+ *   items: [
+ *     { stockId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     orderId: string,
+ *     orderNumber: string,
+ *     totalAmount: number,
+ *     tax: number,
+ *     subtotal: number,
+ *     paymentMethod: "cash",
+ *     items: [{ name: string, quantity: number, price: number, subtotal: number }],
+ *     date: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function checkoutCash(data: CashCheckoutRequest): Promise<ApiResponse<CheckoutResponse>> {
+  return await apiPost<CheckoutResponse>('/restaurant/orders/checkout/cash', data);
+}
+
+/**
+ * POST /api/restaurant/orders/checkout/room-charge
+ * Checkout with room charge payment
+ * 
+ * Request payload:
+ * {
+ *   items: [
+ *     { stockId: string, quantity: number }
+ *   ],
+ *   bookingReference: string   // Valid room booking reference number
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     orderId: string,
+ *     orderNumber: string,
+ *     totalAmount: number,
+ *     tax: number,
+ *     subtotal: number,
+ *     paymentMethod: "room-charge",
+ *     bookingReference: string,
+ *     items: [{ name: string, quantity: number, price: number, subtotal: number }],
+ *     date: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function checkoutRoomCharge(data: RoomChargeCheckoutRequest): Promise<ApiResponse<CheckoutResponse>> {
+  return await apiPost<CheckoutResponse>('/restaurant/orders/checkout/room-charge', data);
+}
+
 // Export as named object
 export const restaurantService = {
   getMenuItems,
@@ -202,4 +291,6 @@ export const restaurantService = {
   updateRestaurantOrderStatus,
   deleteRestaurantOrder,
   getRestaurantStats,
+  checkoutCash,
+  checkoutRoomCharge,
 };
