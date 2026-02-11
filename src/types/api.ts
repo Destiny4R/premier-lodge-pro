@@ -70,7 +70,7 @@ export interface RoomCategory {
   updatedAt: string;
   amenity: string | null;
 }
-export interface RoomImages{
+export interface RoomImages {
   id: string;
   path: string;
 }
@@ -88,16 +88,16 @@ export interface RoomCategoryUpdate {
 
 export interface Room {
   id?: string;
-  hotelId?: string| null;
-  categoryId: number| string;
+  hotelId?: string | null;
+  categoryId: number | string;
   doorNumber: string;
   floor: number;
   price: string | number;
   status: 'Available' | 'Occupied' | 'Reserved' | 'maintenance';
   image?: string | null;
   isPromoted: boolean | true;
-  createdAt?: string| null;
-  updatedAt?: string| null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   // Joined fields for display
   categoryName?: string;
   hotelName?: string;
@@ -131,7 +131,7 @@ export interface Guest {
   country?: string;
   countryLabel?: string;
   emailaddress?: string; // ← actual backend field
-  phoneno?: string;  
+  phoneno?: string;
   Email?: string;
   phone?: string;
   Phone?: string;
@@ -219,6 +219,7 @@ export interface RestaurantOrder {
   hotelId: string;
   guestId?: string;
   customerName: string;
+  orderNumber: string;
   roomId?: string;
   items: { menuItemId: string; name: string; quantity: number; price: number }[];
   status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
@@ -228,10 +229,26 @@ export interface RestaurantOrder {
   updatedAt: string;
 }
 
+/**
+ * Response payload returned by the checkout endpoints
+ */
+export interface CheckoutResponse {
+  orderId: string;
+  orderNumber: string;
+  totalAmount: number;
+  tax: number;
+  subtotal: number;
+  paymentMethod: string;
+  bookingReference?: string;
+  items: { name: string; quantity: number; price: number; subtotal: number }[];
+  date: string;
+}
+
 export interface LaundryItem {
   id: string;
   hotelId: string;
   name: string;
+  description?: string;
   price: number;
   createdAt: string;
   updatedAt: string;

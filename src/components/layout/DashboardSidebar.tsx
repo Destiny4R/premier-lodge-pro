@@ -27,6 +27,7 @@ import {
   FolderOpen,
   Package,
   ShoppingCart,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ const menuItems: MenuItem[] = [
       { icon: FolderOpen, label: "Food Categories", path: "/dashboard/restaurant/categories", roles: ["all"] },
       { icon: Package, label: "Stock Management", path: "/dashboard/restaurant/stock", roles: ["all"] },
       { icon: ShoppingCart, label: "Take Order", path: "/dashboard/restaurant/orders", roles: ["all"] },
+      { icon: Receipt, label: "Purchases", path: "/dashboard/restaurant/purchases", roles: ["all"] },
     ]
   },
   { icon: Shirt, label: "Laundry", path: "/dashboard/laundry", roles: ["sub-admin", "manager", "dry cleaner"] },

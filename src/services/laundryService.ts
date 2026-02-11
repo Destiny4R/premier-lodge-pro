@@ -1,9 +1,9 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
+import {
+  ApiResponse,
   LaundryOrder,
   LaundryItem,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse,
   CreateLaundryOrderRequest,
   CreateLaundryGuestOrderRequest,
@@ -72,7 +72,7 @@ export async function getLaundryOrderById(id: string): Promise<ApiResponse<Laund
  * }
  */
 export async function createLaundryOrder(data: CreateLaundryOrderRequest): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPost<LaundryOrder>('/laundry/orders', data);
+  return await apiPost<LaundryOrder>('/v3/laundry/orders', data);
 }
 
 /**
@@ -91,7 +91,7 @@ export async function createLaundryOrder(data: CreateLaundryOrderRequest): Promi
  * Response: { success: boolean, data: LaundryOrder, message: string }
  */
 export async function createLaundryGuestOrder(data: CreateLaundryGuestOrderRequest): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPost<LaundryOrder>('/laundry/orders/guest', data);
+  return await apiPost<LaundryOrder>('/v3/laundry/orders/guest', data);
 }
 
 /**
@@ -112,7 +112,7 @@ export async function createLaundryGuestOrder(data: CreateLaundryGuestOrderReque
  * Response: { success: boolean, data: LaundryOrder, message: string }
  */
 export async function createLaundryVisitorOrder(data: CreateLaundryVisitorOrderRequest): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPost<LaundryOrder>('/laundry/orders/visitor', data);
+  return await apiPost<LaundryOrder>('/v3/laundry/orders/visitor', data);
 }
 
 /**
@@ -120,7 +120,7 @@ export async function createLaundryVisitorOrder(data: CreateLaundryVisitorOrderR
  * Update laundry order
  */
 export async function updateLaundryOrder(id: string, data: Partial<CreateLaundryOrderRequest>): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPut<LaundryOrder>(`/laundry/orders/${id}`, data);
+  return await apiPut<LaundryOrder>(`/v3/laundry/orders/${id}`, data);
 }
 
 /**
@@ -130,7 +130,7 @@ export async function updateLaundryOrder(id: string, data: Partial<CreateLaundry
  * Request: { status: 'received' | 'processing' | 'ready' | 'delivered' }
  */
 export async function updateLaundryOrderStatus(id: string, status: LaundryOrder['status']): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPut<LaundryOrder>(`/laundry/orders/${id}/status`, { status });
+  return await apiPut<LaundryOrder>(`/v3/laundry/orders/${id}/status`, { status });
 }
 
 /**
@@ -138,7 +138,7 @@ export async function updateLaundryOrderStatus(id: string, status: LaundryOrder[
  * Delete laundry order
  */
 export async function deleteLaundryOrder(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/laundry/orders/${id}`);
+  return await apiDelete<null>(`/v3/laundry/orders/${id}`);
 }
 
 // =====================================================
@@ -150,7 +150,7 @@ export async function deleteLaundryOrder(id: string): Promise<ApiResponse<null>>
  * Get all clothing categories/items
  */
 export async function getLaundryItems(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<LaundryItem>>> {
-  return await apiGet<PaginatedResponse<LaundryItem>>('/laundry/items', params);
+  return await apiGet<PaginatedResponse<LaundryItem>>('/v3/laundry/items', params);
 }
 
 /**
@@ -161,10 +161,12 @@ export async function getLaundryItems(params?: PaginationParams): Promise<ApiRes
  * {
  *   name: string,           // Category name (e.g., "Shirts", "Pants")
  *   price: number           // Price per item
+ *   description: string     // Description of the category
  * }
  */
 export async function createLaundryItem(data: Omit<LaundryItem, 'id' | 'hotelId' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<LaundryItem>> {
-  return await apiPost<LaundryItem>('/laundry/items', data);
+  //console.log(data);
+  return await apiPost<LaundryItem>('/v3/laundry/items', data);
 }
 
 /**
@@ -172,7 +174,7 @@ export async function createLaundryItem(data: Omit<LaundryItem, 'id' | 'hotelId'
  * Update clothing category
  */
 export async function updateLaundryItem(id: string, data: Partial<LaundryItem>): Promise<ApiResponse<LaundryItem>> {
-  return await apiPut<LaundryItem>(`/laundry/items/${id}`, data);
+  return await apiPut<LaundryItem>(`/v3/laundry/items/${id}`, data);
 }
 
 /**
@@ -180,7 +182,7 @@ export async function updateLaundryItem(id: string, data: Partial<LaundryItem>):
  * Delete clothing category
  */
 export async function deleteLaundryItem(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/laundry/items/${id}`);
+  return await apiDelete<null>(`/v3/laundry/items/${id}`);
 }
 
 // =====================================================

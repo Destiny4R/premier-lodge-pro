@@ -24,6 +24,7 @@ import FoodCategoriesPage from "./pages/dashboard/FoodCategoriesPage";
 import StockManagementPage from "./pages/dashboard/StockManagementPage";
 import TakeOrderPage from "./pages/dashboard/TakeOrderPage";
 import RestaurantCheckoutPage from "./pages/dashboard/RestaurantCheckoutPage";
+import RestaurantPurchasesPage from "./pages/dashboard/RestaurantPurchasesPage";
 import LaundryPage from "./pages/dashboard/LaundryPage";
 import EventsPage from "./pages/dashboard/EventsPage";
 import GymPage from "./pages/dashboard/GymPage";
@@ -57,6 +58,8 @@ const App = () => (
               <Route path="/contact" element={<PublicContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              {/* Explicit absolute route that renders layout + page (robust direct access) */}
+
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<DashboardHome />} />
                 <Route path="rooms" element={<RoomsPage />} />
@@ -70,6 +73,7 @@ const App = () => (
                 <Route path="restaurant/stock" element={<StockManagementPage />} />
                 <Route path="restaurant/orders" element={<TakeOrderPage />} />
                 <Route path="restaurant/checkout" element={<RestaurantCheckoutPage />} />
+                <Route path="restaurant/purchases" element={<RestaurantPurchasesPage />} />
                 <Route path="restaurant/old-orders" element={<RestaurantOrderPage />} />
                 <Route path="laundry" element={<LaundryPage />} />
                 <Route path="events" element={<EventsPage />} />

@@ -18,7 +18,8 @@ import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormField, FormModal } from "@/components/forms";
 import { OrderCartItem } from "@/types/restaurant";
-import { checkoutCash, checkoutRoomCharge, CheckoutResponse } from "@/services/restaurantService";
+import { checkoutCash, checkoutRoomCharge } from "@/services/restaurantService";
+import { CheckoutResponse } from "@/types/api";
 
 interface ReceiptData {
   orderNumber: string;
@@ -37,7 +38,7 @@ export default function RestaurantCheckoutPage() {
   const [cart, setCart] = useState<OrderCartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "room-charge">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "roomcharge">("cash");
   const [bookingReference, setBookingReference] = useState("");
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
@@ -73,28 +74,42 @@ export default function RestaurantCheckoutPage() {
   const total = subtotal + tax;
 
   const handleCompleteOrder = async () => {
-    if (paymentMethod === "room-charge" && !bookingReference.trim()) {
+    // Basic client-side validation before sending request
+    if (!cart || cart.length === 0) {
+      toast.error("Cart is empty. Please add items before checking out.");
+      return;
+    }
+
+    if (paymentMethod === "roomcharge" && !bookingReference.trim()) {
       toast.error("Please enter the booking reference number");
+      return;
+    }
+
+    // Map and validate items payload
+    const items = cart.map(item => ({
+      stockId: Number(item.stockItemId),
+      quantity: Number(item.quantity),
+    }));
+
+    if (items.some(i => !i.stockId || Number.isNaN(i.quantity) || i.quantity <= 0)) {
+      toast.error("One or more items in the cart are invalid. Please check quantities.");
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const items = cart.map(item => ({
-        stockId: item.stockItemId,
-        quantity: item.quantity,
-      }));
-
       let response;
 
       if (paymentMethod === "cash") {
         response = await checkoutCash({ items });
+        console.log("Cash checkout response:", response);
       } else {
         response = await checkoutRoomCharge({ items, bookingReference });
+        console.log("Room charge checkout response:", response);
       }
 
-      if (response.success && response.data) {
+      if (response && response.success && response.data) {
         const data = response.data;
         const receipt: ReceiptData = {
           orderNumber: data.orderNumber,
@@ -112,10 +127,16 @@ export default function RestaurantCheckoutPage() {
         setSuccessModalOpen(true);
         sessionStorage.removeItem("restaurantCart");
       } else {
-        toast.error(response.message || "Checkout failed");
+        // Show backend message if present for clearer feedback
+        toast.error(response?.message || "Checkout failed");
+        console.error("Checkout error response:", response);
       }
-    } catch {
-      toast.error("An error occurred during checkout");
+    } catch (err) {
+      // Log full error for debugging and show friendly message
+      console.error("Checkout exception:", err);
+      // If err has message or is ApiResponse, show its message
+      const message = (err && typeof err === 'object' && 'message' in err) ? (err as any).message : "An error occurred during checkout";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -294,9 +315,9 @@ export default function RestaurantCheckoutPage() {
                     </Button>
                     <Button
                       type="button"
-                      variant={paymentMethod === "room-charge" ? "default" : "outline"}
+                      variant={paymentMethod === "roomcharge" ? "default" : "outline"}
                       className="flex flex-col items-center gap-2 h-auto py-6"
-                      onClick={() => setPaymentMethod("room-charge")}
+                      onClick={() => setPaymentMethod("roomcharge")}
                     >
                       <BedDouble className="w-8 h-8" />
                       <span>Charge to Room</span>
@@ -305,7 +326,7 @@ export default function RestaurantCheckoutPage() {
                 </FormField>
 
                 {/* Booking Reference for Room Charge */}
-                {paymentMethod === "room-charge" && (
+                {paymentMethod === "roomcharge" && (
                   <FormField label="Booking Reference Number" required>
                     <Input
                       value={bookingReference}

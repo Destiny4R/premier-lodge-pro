@@ -5,20 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical, Printer, BedDouble, UserPlus } from "lucide-react";
-import { FormModal, FormField, ConfirmDialog } from "@/components/forms";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Search, Shirt, Package, Clock, CheckCircle, DollarSign, Edit, Trash, MoreVertical, Printer, BedDouble, UserPlus, Eye } from "lucide-react";
+import { FormModal, FormField, ConfirmDialog, ViewModal, DetailRow } from "@/components/forms";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { LoadingState, EmptyState, ErrorState } from "@/components/ui/loading-state";
 import { generateTransactionRef } from "@/lib/reference";
 import { useApi } from "@/hooks/useApi";
-import { 
-  getLaundryOrders, 
+import {
+  getLaundryOrders,
   getLaundryItems,
   createLaundryGuestOrder,
   createLaundryVisitorOrder,
-  updateLaundryOrderStatus, 
+  updateLaundryOrderStatus,
   deleteLaundryOrder,
   createLaundryItem,
   updateLaundryItem,
@@ -46,7 +49,9 @@ export default function LaundryPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [visitorModalOpen, setVisitorModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("orders");
   const [editingCategory, setEditingCategory] = useState<LaundryItem | null>(null);
+  const [viewingCategory, setViewingCategory] = useState<LaundryItem | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: "category" | "order"; id: string }>({ open: false, type: "category", id: "" });
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<{
@@ -60,7 +65,7 @@ export default function LaundryPage() {
   } | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const [categoryForm, setCategoryForm] = useState({ name: "", price: "" });
+  const [categoryForm, setCategoryForm] = useState({ name: "", description: "", price: "" });
 
   // Guest order form (charge to room)
   const [guestForm, setGuestForm] = useState({
@@ -100,10 +105,10 @@ export default function LaundryPage() {
   const openCategoryModal = (category?: LaundryItem) => {
     if (category) {
       setEditingCategory(category);
-      setCategoryForm({ name: category.name, price: category.price.toString() });
+      setCategoryForm({ name: category.name, description: category.description || "", price: category.price.toString() });
     } else {
       setEditingCategory(null);
-      setCategoryForm({ name: "", price: "" });
+      setCategoryForm({ name: "", description: "", price: "" });
     }
     setCategoryModalOpen(true);
   };
@@ -117,10 +122,19 @@ export default function LaundryPage() {
   };
 
   const handleCategorySubmit = async () => {
-    const categoryData = {
+    const categoryData: {
+      name: string;
+      description?: string;
+      price: number;
+    } = {
       name: categoryForm.name,
       price: parseFloat(categoryForm.price),
     };
+
+    // Only include description if it's not empty
+    if (categoryForm.description && categoryForm.description.trim() !== "") {
+      categoryData.description = categoryForm.description;
+    }
 
     if (editingCategory) {
       const response = await mutationApi.execute(() => updateLaundryItem(editingCategory.id, categoryData));
@@ -339,35 +353,37 @@ export default function LaundryPage() {
             <Plus className="w-3 h-3 mr-1" /> Add Item
           </Button>
         </div>
-        {items.map((item, index) => (
-          <div key={index} className="flex items-center gap-3">
-            <Select
-              value={item.categoryId}
-              onValueChange={(v) => updateItem(formType, index, "categoryId", v)}
-            >
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select clothing" />
-              </SelectTrigger>
-              <SelectContent>
-                {clothingCategories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name} - ₦{c.price?.toLocaleString()}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="number"
-              value={item.quantity}
-              onChange={(e) => updateItem(formType, index, "quantity", e.target.value)}
-              placeholder="Qty"
-              className="w-20"
-            />
-            {items.length > 1 && (
-              <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(formType, index)}>
-                <Trash className="w-4 h-4 text-destructive" />
-              </Button>
-            )}
-          </div>
-        ))}
+        {items.map((item, index) => {
+          return (
+            <div key={index} className="flex items-center gap-3">
+              <Select
+                value={item.categoryId}
+                onValueChange={(v) => updateItem(formType, index, "categoryId", v)}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select clothing" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clothingCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>{c.name} - ₦{c.price?.toLocaleString()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                value={item.quantity}
+                onChange={(e) => updateItem(formType, index, "quantity", e.target.value)}
+                placeholder="Qty"
+                className="w-20"
+              />
+              {items.length > 1 && (
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(formType, index)}>
+                  <Trash className="w-4 h-4 text-destructive" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -443,168 +459,203 @@ export default function LaundryPage() {
 
         {/* Error State */}
         {hasError && !isLoading && (
-          <ErrorState 
-            message={ordersApi.error || itemsApi.error || 'Failed to load data'} 
-            onRetry={() => { fetchOrders(); fetchItems(); }} 
+          <ErrorState
+            message={ordersApi.error || itemsApi.error || 'Failed to load data'}
+            onRetry={() => { fetchOrders(); fetchItems(); }}
           />
         )}
 
         {/* Content */}
         {!isLoading && !hasError && (
-          <>
-            {/* Orders */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Laundry Orders</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm">All</Button>
-                    <Button variant="ghost" size="sm">In-House</Button>
-                    <Button variant="ghost" size="sm">External</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {orders.length === 0 ? (
-                    <EmptyState
-                      icon={Shirt}
-                      title="No laundry orders"
-                      description="Create your first laundry order"
-                      action={
-                        <div className="flex gap-2">
-                          <Button variant="outline" onClick={() => { resetGuestForm(); setGuestModalOpen(true); }}>
-                            <BedDouble className="w-4 h-4 mr-2" />
-                            Charge to Room
-                          </Button>
-                          <Button onClick={() => { resetVisitorForm(); setVisitorModalOpen(true); }}>
-                            <UserPlus className="w-4 h-4 mr-2" />
-                            Visitor Order
-                          </Button>
-                        </div>
-                      }
-                    />
-                  ) : (
-                    <div className="space-y-4">
-                      {orders.map((order) => (
-                        <Card key={order.id} variant="elevated" className="p-4 hover-lift">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <Shirt className="w-6 h-6 text-primary" />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-semibold text-foreground">{order.fullName || order.customerName}</h3>
-                                  {order.bookingReference && (
-                                    <Badge variant="secondary">
-                                      {order.bookingReference}
-                                    </Badge>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="orders" className="flex items-center gap-2">
+                  <Shirt className="w-4 h-4" />
+                  Laundry Orders
+                </TabsTrigger>
+                <TabsTrigger value="categories" className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Clothing Categories
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Orders Tab */}
+              <TabsContent value="orders">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">Laundry Orders</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm">All</Button>
+                      <Button variant="ghost" size="sm">In-House</Button>
+                      <Button variant="ghost" size="sm">External</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {orders.length === 0 ? (
+                      <EmptyState
+                        icon={Shirt}
+                        title="No laundry orders"
+                        description="Create your first laundry order"
+                        action={
+                          <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => { resetGuestForm(); setGuestModalOpen(true); }}>
+                              <BedDouble className="w-4 h-4 mr-2" />
+                              Charge to Room
+                            </Button>
+                            <Button onClick={() => { resetVisitorForm(); setVisitorModalOpen(true); }}>
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Visitor Order
+                            </Button>
+                          </div>
+                        }
+                      />
+                    ) : (
+                      <div className="space-y-4">
+                        {orders.map((order) => (
+                          <Card key={order.id} variant="elevated" className="p-4 hover-lift">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                                  <Shirt className="w-6 h-6 text-primary" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-foreground">{order.fullName || order.customerName}</h3>
+                                    {order.bookingReference && (
+                                      <Badge variant="secondary">
+                                        {order.bookingReference}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
+                                  </p>
+                                  {order.phone && (
+                                    <p className="text-xs text-muted-foreground">{order.phone}</p>
                                   )}
                                 </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
-                                </p>
-                                {order.phone && (
-                                  <p className="text-xs text-muted-foreground">{order.phone}</p>
-                                )}
+                              </div>
+
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="font-semibold text-foreground">₦{order.totalAmount?.toLocaleString()}</p>
+                                  <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod?.replace("-", " ")}</p>
+                                </div>
+                                <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">Update</Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'processing')}>
+                                      Mark as Processing
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'ready')}>
+                                      Mark as Ready
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'delivered')}>
+                                      Mark as Delivered
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
-                                <p className="font-semibold text-foreground">₦{order.totalAmount?.toLocaleString()}</p>
-                                <p className="text-sm text-muted-foreground capitalize">{order.paymentMethod?.replace("-", " ")}</p>
-                              </div>
-                              <Badge variant={statusColors[order.status]}>{order.status}</Badge>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="outline" size="sm">Update</Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'processing')}>
-                                    Mark as Processing
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'ready')}>
-                                    Mark as Ready
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleStatusUpdate(order.id, 'delivered')}>
-                                    Mark as Delivered
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Pricing */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Clothing Categories & Pricing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {clothingCategories.length === 0 ? (
-                    <EmptyState
-                      icon={Package}
-                      title="No clothing categories"
-                      description="Add clothing categories to create orders"
-                      action={
-                        <Button onClick={() => openCategoryModal()}>
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Category
-                        </Button>
-                      }
-                    />
-                  ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {clothingCategories.map((item) => (
-                        <Card key={item.id} variant="glass" className="p-4 text-center relative group">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <MoreVertical className="w-3 h-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openCategoryModal(item)}>
-                                <Edit className="w-4 h-4 mr-2" /> Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => setDeleteDialog({ open: true, type: "category", id: item.id })}
-                              >
-                                <Trash className="w-4 h-4 mr-2" /> Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <Package className="w-8 h-8 mx-auto mb-2 text-primary" />
-                          <p className="font-medium text-foreground">{item.name}</p>
-                          <p className="text-lg font-bold text-primary">₦{item.price?.toLocaleString()}</p>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </>
+              {/* Categories Tab */}
+              <TabsContent value="categories">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Clothing Categories & Pricing</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {clothingCategories.length === 0 ? (
+                      <EmptyState
+                        icon={Package}
+                        title="No clothing categories"
+                        description="Add clothing categories to create orders"
+                        action={
+                          <Button onClick={() => openCategoryModal()}>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Category
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Category Name</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Created At</TableHead>
+                            <TableHead className="w-[80px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {clothingCategories.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-primary" />
+                                  </div>
+                                  <p className="font-medium text-foreground">{item.name}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {item.description || "—"}
+                              </TableCell>
+                              <TableCell>
+                                <span className="font-semibold text-primary">₦{item.price?.toLocaleString()}</span>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—"}
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                      <MoreVertical className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setViewingCategory(item)}>
+                                      <Eye className="w-4 h-4 mr-2" /> View
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openCategoryModal(item)}>
+                                      <Edit className="w-4 h-4 mr-2" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => setDeleteDialog({ open: true, type: "category", id: item.id })}
+                                    >
+                                      <Trash className="w-4 h-4 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </motion.div>
         )}
       </div>
 
@@ -624,6 +675,14 @@ export default function LaundryPage() {
               value={categoryForm.name}
               onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
               placeholder="e.g., Shirts, Pants, Suits"
+            />
+          </FormField>
+          <FormField label="Description">
+            <Textarea
+              value={categoryForm.description}
+              onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+              placeholder="Enter category description (optional)"
+              rows={3}
             />
           </FormField>
           <FormField label="Price per Item" required>
@@ -731,7 +790,7 @@ export default function LaundryPage() {
         open={deleteDialog.open}
         onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
         title={deleteDialog.type === "category" ? "Delete Category" : "Delete Order"}
-        description={deleteDialog.type === "category" 
+        description={deleteDialog.type === "category"
           ? "Are you sure you want to delete this clothing category? This action cannot be undone."
           : "Are you sure you want to delete this order? This action cannot be undone."
         }
@@ -815,6 +874,31 @@ export default function LaundryPage() {
           </Button>
         </div>
       </FormModal>
+
+      {/* View Category Modal */}
+      <ViewModal
+        open={!!viewingCategory}
+        onOpenChange={() => setViewingCategory(null)}
+        title="Category Details"
+      >
+        {viewingCategory && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 pb-4 border-b border-border">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Package className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">{viewingCategory.name}</h3>
+                <span className="text-xl font-bold text-primary">₦{viewingCategory.price?.toLocaleString()}</span>
+              </div>
+            </div>
+            <DetailRow label="Description" value={viewingCategory.description || "No description provided"} />
+            <DetailRow label="Price per Item" value={`₦${viewingCategory.price?.toLocaleString()}`} />
+            <DetailRow label="Created At" value={viewingCategory.createdAt ? new Date(viewingCategory.createdAt).toLocaleString() : "—"} />
+            <DetailRow label="Last Updated" value={viewingCategory.updatedAt ? new Date(viewingCategory.updatedAt).toLocaleString() : "—"} />
+          </div>
+        )}
+      </ViewModal>
     </div>
   );
 }
