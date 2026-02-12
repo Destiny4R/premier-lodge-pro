@@ -1,11 +1,13 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
+import {
+  ApiResponse,
   LaundryOrder,
   LaundryItem,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse,
-  CreateLaundryOrderRequest
+  CreateLaundryOrderRequest,
+  CreateLaundryGuestOrderRequest,
+  CreateLaundryVisitorOrderRequest
 } from '@/types/api';
 
 // =====================================================
@@ -15,17 +17,19 @@ import {
 // ==== ENDPOINTS ====
 // Base URL: Replace with your API base URL (e.g., https://api.yourhotel.com)
 // 
-// GET    /api/laundry/orders            - List all laundry orders
-// GET    /api/laundry/orders/:id        - Get single order
-// POST   /api/laundry/orders            - Create new order
-// PUT    /api/laundry/orders/:id        - Update order
-// PUT    /api/laundry/orders/:id/status - Update order status
-// DELETE /api/laundry/orders/:id        - Delete order
-// GET    /api/laundry/items             - List all clothing categories
-// POST   /api/laundry/items             - Create clothing category
-// PUT    /api/laundry/items/:id         - Update clothing category
-// DELETE /api/laundry/items/:id         - Delete clothing category
-// GET    /api/laundry/stats             - Get laundry statistics
+// GET    /api/laundry/orders                - List all laundry orders
+// GET    /api/laundry/orders/:id            - Get single order
+// POST   /api/laundry/orders                - Create new order (legacy)
+// POST   /api/laundry/orders/guest          - Create order for hotel guest (room charge)
+// POST   /api/laundry/orders/visitor        - Create order for walk-in visitor
+// PUT    /api/laundry/orders/:id            - Update order
+// PUT    /api/laundry/orders/:id/status     - Update order status
+// DELETE /api/laundry/orders/:id            - Delete order
+// GET    /api/laundry/items                 - List all clothing categories
+// POST   /api/laundry/items                 - Create clothing category
+// PUT    /api/laundry/items/:id             - Update clothing category
+// DELETE /api/laundry/items/:id             - Delete clothing category
+// GET    /api/laundry/stats                 - Get laundry statistics
 
 export interface LaundryStats {
   pendingOrders: number;
@@ -68,7 +72,47 @@ export async function getLaundryOrderById(id: string): Promise<ApiResponse<Laund
  * }
  */
 export async function createLaundryOrder(data: CreateLaundryOrderRequest): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPost<LaundryOrder>('/laundry/orders', data);
+  return await apiPost<LaundryOrder>('/v3/laundry/orders', data);
+}
+
+/**
+ * POST /api/laundry/orders/guest
+ * Create laundry order for hotel guest (charge to room)
+ * 
+ * Request payload:
+ * {
+ *   bookingReference: string,       // Room booking reference number
+ *   estimatedAmount: number,        // Estimated total amount
+ *   items: [
+ *     { laundryItemId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: { success: boolean, data: LaundryOrder, message: string }
+ */
+export async function createLaundryGuestOrder(data: CreateLaundryGuestOrderRequest): Promise<ApiResponse<LaundryOrder>> {
+  return await apiPost<LaundryOrder>('/v3/laundry/orders/guest', data);
+}
+
+/**
+ * POST /api/laundry/orders/visitor
+ * Create laundry order for walk-in visitor
+ * 
+ * Request payload:
+ * {
+ *   fullName: string,
+ *   phone: string,
+ *   email: string,
+ *   address: string,
+ *   items: [
+ *     { laundryItemId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: { success: boolean, data: LaundryOrder, message: string }
+ */
+export async function createLaundryVisitorOrder(data: CreateLaundryVisitorOrderRequest): Promise<ApiResponse<LaundryOrder>> {
+  return await apiPost<LaundryOrder>('/v3/laundry/orders/visitor', data);
 }
 
 /**
@@ -76,7 +120,7 @@ export async function createLaundryOrder(data: CreateLaundryOrderRequest): Promi
  * Update laundry order
  */
 export async function updateLaundryOrder(id: string, data: Partial<CreateLaundryOrderRequest>): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPut<LaundryOrder>(`/laundry/orders/${id}`, data);
+  return await apiPut<LaundryOrder>(`/v3/laundry/orders/${id}`, data);
 }
 
 /**
@@ -86,7 +130,7 @@ export async function updateLaundryOrder(id: string, data: Partial<CreateLaundry
  * Request: { status: 'received' | 'processing' | 'ready' | 'delivered' }
  */
 export async function updateLaundryOrderStatus(id: string, status: LaundryOrder['status']): Promise<ApiResponse<LaundryOrder>> {
-  return await apiPut<LaundryOrder>(`/laundry/orders/${id}/status`, { status });
+  return await apiPut<LaundryOrder>(`/v3/laundry/orders/${id}/status`, { status });
 }
 
 /**
@@ -94,7 +138,7 @@ export async function updateLaundryOrderStatus(id: string, status: LaundryOrder[
  * Delete laundry order
  */
 export async function deleteLaundryOrder(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/laundry/orders/${id}`);
+  return await apiDelete<null>(`/v3/laundry/orders/${id}`);
 }
 
 // =====================================================
@@ -106,7 +150,7 @@ export async function deleteLaundryOrder(id: string): Promise<ApiResponse<null>>
  * Get all clothing categories/items
  */
 export async function getLaundryItems(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<LaundryItem>>> {
-  return await apiGet<PaginatedResponse<LaundryItem>>('/laundry/items', params);
+  return await apiGet<PaginatedResponse<LaundryItem>>('/v3/laundry/items', params);
 }
 
 /**
@@ -117,10 +161,12 @@ export async function getLaundryItems(params?: PaginationParams): Promise<ApiRes
  * {
  *   name: string,           // Category name (e.g., "Shirts", "Pants")
  *   price: number           // Price per item
+ *   description: string     // Description of the category
  * }
  */
 export async function createLaundryItem(data: Omit<LaundryItem, 'id' | 'hotelId' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<LaundryItem>> {
-  return await apiPost<LaundryItem>('/laundry/items', data);
+  //console.log(data);
+  return await apiPost<LaundryItem>('/v3/laundry/items', data);
 }
 
 /**
@@ -128,7 +174,7 @@ export async function createLaundryItem(data: Omit<LaundryItem, 'id' | 'hotelId'
  * Update clothing category
  */
 export async function updateLaundryItem(id: string, data: Partial<LaundryItem>): Promise<ApiResponse<LaundryItem>> {
-  return await apiPut<LaundryItem>(`/laundry/items/${id}`, data);
+  return await apiPut<LaundryItem>(`/v3/laundry/items/${id}`, data);
 }
 
 /**
@@ -136,7 +182,7 @@ export async function updateLaundryItem(id: string, data: Partial<LaundryItem>):
  * Delete clothing category
  */
 export async function deleteLaundryItem(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/laundry/items/${id}`);
+  return await apiDelete<null>(`/v3/laundry/items/${id}`);
 }
 
 // =====================================================
@@ -156,6 +202,8 @@ export const laundryService = {
   getLaundryOrders,
   getLaundryOrderById,
   createLaundryOrder,
+  createLaundryGuestOrder,
+  createLaundryVisitorOrder,
   updateLaundryOrder,
   updateLaundryOrderStatus,
   deleteLaundryOrder,

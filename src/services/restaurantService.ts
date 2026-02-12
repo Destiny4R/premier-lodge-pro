@@ -1,11 +1,12 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
+import {
+  ApiResponse,
   MenuItem,
   RestaurantOrder,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse,
-  CreateRestaurantOrderRequest
+  CreateRestaurantOrderRequest,
+  CheckoutResponse,
 } from '@/types/api';
 
 // =====================================================
@@ -116,10 +117,17 @@ export async function deleteMenuItem(id: string): Promise<ApiResponse<null>> {
  * GET /api/restaurant/orders
  * Get all orders with pagination
  * 
+ * Query params:
+ * - page: number
+ * - pageSize: number
+ * - search: string
+ * - status: string (optional)
+ * - dateFilter: string (optional) - e.g. 'today' to filter today's orders
+ *
  * Response: { success: boolean, data: PaginatedResponse<RestaurantOrder>, message: string }
  */
-export async function getRestaurantOrders(params?: PaginationParams & { status?: string }): Promise<ApiResponse<PaginatedResponse<RestaurantOrder>>> {
-  return await apiGet<PaginatedResponse<RestaurantOrder>>('/restaurant/orders', params);
+export async function getRestaurantOrders(params?: PaginationParams & { status?: string; paymentMethod?: string; dateFilter?: string }): Promise<ApiResponse<PaginatedResponse<RestaurantOrder>>> {
+  return await apiGet<PaginatedResponse<RestaurantOrder>>('/v3/restaurant/orders', params);
 }
 
 /**
@@ -127,7 +135,7 @@ export async function getRestaurantOrders(params?: PaginationParams & { status?:
  * Get single order
  */
 export async function getRestaurantOrderById(id: string): Promise<ApiResponse<RestaurantOrder>> {
-  return await apiGet<RestaurantOrder>(`/restaurant/orders/${id}`);
+  return await apiGet<RestaurantOrder>(`/v3/restaurant/orders/${id}`);
 }
 
 /**
@@ -146,7 +154,7 @@ export async function getRestaurantOrderById(id: string): Promise<ApiResponse<Re
  * }
  */
 export async function createRestaurantOrder(data: CreateRestaurantOrderRequest): Promise<ApiResponse<RestaurantOrder>> {
-  return await apiPost<RestaurantOrder>('/restaurant/orders', data);
+  return await apiPost<RestaurantOrder>('/v3/restaurant/orders', data);
 }
 
 /**
@@ -154,7 +162,7 @@ export async function createRestaurantOrder(data: CreateRestaurantOrderRequest):
  * Update order
  */
 export async function updateRestaurantOrder(id: string, data: Partial<CreateRestaurantOrderRequest>): Promise<ApiResponse<RestaurantOrder>> {
-  return await apiPut<RestaurantOrder>(`/restaurant/orders/${id}`, data);
+  return await apiPut<RestaurantOrder>(`/v3/restaurant/orders/${id}`, data);
 }
 
 /**
@@ -164,7 +172,7 @@ export async function updateRestaurantOrder(id: string, data: Partial<CreateRest
  * Request: { status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' }
  */
 export async function updateRestaurantOrderStatus(id: string, status: RestaurantOrder['status']): Promise<ApiResponse<RestaurantOrder>> {
-  return await apiPut<RestaurantOrder>(`/restaurant/orders/${id}/status`, { status });
+  return await apiPut<RestaurantOrder>(`/v3/restaurant/orders/${id}/status`, { status });
 }
 
 /**
@@ -172,7 +180,7 @@ export async function updateRestaurantOrderStatus(id: string, status: Restaurant
  * Delete/cancel order
  */
 export async function deleteRestaurantOrder(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/restaurant/orders/${id}`);
+  return await apiDelete<null>(`/v3/restaurant/orders/${id}`);
 }
 
 // =====================================================
@@ -184,7 +192,85 @@ export async function deleteRestaurantOrder(id: string): Promise<ApiResponse<nul
  * Get restaurant statistics
  */
 export async function getRestaurantStats(): Promise<ApiResponse<RestaurantStats>> {
-  return await apiGet<RestaurantStats>('/restaurant/stats');
+  return await apiGet<RestaurantStats>('/v3/restaurant/stats');
+}
+
+// =====================================================
+// Restaurant Checkout
+// =====================================================
+
+export interface CashCheckoutRequest {
+  items: { stockId: string; quantity: number }[];
+}
+
+export interface RoomChargeCheckoutRequest {
+  items: { stockId: string; quantity: number }[];
+  bookingReference?: string | null;
+}
+
+
+/**
+ * POST /api/restaurant/orders/checkout/cash
+ * Checkout with cash payment
+ * 
+ * Request payload:
+ * {
+ *   items: [
+ *     { stockId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     orderId: string,
+ *     orderNumber: string,
+ *     totalAmount: number,
+ *     tax: number,
+ *     subtotal: number,
+ *     paymentMethod: "cash",
+ *     items: [{ name: string, quantity: number, price: number, subtotal: number }],
+ *     date: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function checkoutCash(data: CashCheckoutRequest): Promise<ApiResponse<CheckoutResponse>> {
+  return await apiPost<CheckoutResponse>('/v3/restaurant/orders/checkout/cash', data);
+}
+
+/**
+ * POST /api/restaurant/orders/checkout/room-charge
+ * Checkout with room charge payment
+ * 
+ * Request payload:
+ * {
+ *   items: [
+ *     { stockId: string, quantity: number }
+ *   ],
+ *   bookingReference: string   // Valid room booking reference number
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: {
+ *     orderId: string,
+ *     orderNumber: string,
+ *     totalAmount: number,
+ *     tax: number,
+ *     subtotal: number,
+ *     paymentMethod: "room-charge",
+ *     bookingReference: string,
+ *     items: [{ name: string, quantity: number, price: number, subtotal: number }],
+ *     date: string
+ *   },
+ *   message: string,
+ *   status: number
+ * }
+ */
+export async function checkoutRoomCharge(data: RoomChargeCheckoutRequest): Promise<ApiResponse<CheckoutResponse>> {
+  return await apiPost<CheckoutResponse>('/v3/restaurant/orders/checkout/room-charge', data);
 }
 
 // Export as named object
@@ -202,4 +288,6 @@ export const restaurantService = {
   updateRestaurantOrderStatus,
   deleteRestaurantOrder,
   getRestaurantStats,
+  checkoutCash,
+  checkoutRoomCharge,
 };

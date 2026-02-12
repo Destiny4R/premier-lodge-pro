@@ -70,7 +70,7 @@ export interface RoomCategory {
   updatedAt: string;
   amenity: string | null;
 }
-export interface RoomImages{
+export interface RoomImages {
   id: string;
   path: string;
 }
@@ -88,16 +88,16 @@ export interface RoomCategoryUpdate {
 
 export interface Room {
   id?: string;
-  hotelId?: string| null;
-  categoryId: number| string;
+  hotelId?: string | null;
+  categoryId: number | string;
   doorNumber: string;
   floor: number;
   price: string | number;
   status: 'Available' | 'Occupied' | 'Reserved' | 'maintenance';
   image?: string | null;
   isPromoted: boolean | true;
-  createdAt?: string| null;
-  updatedAt?: string| null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   // Joined fields for display
   categoryName?: string;
   hotelName?: string;
@@ -131,7 +131,7 @@ export interface Guest {
   country?: string;
   countryLabel?: string;
   emailaddress?: string; // ← actual backend field
-  phoneno?: string;  
+  phoneno?: string;
   Email?: string;
   phone?: string;
   Phone?: string;
@@ -219,6 +219,7 @@ export interface RestaurantOrder {
   hotelId: string;
   guestId?: string;
   customerName: string;
+  orderNumber: string;
   roomId?: string;
   items: { menuItemId: string; name: string; quantity: number; price: number }[];
   status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
@@ -228,10 +229,26 @@ export interface RestaurantOrder {
   updatedAt: string;
 }
 
+/**
+ * Response payload returned by the checkout endpoints
+ */
+export interface CheckoutResponse {
+  orderId: string;
+  orderNumber: string;
+  totalAmount: number;
+  tax: number;
+  subtotal: number;
+  paymentMethod: string;
+  bookingReference?: string;
+  items: { name: string; quantity: number; price: number; subtotal: number }[];
+  date: string;
+}
+
 export interface LaundryItem {
   id: string;
   hotelId: string;
   name: string;
+  description?: string;
   price: number;
   createdAt: string;
   updatedAt: string;
@@ -241,8 +258,13 @@ export interface LaundryOrder {
   id: string;
   hotelId: string;
   guestId?: string;
-  customerName: string;
+  fullName: string;
+  customerName: string; // Legacy field for backward compatibility
+  phone: string;
+  email: string;
+  address: string;
   roomId?: string;
+  bookingReference?: string;
   items: { laundryItemId: string; name: string; quantity: number; price: number }[];
   status: 'received' | 'processing' | 'ready' | 'delivered';
   paymentMethod: 'cash' | 'card' | 'room-charge';
@@ -587,15 +609,68 @@ export interface CreateRestaurantOrderRequest {
 }
 
 /**
- * POST /api/laundry/orders
- * Request payload for creating laundry order
+ * POST /api/laundry/orders/guest
+ * Create laundry order for a hotel guest (charge to room)
+ * 
+ * Request: {
+ *   bookingReference: string,       // Room booking reference number
+ *   estimatedAmount: number,        // Estimated total amount
+ *   items: [                        // List of clothing items
+ *     { laundryItemId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: LaundryOrder,
+ *   message: string,
+ *   status: number
+ * }
  */
+export interface CreateLaundryGuestOrderRequest {
+  bookingReference: string;
+  estimatedAmount: number;
+  items: { laundryItemId: string; quantity: number }[];
+}
+
+/**
+ * POST /api/laundry/orders/visitor
+ * Create laundry order for a walk-in visitor
+ * 
+ * Request: {
+ *   fullName: string,           // Customer full name
+ *   phone: string,              // Customer phone number
+ *   email: string,              // Customer email address
+ *   address: string,            // Customer address
+ *   items: [                    // List of clothing items
+ *     { laundryItemId: string, quantity: number }
+ *   ]
+ * }
+ * 
+ * Response: {
+ *   success: boolean,
+ *   data: LaundryOrder,
+ *   message: string,
+ *   status: number
+ * }
+ */
+export interface CreateLaundryVisitorOrderRequest {
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
+  items: { laundryItemId: string; quantity: number }[];
+}
+
+// Keep backward compatibility
 export interface CreateLaundryOrderRequest {
-  guestId?: string;
-  customerName: string;
-  roomId?: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  address: string;
   items: { laundryItemId: string; quantity: number }[];
   paymentMethod: 'cash' | 'card' | 'room-charge';
+  bookingReference?: string;
 }
 
 /**

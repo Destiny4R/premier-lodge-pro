@@ -13,10 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { 
-  getDepartments, 
-  createDepartment, 
-  updateDepartment, 
+import {
+  getDepartments,
+  createDepartment,
+  updateDepartment,
   deleteDepartment,
   getDepartmentStats,
   Department,
@@ -33,7 +33,7 @@ export default function DepartmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
@@ -59,7 +59,7 @@ export default function DepartmentsPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const [deptRes, hotelsRes, statsRes] = await Promise.all([
         getDepartments({ page: 1, limit: 100, search: searchQuery }),
@@ -119,7 +119,7 @@ export default function DepartmentsPage() {
   // Handle form submit
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    
+
     try {
       const deptData: CreateDepartmentRequest = {
         name: departmentForm.name,
@@ -150,10 +150,10 @@ export default function DepartmentsPage() {
   // Handle delete
   const handleDelete = async () => {
     setIsSubmitting(true);
-    
+
     try {
       const response = await deleteDepartment(deleteDialog.id);
-      
+
       if (response.success) {
         toast.success("Department deleted successfully");
         setDeleteDialog({ open: false, id: "" });
@@ -203,9 +203,9 @@ export default function DepartmentsPage() {
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search departments..." 
-                className="pl-10 bg-secondary border-border" 
+              <Input
+                placeholder="Search departments..."
+                className="pl-10 bg-secondary border-border"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -374,7 +374,7 @@ export default function DepartmentsPage() {
                               <DropdownMenuItem onClick={() => openModal(department)}>
                                 <Edit className="w-4 h-4 mr-2" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="text-destructive"
                                 onClick={() => setDeleteDialog({ open: true, id: department.id })}
                               >
@@ -419,7 +419,7 @@ export default function DepartmentsPage() {
               rows={3}
             />
           </FormField>
-          <div className="grid grid-cols-2 gap-4">
+          {/* <div className="grid grid-cols-2 gap-4">
             <FormField label="Hotel" required>
               <Select 
                 value={departmentForm.hotelId} 
@@ -449,7 +449,7 @@ export default function DepartmentsPage() {
                 </SelectContent>
               </Select>
             </FormField>
-          </div>
+          </div> */}
           <FormField label="Head of Department">
             <Input
               value={departmentForm.headOfDepartment}

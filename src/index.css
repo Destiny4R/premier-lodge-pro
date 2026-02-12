@@ -200,7 +200,15 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
 
 /* If Credo uses an iframe, this ensures it isn't blocked by Radix focus trap */
 [data-radix-focus-guard] {
-    z-index: 8888 !important;
+    z-index: 1 !important;
+}
+
+/* Ensure Select dropdowns render above Dialog overlays */
+[data-radix-select-viewport] {
+    z-index: 9999;
+}
+[role="listbox"][data-radix-select-content] {
+    z-index: 9999 !important;
 }
 
 /* Ensure the input is relative so the invisible picker can fill it */

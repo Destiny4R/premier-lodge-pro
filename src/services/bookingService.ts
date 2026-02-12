@@ -86,51 +86,7 @@ export async function getBookings(params?: PaginationParams & {
         roomNumber: '102', 
         roomCategory: 'Deluxe Suite',
         hotelName: 'LuxeStay Grand Palace' 
-      },
-      { 
-        id: 'b2', 
-        bookingReference: 'BK-2024-001235',
-        guestId: 'g2', 
-        roomId: 'r4', 
-        hotelId: 'h1', 
-        checkIn: '2024-01-20', 
-        checkOut: '2024-01-25', 
-        bookingtype: 'reservation',
-        status: 'confirmed', 
-        totalAmount: 1400, 
-        paidAmount: 700, 
-        createdAt: '2024-01-12', 
-        updatedAt: '2024-01-12', 
-        guestName: 'Sarah Johnson', 
-        guestEmail: 'sarah@email.com', 
-        guestPhone: '+1 555-0102',
-        guestAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100', 
-        roomNumber: '202', 
-        roomCategory: 'Premium Room',
-        hotelName: 'LuxeStay Grand Palace' 
-      },
-      { 
-        id: 'b3', 
-        bookingReference: 'BK-2024-001236',
-        guestId: 'g3', 
-        roomId: 'r5', 
-        hotelId: 'h1', 
-        checkIn: '2024-01-22', 
-        checkOut: '2024-01-24', 
-        bookingtype: 'reservation',
-        status: 'confirmed', 
-        totalAmount: 900, 
-        paidAmount: 900, 
-        createdAt: '2024-01-14', 
-        updatedAt: '2024-01-14', 
-        guestName: 'Michael Chen', 
-        guestEmail: 'michael@email.com', 
-        guestPhone: '+1 555-0103',
-        guestAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', 
-        roomNumber: '301', 
-        roomCategory: 'Executive Suite',
-        hotelName: 'LuxeStay Grand Palace' 
-      },
+      }
     ];
     
     return {

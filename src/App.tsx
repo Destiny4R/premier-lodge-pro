@@ -20,6 +20,11 @@ import GuestDetailsPage from "./pages/dashboard/GuestDetailsPage";
 import BookingsPage from "./pages/dashboard/BookingsPage";
 import RestaurantPage from "./pages/dashboard/RestaurantPage";
 import RestaurantOrderPage from "./pages/dashboard/RestaurantOrderPage";
+import FoodCategoriesPage from "./pages/dashboard/FoodCategoriesPage";
+import StockManagementPage from "./pages/dashboard/StockManagementPage";
+import TakeOrderPage from "./pages/dashboard/TakeOrderPage";
+import RestaurantCheckoutPage from "./pages/dashboard/RestaurantCheckoutPage";
+import RestaurantPurchasesPage from "./pages/dashboard/RestaurantPurchasesPage";
 import LaundryPage from "./pages/dashboard/LaundryPage";
 import EventsPage from "./pages/dashboard/EventsPage";
 import GymPage from "./pages/dashboard/GymPage";
@@ -53,6 +58,8 @@ const App = () => (
               <Route path="/contact" element={<PublicContactPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              {/* Explicit absolute route that renders layout + page (robust direct access) */}
+
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<DashboardHome />} />
                 <Route path="rooms" element={<RoomsPage />} />
@@ -62,7 +69,12 @@ const App = () => (
                 <Route path="bookings/:bookingId" element={<BookingDetailsPage />} />
                 <Route path="checkout/:bookingId" element={<CheckoutReportPage />} />
                 <Route path="restaurant" element={<RestaurantPage />} />
-                <Route path="restaurant/orders" element={<RestaurantOrderPage />} />
+                <Route path="restaurant/categories" element={<FoodCategoriesPage />} />
+                <Route path="restaurant/stock" element={<StockManagementPage />} />
+                <Route path="restaurant/orders" element={<TakeOrderPage />} />
+                <Route path="restaurant/checkout" element={<RestaurantCheckoutPage />} />
+                <Route path="restaurant/purchases" element={<RestaurantPurchasesPage />} />
+                <Route path="restaurant/old-orders" element={<RestaurantOrderPage />} />
                 <Route path="laundry" element={<LaundryPage />} />
                 <Route path="events" element={<EventsPage />} />
                 <Route path="gym" element={<GymPage />} />
