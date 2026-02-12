@@ -81,7 +81,7 @@ export async function getMenuItemById(id: string): Promise<ApiResponse<MenuItem>
  * }
  */
 export async function createMenuItem(data: CreateMenuItemRequest): Promise<ApiResponse<MenuItem>> {
-  return await apiPost<MenuItem>('/restaurant/menu', data);
+  return await apiPost<MenuItem>('v3/restaurant/menu', data);
 }
 
 /**
