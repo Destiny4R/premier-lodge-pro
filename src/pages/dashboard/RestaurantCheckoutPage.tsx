@@ -117,7 +117,7 @@ export default function RestaurantCheckoutPage() {
           subtotal: data.subtotal,
           tax: data.tax,
           total: data.totalAmount,
-          paymentMethod: data.paymentMethod === "room-charge"
+          paymentMethod: data.paymentMethod === "roomcharge"
             ? `Room Charge (${data.bookingReference})` : "Cash",
           bookingReference: data.bookingReference,
           date: data.date,

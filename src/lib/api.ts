@@ -24,22 +24,22 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem(TOKEN_KEY);
-    
+
     // Skip auth for public endpoints
     const publicEndpoints = ['v2/auths/login', '/auth/reset-password', '/auth/forgot-password'];
-    const isPublicEndpoint = publicEndpoints.some(endpoint => 
+    const isPublicEndpoint = publicEndpoints.some(endpoint =>
       config.url?.includes(endpoint)
     );
-    
+
     if (token && !isPublicEndpoint) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
+
     // Set Content-Type for non-FormData requests
     if (config.data && !(config.data instanceof FormData)) {
       config.headers['Content-Type'] = 'application/json';
     }
-    
+
     return config;
   },
   (error) => {
@@ -57,14 +57,14 @@ api.interceptors.response.use(
   (error: AxiosError<ApiResponse<unknown>>) => {
     if (error.response) {
       const { status, data } = error.response;
-      
+
       // Handle 401 Unauthorized - redirect to login
       if (status === 401) {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         window.location.href = '/login';
       }
-      
+
       // Return standardized error response (not throwing, returning for handling)
       const errorResponse: ApiResponse<null> = {
         success: false,
@@ -72,20 +72,20 @@ api.interceptors.response.use(
         status: status,
         data: null,
       };
-      
+
       return Promise.reject(errorResponse);
     }
-    
+
     // Network error or timeout
     const networkError: ApiResponse<null> = {
       success: false,
-      message: error.code === 'ECONNABORTED' 
-        ? 'Request timed out. Please try again.' 
+      message: error.code === 'ECONNABORTED'
+        ? 'Request timed out. Please try again.'
         : 'Network error. Please check your connection.',
       status: 0,
       data: null,
     };
-    
+
     return Promise.reject(networkError);
   }
 );

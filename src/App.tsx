@@ -25,10 +25,18 @@ import StockManagementPage from "./pages/dashboard/StockManagementPage";
 import TakeOrderPage from "./pages/dashboard/TakeOrderPage";
 import RestaurantCheckoutPage from "./pages/dashboard/RestaurantCheckoutPage";
 import RestaurantPurchasesPage from "./pages/dashboard/RestaurantPurchasesPage";
-import LaundryPage from "./pages/dashboard/LaundryPage";
-import EventsPage from "./pages/dashboard/EventsPage";
-import GymPage from "./pages/dashboard/GymPage";
-import PoolPage from "./pages/dashboard/PoolPage";
+import LaundryOrdersPage from "./pages/dashboard/laundry/LaundryOrdersPage";
+import LaundryClothingTypesPage from "./pages/dashboard/laundry/LaundryClothingTypesPage";
+import LaundryOrderDetailPage from "./pages/dashboard/laundry/LaundryOrderDetailPage";
+import LaundryServicesPage from "./pages/dashboard/laundry/LaundryServicesPage";
+import LaundryPricingPage from "./pages/dashboard/laundry/LaundryPricingPage";
+import EventHallsPage from "./pages/dashboard/EventHallsPage";
+import EventsListPage from "./pages/dashboard/EventsListPage";
+import GymMembersPage from "./pages/dashboard/gym/GymMembersPage";
+import GymMemberDetailPage from "./pages/dashboard/gym/GymMemberDetailPage";
+import GymPlansPage from "./pages/dashboard/gym/GymPlansPage";
+import PoolAccessPage from "./pages/dashboard/pool/PoolAccessPage";
+import PoolPlansPage from "./pages/dashboard/pool/PoolPlansPage";
 import ReportsPage from "./pages/dashboard/ReportsPage";
 import CheckoutReportPage from "./pages/dashboard/CheckoutReportPage";
 import BookingDetailsPage from "./pages/dashboard/BookingDetailsPage";
@@ -75,10 +83,30 @@ const App = () => (
                 <Route path="restaurant/checkout" element={<RestaurantCheckoutPage />} />
                 <Route path="restaurant/purchases" element={<RestaurantPurchasesPage />} />
                 <Route path="restaurant/old-orders" element={<RestaurantOrderPage />} />
-                <Route path="laundry" element={<LaundryPage />} />
-                <Route path="events" element={<EventsPage />} />
-                <Route path="gym" element={<GymPage />} />
-                <Route path="pool" element={<PoolPage />} />
+                <Route path="restaurant/orders" element={<TakeOrderPage />} />
+                <Route path="restaurant/checkout" element={<RestaurantCheckoutPage />} />
+                <Route path="restaurant/purchases" element={<RestaurantPurchasesPage />} />
+                <Route path="restaurant/old-orders" element={<RestaurantOrderPage />} />
+
+                {/* Laundry Module */}
+                <Route path="laundry" element={<LaundryOrdersPage />} />
+                <Route path="laundry/orders" element={<LaundryOrdersPage />} />
+                <Route path="laundry/orders/:orderId" element={<LaundryOrderDetailPage />} />
+                <Route path="laundry/clothing-types" element={<LaundryClothingTypesPage />} />
+                <Route path="laundry/services" element={<LaundryServicesPage />} />
+                <Route path="laundry/pricing" element={<LaundryPricingPage />} />
+
+                {/* Event Module */}
+                <Route path="events/halls" element={<EventHallsPage />} />
+                <Route path="events/list" element={<EventsListPage />} />
+                {/* Gym Module */}
+                <Route path="gym/members" element={<GymMembersPage />} />
+                <Route path="gym/members/:id" element={<GymMemberDetailPage />} />
+                <Route path="gym/plans" element={<GymPlansPage />} />
+
+                {/* Pool Module */}
+                <Route path="pool/access" element={<PoolAccessPage />} />
+                <Route path="pool/plans" element={<PoolPlansPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="reports/:reportType" element={<ReportsPage />} />
                 <Route path="settings" element={<SettingsPage />} />

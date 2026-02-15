@@ -244,34 +244,92 @@ export interface CheckoutResponse {
   date: string;
 }
 
-export interface LaundryItem {
+export interface LaundryCategory {
   id: string;
-  hotelId: string;
   name: string;
   description?: string;
-  price: number;
+  hotelId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LaundryServiceType {
+  id: string;
+  name: string;
+  description?: string;
+  hotelId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LaundryServicePrice {
+  id: string;
+  categoryId: string;
+  serviceId: string;
+  price: number;
+  hotelId: string;
+  createdAt: string;
+  updatedAt: string;
+  // Joined fields
+  categoryName?: string;
+  serviceName?: string;
+}
+
+// Service applied to a specific clothing item in an order
+export interface LaundryOrderItemService {
+  id: string;
+  orderItemId: string;
+  serviceTypeId: string;
+  unitPrice: number;       // Snapshot from LaundryServicePrice at order time
+  // Joined
+  serviceName?: string;
+}
+
+// A clothing item in an order
+export interface LaundryOrderItem {
+  id: string;
+  orderId: string;
+  clothingTypeId: string;  // References LaundryCategory (ClothingType)
+  quantity: number;
+  // Joined
+  clothingTypeName?: string;
+  services: LaundryOrderItemService[];  // Services for this clothing item
+}
+
+// Payment record on a laundry order
+export interface LaundryPayment {
+  id: string;
+  orderId: string;
+  amount: number;
+  method: 'cash' | 'card' | 'transfer' | 'room-charge';
+  reference?: string;
+  bookingReference?: string;  // For room-charge
+  createdAt: string;
 }
 
 export interface LaundryOrder {
   id: string;
   hotelId: string;
+  orderNumber: string;
+  customerId?: string;
   guestId?: string;
   fullName: string;
-  customerName: string; // Legacy field for backward compatibility
   phone: string;
   email: string;
   address: string;
   roomId?: string;
   bookingReference?: string;
-  items: { laundryItemId: string; name: string; quantity: number; price: number }[];
+  items: LaundryOrderItem[];
+  payments: LaundryPayment[];
   status: 'received' | 'processing' | 'ready' | 'delivered';
-  paymentMethod: 'cash' | 'card' | 'room-charge';
   totalAmount: number;
+  paidAmount: number;
+  balance: number;
   createdAt: string;
   updatedAt: string;
 }
+
+
 
 export interface EventHall {
   id: string;
@@ -280,14 +338,15 @@ export interface EventHall {
   capacity: number;
   hourlyRate: number;
   dailyRate: number;
-  image: string;
   amenities: string[];
+  isAvailable?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Event {
   id: string;
+  eventNumber?: string;
   hotelId: string;
   hallId: string;
   clientName: string;
@@ -312,11 +371,16 @@ export interface GymMember {
   name: string;
   email: string;
   phone: string;
-  membershipType: 'basic' | 'premium' | 'vip';
+  address: string;
+  emergencyContactName: string;
+  emergencyPhone: string;
+  emergencyAddress: string;
+  gymPlanId: string;
   startDate: string;
   endDate: string;
   status: 'active' | 'expired' | 'cancelled';
   isGuest: boolean;
+  bookingReference?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -608,68 +672,42 @@ export interface CreateRestaurantOrderRequest {
   paymentMethod: 'cash' | 'card' | 'room-charge';
 }
 
-/**
- * POST /api/laundry/orders/guest
- * Create laundry order for a hotel guest (charge to room)
- * 
- * Request: {
- *   bookingReference: string,       // Room booking reference number
- *   estimatedAmount: number,        // Estimated total amount
- *   items: [                        // List of clothing items
- *     { laundryItemId: string, quantity: number }
- *   ]
- * }
- * 
- * Response: {
- *   success: boolean,
- *   data: LaundryOrder,
- *   message: string,
- *   status: number
- * }
- */
-export interface CreateLaundryGuestOrderRequest {
-  bookingReference: string;
-  estimatedAmount: number;
-  items: { laundryItemId: string; quantity: number }[];
+// Order item: clothing type + quantity + which services to apply
+export interface CreateLaundryOrderItemRequest {
+  clothingTypeId: string;
+  quantity: number;
+  serviceTypeIds: string[];  // Which services to apply to this clothing
 }
 
 /**
- * POST /api/laundry/orders/visitor
+ * POST /api/v3/laundry/orders/guest
+ * Create laundry order for a hotel guest (charge to room)
+ */
+export interface CreateLaundryGuestOrderRequest {
+  bookingReference: string;
+  items: CreateLaundryOrderItemRequest[];
+}
+
+/**
+ * POST /api/v3/laundry/orders/visitor
  * Create laundry order for a walk-in visitor
- * 
- * Request: {
- *   fullName: string,           // Customer full name
- *   phone: string,              // Customer phone number
- *   email: string,              // Customer email address
- *   address: string,            // Customer address
- *   items: [                    // List of clothing items
- *     { laundryItemId: string, quantity: number }
- *   ]
- * }
- * 
- * Response: {
- *   success: boolean,
- *   data: LaundryOrder,
- *   message: string,
- *   status: number
- * }
  */
 export interface CreateLaundryVisitorOrderRequest {
   fullName: string;
   phone: string;
   email: string;
   address: string;
-  items: { laundryItemId: string; quantity: number }[];
+  items: CreateLaundryOrderItemRequest[];
 }
 
-// Keep backward compatibility
-export interface CreateLaundryOrderRequest {
-  fullName: string;
-  phone: string;
-  email: string;
-  address: string;
-  items: { laundryItemId: string; quantity: number }[];
-  paymentMethod: 'cash' | 'card' | 'room-charge';
+/**
+ * POST /api/v3/laundry/orders/:id/payments
+ * Add a payment to a laundry order
+ */
+export interface CreateLaundryPaymentRequest {
+  amount: number;
+  method: 'cash' | 'card' | 'transfer' | 'room-charge';
+  reference?: string;
   bookingReference?: string;
 }
 
@@ -693,14 +731,25 @@ export interface CreateEventRequest {
  * Request payload for creating gym member
  */
 export interface CreateGymMemberRequest {
-  guestId?: string;
   name: string;
   email: string;
   phone: string;
-  membershipType: 'basic' | 'premium' | 'vip';
+  address: string;
+  emergencyContactName: string;
+  emergencyPhone: string;
+  emergencyAddress: string;
+  gymPlanId: string;
   startDate: string;
-  endDate: string;
-  isGuest: boolean;
+}
+
+/**
+ * POST /api/gym/members/guest
+ * Request payload for registering a hotel guest as gym member
+ */
+export interface CreateGymGuestMemberRequest {
+  bookingReference: string;
+  gymPlanId: string;
+  startDate: string;
 }
 
 /**

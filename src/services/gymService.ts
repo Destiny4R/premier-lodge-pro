@@ -1,10 +1,11 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
+import {
+  ApiResponse,
   GymMember,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse,
-  CreateGymMemberRequest
+  CreateGymMemberRequest,
+  CreateGymGuestMemberRequest
 } from '@/types/api';
 
 // =====================================================
@@ -30,7 +31,7 @@ export interface GymPlan {
   id: string;
   hotelId: string;
   name: string;
-  duration: string;
+  duration: number; // Duration in days
   price: number;
   features: string[];
   createdAt: string;
@@ -44,6 +45,24 @@ export interface GymStats {
   vipMembers: number;
 }
 
+export interface GymPayment {
+  id: string;
+  gymMemberId: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: 'cash' | 'card' | 'transfer';
+  status: 'completed' | 'pending' | 'failed';
+  reference: string;
+}
+
+/**
+ * GET /api/gym/members/:id/payments
+ * Get payment history for a gym member
+ */
+export async function getGymMemberPayments(id: string): Promise<ApiResponse<GymPayment[]>> {
+  return await apiGet<GymPayment[]>(`/v3/gym/members/${id}/payments`);
+}
+
 /**
  * GET /api/gym/members
  * Get all gym members with pagination
@@ -51,7 +70,7 @@ export interface GymStats {
  * Response: { success: boolean, data: PaginatedResponse<GymMember>, message: string }
  */
 export async function getGymMembers(params?: PaginationParams & { status?: string }): Promise<ApiResponse<PaginatedResponse<GymMember>>> {
-  return await apiGet<PaginatedResponse<GymMember>>('/gym/members', params);
+  return await apiGet<PaginatedResponse<GymMember>>('/v3/gym/members', params);
 }
 
 /**
@@ -59,26 +78,55 @@ export async function getGymMembers(params?: PaginationParams & { status?: strin
  * Get single gym member
  */
 export async function getGymMemberById(id: string): Promise<ApiResponse<GymMember>> {
-  return await apiGet<GymMember>(`/gym/members/${id}`);
+  return await apiGet<GymMember>(`/v3/gym/members/${id}`);
 }
 
 /**
  * POST /api/gym/members
- * Create new gym member
+ * Create new external gym member
  * 
  * Request payload:
  * {
- *   guestId?: string,       // Optional: Link to hotel guest
- *   name: string,           // Member name
- *   email: string,          // Member email
- *   phone: string,          // Member phone
+ *   name: string,
+ *   email: string,
+ *   phone: string,
+ *   address: string,
+ *   emergencyContactName: string,
+ *   emergencyPhone: string,
+ *   emergencyAddress: string,
  *   membershipType: 'basic' | 'premium' | 'vip',
- *   startDate: string,      // ISO date string
- *   endDate: string         // ISO date string
+ *   startDate: string
  * }
  */
 export async function createGymMember(data: CreateGymMemberRequest): Promise<ApiResponse<GymMember>> {
-  return await apiPost<GymMember>('/gym/members', data);
+  const gymMember: CreateGymMemberRequest = {
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    address: data.address,
+    emergencyContactName: data.emergencyContactName,
+    emergencyPhone: data.emergencyPhone,
+    emergencyAddress: data.emergencyAddress,
+    gymPlanId: data.gymPlanId,
+    startDate: data.startDate,
+  };
+  const gymMemberJson = JSON.stringify(gymMember);
+  return await apiPost<GymMember>('/v3/gym/members', gymMemberJson);
+}
+
+/**
+ * POST /api/gym/members/guest
+ * Register a hotel guest as gym member
+ * 
+ * Request payload:
+ * {
+ *   bookingReference: string,
+ *   membershipType: 'basic' | 'premium' | 'vip',
+ *   startDate: string
+ * }
+ */
+export async function createGymGuestMember(data: CreateGymGuestMemberRequest): Promise<ApiResponse<GymMember>> {
+  return await apiPost<GymMember>('/v3/gym/members/guest', data);
 }
 
 /**
@@ -86,7 +134,7 @@ export async function createGymMember(data: CreateGymMemberRequest): Promise<Api
  * Update gym member
  */
 export async function updateGymMember(id: string, data: Partial<CreateGymMemberRequest>): Promise<ApiResponse<GymMember>> {
-  return await apiPut<GymMember>(`/gym/members/${id}`, data);
+  return await apiPut<GymMember>(`/v3/gym/members/${id}`, data);
 }
 
 /**
@@ -96,15 +144,15 @@ export async function updateGymMember(id: string, data: Partial<CreateGymMemberR
  * Request: { endDate: string }
  */
 export async function renewGymMembership(id: string, endDate: string): Promise<ApiResponse<GymMember>> {
-  return await apiPut<GymMember>(`/gym/members/${id}/renew`, { endDate });
+  return await apiPut<GymMember>(`/v3/gym/members/${id}/renew`, { endDate });
 }
 
 /**
  * PUT /api/gym/members/:id/upgrade
  * Upgrade gym membership
  */
-export async function upgradeGymMembership(id: string, membershipType: GymMember['membershipType']): Promise<ApiResponse<GymMember>> {
-  return await apiPut<GymMember>(`/gym/members/${id}/upgrade`, { membershipType });
+export async function upgradeGymMembership(id: string, gymPlanId: string): Promise<ApiResponse<GymMember>> {
+  return await apiPut<GymMember>(`/v3/gym/members/${id}/upgrade`, { gymPlanId });
 }
 
 /**
@@ -112,7 +160,7 @@ export async function upgradeGymMembership(id: string, membershipType: GymMember
  * Cancel/delete gym membership
  */
 export async function deleteGymMember(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/gym/members/${id}`);
+  return await apiDelete<null>(`/v3/gym/members/${id}`);
 }
 
 // =====================================================
@@ -124,7 +172,7 @@ export async function deleteGymMember(id: string): Promise<ApiResponse<null>> {
  * Get all gym plans
  */
 export async function getGymPlans(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<GymPlan>>> {
-  return await apiGet<PaginatedResponse<GymPlan>>('/gym/plans', params);
+  return await apiGet<PaginatedResponse<GymPlan>>('/v3/gym/plans', params);
 }
 
 /**
@@ -140,7 +188,18 @@ export async function getGymPlans(params?: PaginationParams): Promise<ApiRespons
  * }
  */
 export async function createGymPlan(data: Omit<GymPlan, 'id' | 'hotelId' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<GymPlan>> {
-  return await apiPost<GymPlan>('/gym/plans', data);
+  const gymPlan: GymPlan = {
+    id: '',
+    hotelId: '',
+    name: data.name,
+    duration: data.duration,
+    price: data.price,
+    features: data.features,
+    createdAt: null,
+    updatedAt: null
+  };
+  //console.log();
+  return await apiPost<GymPlan>('/v3/gym/plans', JSON.stringify(gymPlan));
 }
 
 /**
@@ -148,7 +207,7 @@ export async function createGymPlan(data: Omit<GymPlan, 'id' | 'hotelId' | 'crea
  * Update gym plan
  */
 export async function updateGymPlan(id: string, data: Partial<GymPlan>): Promise<ApiResponse<GymPlan>> {
-  return await apiPut<GymPlan>(`/gym/plans/${id}`, data);
+  return await apiPut<GymPlan>(`/v3/gym/plans/${id}`, data);
 }
 
 /**
@@ -156,7 +215,7 @@ export async function updateGymPlan(id: string, data: Partial<GymPlan>): Promise
  * Delete gym plan
  */
 export async function deleteGymPlan(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/gym/plans/${id}`);
+  return await apiDelete<null>(`/v3/gym/plans/${id}`);
 }
 
 // =====================================================
@@ -168,7 +227,7 @@ export async function deleteGymPlan(id: string): Promise<ApiResponse<null>> {
  * Get gym statistics
  */
 export async function getGymStats(): Promise<ApiResponse<GymStats>> {
-  return await apiGet<GymStats>('/gym/stats');
+  return await apiGet<GymStats>('/v3/gym/stats');
 }
 
 // Export as named object
@@ -176,6 +235,7 @@ export const gymService = {
   getGymMembers,
   getGymMemberById,
   createGymMember,
+  createGymGuestMember,
   updateGymMember,
   renewGymMembership,
   upgradeGymMembership,

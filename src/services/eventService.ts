@@ -1,9 +1,9 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
-  Event, 
+import {
+  ApiResponse,
+  Event,
   EventHall,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse,
   CreateEventRequest
 } from '@/types/api';
@@ -32,7 +32,7 @@ import {
  * Response: { success: boolean, data: PaginatedResponse<Event>, message: string, status: number }
  */
 export async function getEvents(params?: PaginationParams & { status?: string }): Promise<ApiResponse<PaginatedResponse<Event>>> {
-  return await apiGet<PaginatedResponse<Event>>('/events', params);
+  return await apiGet<PaginatedResponse<Event>>('/v3/events/special', params);
 }
 
 /**
@@ -40,7 +40,7 @@ export async function getEvents(params?: PaginationParams & { status?: string })
  * Get single event by ID
  */
 export async function getEventById(id: string): Promise<ApiResponse<Event>> {
-  return await apiGet<Event>(`/events/${id}`);
+  return await apiGet<Event>(`/v3/events/special/${id}`);
 }
 
 /**
@@ -60,7 +60,17 @@ export async function getEventById(id: string): Promise<ApiResponse<Event>> {
  * }
  */
 export async function createEvent(data: CreateEventRequest): Promise<ApiResponse<Event>> {
-  return await apiPost<Event>('/events', data);
+  const payload = {
+    hallId: Number(data.hallId),
+    clientName: data.clientName,
+    clientEmail: data.clientEmail,
+    clientPhone: data.clientPhone,
+    eventType: data.eventType,
+    startDate: new Date(data.startDate).toISOString(),
+    endDate: new Date(data.endDate).toISOString(),
+    chargeType: data.chargeType
+  }
+  return await apiPost<Event>('/v3/events/service', payload);
 }
 
 /**
@@ -68,7 +78,18 @@ export async function createEvent(data: CreateEventRequest): Promise<ApiResponse
  * Update event
  */
 export async function updateEvent(id: string, data: Partial<CreateEventRequest>): Promise<ApiResponse<Event>> {
-  return await apiPut<Event>(`/events/${id}`, data);
+  const payload = {
+    hallId: Number(data.hallId),
+    clientName: data.clientName,
+    clientEmail: data.clientEmail,
+    clientPhone: data.clientPhone,
+    eventType: data.eventType,
+    startDate: new Date(data.startDate).toISOString(),
+    endDate: new Date(data.endDate).toISOString(),
+    chargeType: data.chargeType,
+    //id: Number(id)
+  }
+  return await apiPut<Event>(`/v3/events/service/${id}`, payload);
 }
 
 /**
@@ -76,7 +97,8 @@ export async function updateEvent(id: string, data: Partial<CreateEventRequest>)
  * Update event status
  */
 export async function updateEventStatus(id: string, status: Event['status']): Promise<ApiResponse<Event>> {
-  return await apiPut<Event>(`/events/${id}/status`, { status });
+  console.log(id, status);
+  return await apiPut<Event>(`/v3/events/service/${id}/status`, { status });
 }
 
 /**
@@ -84,7 +106,32 @@ export async function updateEventStatus(id: string, status: Event['status']): Pr
  * Delete/cancel event
  */
 export async function deleteEvent(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/events/${id}`);
+  return await apiDelete<null>(`/v3/events/service/${id}`);
+}
+
+// =====================================================
+// Availability Check
+// =====================================================
+
+
+
+/**
+ * POST /api/events/check-availability
+ * Check if a hall is available for the given date range
+ */
+export async function checkEventAvailability(data: {
+  hallId: string;
+  startDate: string;
+  endDate: string;
+  chargeType: 'hourly' | 'daily'
+}): Promise<ApiResponse<any>> {
+  const payload = {
+    hallId: Number(data.hallId),
+    startDate: new Date(data.startDate).toISOString(),
+    endDate: new Date(data.endDate).toISOString(),
+    chargeType: data.chargeType
+  };
+  return await apiPost<any>(`/v3/events/check-availability`, payload);
 }
 
 // =====================================================
@@ -98,7 +145,7 @@ export async function deleteEvent(id: string): Promise<ApiResponse<null>> {
  * Response: { success: boolean, data: PaginatedResponse<EventHall>, message: string }
  */
 export async function getEventHalls(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<EventHall>>> {
-  return await apiGet<PaginatedResponse<EventHall>>('/event-halls', params);
+  return await apiGet<PaginatedResponse<EventHall>>('/v3/events/event-halls', params);
 }
 
 /**
@@ -116,7 +163,7 @@ export async function getEventHalls(params?: PaginationParams): Promise<ApiRespo
  * }
  */
 export async function createEventHall(data: Omit<EventHall, 'id' | 'hotelId' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<EventHall>> {
-  return await apiPost<EventHall>('/event-halls', data);
+  return await apiPost<EventHall>('/v3/events/event-halls', data);
 }
 
 /**
@@ -124,7 +171,7 @@ export async function createEventHall(data: Omit<EventHall, 'id' | 'hotelId' | '
  * Update event hall
  */
 export async function updateEventHall(id: string, data: Partial<EventHall>): Promise<ApiResponse<EventHall>> {
-  return await apiPut<EventHall>(`/event-halls/${id}`, data);
+  return await apiPut<EventHall>(`/v3/events/event-halls/${id}`, data);
 }
 
 /**
@@ -132,7 +179,15 @@ export async function updateEventHall(id: string, data: Partial<EventHall>): Pro
  * Delete event hall
  */
 export async function deleteEventHall(id: string): Promise<ApiResponse<null>> {
-  return await apiDelete<null>(`/event-halls/${id}`);
+  return await apiDelete<null>(`/v3/events/event-halls/${id}`);
+}
+
+/**
+ * PUT /api/event-halls/:id/availability
+ * Toggle event hall availability 
+ */
+export async function toggleEventHallAvailability(id: string, isAvailable: boolean): Promise<ApiResponse<EventHall>> {
+  return await apiPut<EventHall>(`/v3/events/event-halls/${id}/availability`, { isAvailable });
 }
 
 // Export as named object for cleaner imports
@@ -143,8 +198,10 @@ export const eventService = {
   updateEvent,
   updateEventStatus,
   deleteEvent,
+  checkEventAvailability,
   getEventHalls,
   createEventHall,
   updateEventHall,
   deleteEventHall,
+  toggleEventHallAvailability,
 };

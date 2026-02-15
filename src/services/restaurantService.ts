@@ -200,11 +200,11 @@ export async function getRestaurantStats(): Promise<ApiResponse<RestaurantStats>
 // =====================================================
 
 export interface CashCheckoutRequest {
-  items: { stockId: string; quantity: number }[];
+  items: { stockId: number; quantity: number }[];
 }
 
 export interface RoomChargeCheckoutRequest {
-  items: { stockId: string; quantity: number }[];
+  items: { stockId: number; quantity: number }[];
   bookingReference?: string | null;
 }
 

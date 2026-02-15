@@ -1,8 +1,8 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
-import { 
-  ApiResponse, 
+import {
+  ApiResponse,
   PoolAccess,
-  PaginationParams, 
+  PaginationParams,
   PaginatedResponse
 } from '@/types/api';
 
@@ -28,7 +28,7 @@ export interface PoolPlan {
   id: string;
   hotelId: string;
   name: string;
-  duration: string;
+  duration: number; // Duration in days
   price: number;
   features: string[];
   createdAt: string;
@@ -42,11 +42,16 @@ export interface PoolMember {
   name: string;
   email: string;
   phone: string;
+  address: string;
+  emergencyContactName: string;
+  emergencyPhone: string;
+  emergencyAddress: string;
   planId: string;
   startDate: string;
   endDate: string;
   status: 'active' | 'expired';
   isGuest: boolean;
+  bookingReference?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,14 +64,21 @@ export interface PoolStats {
 }
 
 export interface CreatePoolAccessRequest {
-  guestId?: string;
   name: string;
   email: string;
   phone: string;
+  address: string;
+  emergencyContactName: string;
+  emergencyPhone: string;
+  emergencyAddress: string;
   planId: string;
   startDate: string;
-  endDate: string;
-  isGuest: boolean;
+}
+
+export interface CreatePoolGuestAccessRequest {
+  bookingReference: string;
+  planId: string;
+  startDate: string;
 }
 
 /**
@@ -89,22 +101,38 @@ export async function getPoolMemberById(id: string): Promise<ApiResponse<PoolMem
 
 /**
  * POST /api/pool/access
- * Grant pool access
+ * Grant pool access (external member)
  * 
  * Request payload:
  * {
- *   guestId?: string,       // Optional: Link to hotel guest
- *   name: string,           // Member name
- *   email: string,          // Member email
- *   phone: string,          // Member phone
- *   planId: string,         // Pool plan ID
- *   startDate: string,      // ISO date string
- *   endDate: string,        // ISO date string
- *   isGuest: boolean        // Is hotel guest
+ *   name: string,
+ *   email: string,
+ *   phone: string,
+ *   address: string,
+ *   emergencyContactName: string,
+ *   emergencyPhone: string,
+ *   emergencyAddress: string,
+ *   planId: string,
+ *   startDate: string
  * }
  */
 export async function createPoolAccess(data: CreatePoolAccessRequest): Promise<ApiResponse<PoolMember>> {
   return await apiPost<PoolMember>('/pool/access', data);
+}
+
+/**
+ * POST /api/pool/access/guest
+ * Grant pool access to a hotel guest
+ * 
+ * Request payload:
+ * {
+ *   bookingReference: string,
+ *   planId: string,
+ *   startDate: string
+ * }
+ */
+export async function createPoolGuestAccess(data: CreatePoolGuestAccessRequest): Promise<ApiResponse<PoolMember>> {
+  return await apiPost<PoolMember>('/pool/access/guest', data);
 }
 
 /**
@@ -192,6 +220,7 @@ export const poolService = {
   getPoolMembers,
   getPoolMemberById,
   createPoolAccess,
+  createPoolGuestAccess,
   updatePoolAccess,
   renewPoolAccess,
   deletePoolAccess,

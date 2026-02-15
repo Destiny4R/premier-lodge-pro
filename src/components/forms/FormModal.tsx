@@ -21,6 +21,7 @@ interface FormModalProps {
   cancelLabel?: string;
   isLoading?: boolean;
   size?: "sm" | "md" | "lg" | "xl";
+  footer?: ReactNode;
 }
 
 const sizeClasses = {
@@ -41,6 +42,7 @@ export function FormModal({
   cancelLabel = "Cancel",
   isLoading = false,
   size = "md",
+  footer,
 }: FormModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,22 +66,27 @@ export function FormModal({
 
           <div className="py-6">{children}</div>
 
-          <DialogFooter className="gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              {cancelLabel}
-            </Button>
-            <Button type="submit" variant="hero" disabled={isLoading}>
-              {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {submitLabel}
-            </Button>
-          </DialogFooter>
+          {footer ? (
+            <DialogFooter className="gap-3">{footer}</DialogFooter>
+          ) : (
+            <DialogFooter className="gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isLoading}
+              >
+                {cancelLabel}
+              </Button>
+              <Button type="submit" variant="hero" disabled={isLoading}>
+                {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {submitLabel}
+              </Button>
+            </DialogFooter>
+          )}
         </form>
       </DialogContent>
     </Dialog>
   );
 }
+

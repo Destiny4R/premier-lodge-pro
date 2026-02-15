@@ -158,63 +158,70 @@
     @apply bg-background text-foreground font-body antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-heading;
   }
 
   /* Hide the native date/time icons but keep the functionality */
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="date"]::-webkit-inner-spin-button {
-  background: transparent;
-  bottom: 0;
-  color: transparent;
-  cursor: pointer;
-  height: auto;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: auto;
-}
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="date"]::-webkit-inner-spin-button {
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+  }
 
-/* 1. Target the container Credo creates */
-#credo-checkout-iframe-container, 
-.credo-payment-widget-container {
+  /* 1. Target the container Credo creates */
+  #credo-checkout-iframe-container,
+  .credo-payment-widget-container {
     z-index: 999999 !important;
     display: flex !important;
-    pointer-events: all !important; /* Re-enable clicking */
-}
+    pointer-events: all !important;
+    /* Re-enable clicking */
+  }
 
-/* 2. Target the actual Iframe inside that container */
-#credo-checkout-iframe-container iframe,
-.credo-payment-widget-container iframe {
+  /* 2. Target the actual Iframe inside that container */
+  #credo-checkout-iframe-container iframe,
+  .credo-payment-widget-container iframe {
     z-index: 999999 !important;
     display: block !important;
     visibility: visible !important;
-}
+  }
 
-/* 3. Ensure the body doesn't block pointer events while Credo is up */
-body[style*="pointer-events: none"] #credo-checkout-iframe-container {
+  /* 3. Ensure the body doesn't block pointer events while Credo is up */
+  body[style*="pointer-events: none"] #credo-checkout-iframe-container {
     pointer-events: all !important;
-}
+  }
 
-/* If Credo uses an iframe, this ensures it isn't blocked by Radix focus trap */
-[data-radix-focus-guard] {
+  /* If Credo uses an iframe, this ensures it isn't blocked by Radix focus trap */
+  [data-radix-focus-guard] {
     z-index: 1 !important;
-}
+  }
 
-/* Ensure Select dropdowns render above Dialog overlays */
-[data-radix-select-viewport] {
+  /* Ensure Select dropdowns render above Dialog overlays */
+  [data-radix-select-viewport] {
     z-index: 9999;
-}
-[role="listbox"][data-radix-select-content] {
-    z-index: 9999 !important;
-}
+  }
 
-/* Ensure the input is relative so the invisible picker can fill it */
-.date-input-wrapper input[type="date"] {
-  position: relative;
-}
+  [role="listbox"][data-radix-select-content] {
+    z-index: 9999 !important;
+  }
+
+  /* Ensure the input is relative so the invisible picker can fill it */
+  .date-input-wrapper input[type="date"] {
+    position: relative;
+  }
 
 }
 
@@ -245,12 +252,10 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
   }
 
   .animate-shimmer {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.05) 50%,
-      transparent 100%
-    );
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 2s infinite;
   }
@@ -260,6 +265,7 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -270,6 +276,7 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -281,7 +288,7 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
 }
 
 /* 1. Force the Radix Trigger (the wrapper div) to expand */
-.booking-date-container > div, 
+.booking-date-container>div,
 .booking-date-container [role="combobox"],
 .booking-date-container button {
   width: 100% !important;
@@ -291,11 +298,14 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
 
 /* 2. Style the internal button */
 .booking-date-container button {
-  background-color: rgba(var(--secondary), 0.2) !important; /* Matches your bg-secondary/20 */
-  height: 2.75rem !important; /* Matches h-11 */
+  background-color: rgba(var(--secondary), 0.2) !important;
+  /* Matches your bg-secondary/20 */
+  height: 2.75rem !important;
+  /* Matches h-11 */
   border: 1px solid rgba(var(--border), 0.5) !important;
   border-radius: 0.5rem !important;
-  padding-left: 3rem !important; /* THE PADDING FIX: Pushes text 48px from left */
+  padding-left: 3rem !important;
+  /* THE PADDING FIX: Pushes text 48px from left */
   text-align: left !important;
   justify-content: flex-start !important;
   font-weight: 400 !important;
@@ -314,3 +324,11 @@ body[style*="pointer-events: none"] #credo-checkout-iframe-container {
   background-color: rgba(var(--secondary), 0.3) !important;
 }
 
+/* Flatpickr static wrapper — fill parent grid column */
+.flatpickr-wrapper {
+  width: 100% !important;
+}
+
+.flatpickr-calendar.static {
+  position: absolute !important;
+}
