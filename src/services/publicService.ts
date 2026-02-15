@@ -50,6 +50,7 @@ export interface PublicBookingResponse {
   categoryName: string;
   hotelName: string;
   hotelAddress: string;
+  hotelLogo: string;
   guestName: string;
   guestEmail: string;
   checkInDate: string;
